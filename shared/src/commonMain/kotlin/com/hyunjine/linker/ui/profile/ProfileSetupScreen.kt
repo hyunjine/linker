@@ -69,8 +69,8 @@ import com.hyunjine.linker.ui.common.PrimaryButton
 import com.hyunjine.linker.ui.common.SectionLabel
 import com.hyunjine.linker.ui.common.WheelPicker
 import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
-import com.kashif_e.backdrop.backdrops.layerBackdrop
-import com.kashif_e.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.hyunjine.linker.ui.theme.OnPrimary
 import com.hyunjine.linker.ui.theme.PrimaryBlue
 import com.hyunjine.linker.ui.theme.ProvidePretendard

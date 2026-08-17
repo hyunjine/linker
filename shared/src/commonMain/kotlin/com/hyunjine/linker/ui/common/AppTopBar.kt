@@ -24,9 +24,9 @@ import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.ui.theme.ProvidePretendard
 import com.hyunjine.linker.ui.theme.SurfaceGray
 import com.hyunjine.linker.ui.theme.TextPrimary
-import com.kashif_e.backdrop.Backdrop
-import com.kashif_e.backdrop.backdrops.layerBackdrop
-import com.kashif_e.backdrop.backdrops.rememberLayerBackdrop
+import com.kyant.backdrop.Backdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import linker.shared.generated.resources.Res
 import linker.shared.generated.resources.ic_chevron_left
 import org.jetbrains.compose.resources.painterResource
