@@ -1,5 +1,6 @@
 package com.hyunjine.linker.ui.profile
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -20,8 +22,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -30,9 +37,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,7 +62,11 @@ import com.hyunjine.linker.ui.theme.CalendarPink
 import com.hyunjine.linker.ui.theme.CalendarPurple
 import com.hyunjine.linker.ui.theme.CalendarYellow
 import com.hyunjine.linker.ui.theme.Chevron
+import com.hyunjine.linker.platform.rememberImagePicker
 import com.hyunjine.linker.ui.common.AppBottomSheet
+import com.hyunjine.linker.ui.common.AppTopBar
+import com.hyunjine.linker.ui.common.PrimaryButton
+import com.hyunjine.linker.ui.common.SectionLabel
 import com.hyunjine.linker.ui.common.WheelPicker
 import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.ui.theme.OnPrimary
@@ -58,7 +77,6 @@ import com.hyunjine.linker.ui.theme.SurfaceCard
 import com.hyunjine.linker.ui.theme.SurfaceGray
 import com.hyunjine.linker.ui.theme.TextPrimary
 import com.hyunjine.linker.ui.theme.TextSecondary
-import com.hyunjine.linker.ui.theme.TextTertiary
 
 data class CalendarColorOption(val id: String, val color: Color)
 
@@ -86,67 +104,132 @@ fun ProfileSetupScreen(
     calendarColors: List<CalendarColorOption> = DefaultCalendarColors,
     onBack: () -> Unit = {},
     onEditPhoto: () -> Unit = {},
-    onEditNickname: () -> Unit = {},
-    onEditBirthDate: () -> Unit = {},
+    onNicknameChange: (String) -> Unit = {},
+    onBirthDateChange: (String) -> Unit = {},
     onSelectColor: (String) -> Unit = {},
     onNext: () -> Unit = {},
 ) {
-    // 생년월일 시트 표시 여부. 프로세스 재구성/구성 변경 상황에서도 유지.
+    // 시트 표시 여부. 프로세스 재구성/구성 변경 상황에서도 유지.
     var showBirthDateSheet by rememberSaveable { mutableStateOf(false) }
+    var showNicknameSheet by rememberSaveable { mutableStateOf(false) }
+    // 화면이 직접 소유하는 편집 상태 (uncontrolled). 상위는 콜백으로만 최종 값을 수신.
+    var currentNickname by rememberSaveable { mutableStateOf(nickname) }
+    var currentBirthDate by rememberSaveable { mutableStateOf(birthDate) }
+    var currentColorId by rememberSaveable { mutableStateOf(selectedColorId) }
+    // 생년월일 시트는 실시간 스크롤 값을 pending 에만 쌓아두고, 시트가 닫히는 순간에만
+    // currentBirthDate 에 커밋한다. 사용자가 스크롤 중일 때는 뒤 화면 값이 흔들리지 않음.
+    var pendingBirthDate by remember { mutableStateOf(birthDate) }
+    // 사용자가 사진 라이브러리에서 고른 아바타. 메모리 전용 (파일 저장은 이후).
+    // rememberSaveable 은 ImageBitmap 을 저장할 수 없어 remember 로만 유지.
+    var avatarImage by remember { mutableStateOf<ImageBitmap?>(null) }
+    val launchPhotoPicker = rememberImagePicker { picked ->
+        if (picked != null) avatarImage = picked
+    }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(SurfaceGray)
-            .windowInsetsPadding(WindowInsets.safeDrawing),
+            .background(SurfaceGray),
     ) {
-        TopBar(title = "프로필 편집", onBack = onBack)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing),
+        ) {
+            // 상단 앱바가 오버레이로 뜨므로 콘텐츠는 그 높이만큼 시작 지점을 밀어준다.
+            Spacer(Modifier.height(54.dp))
 
-        ProfilePhotoSection(onEditPhoto = onEditPhoto)
-
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-            InfoCard(
-                nickname = nickname,
-                birthDate = birthDate,
-                onEditNickname = onEditNickname,
-                onEditBirthDate = {
-                    showBirthDateSheet = true
-                    onEditBirthDate()
+            ProfilePhotoSection(
+                image = avatarImage,
+                onEditPhoto = {
+                    launchPhotoPicker()
+                    onEditPhoto()
                 },
             )
+
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                InfoCard(
+                    nickname = currentNickname,
+                    birthDate = currentBirthDate,
+                    onEditNickname = { showNicknameSheet = true },
+                    onEditBirthDate = { showBirthDateSheet = true },
+                )
+            }
+
+            Spacer(Modifier.height(20.dp))
+
+            SectionLabel("내 캘린더 색상")
+
+            Spacer(Modifier.height(11.dp))
+
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                ColorPickerCard(
+                    colors = calendarColors,
+                    selectedId = currentColorId,
+                    onSelect = {
+                        currentColorId = it
+                        onSelectColor(it)
+                    },
+                )
+            }
+
+            // 컬러 카드 아래 → CTA 위의 큰 여백. 화면이 커지면 이 부분만 늘어남.
+            Spacer(Modifier.weight(1f).fillMaxHeight())
+
+            Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                PrimaryButton(text = "다음", onClick = onNext)
+            }
+
+            Spacer(Modifier.height(24.dp))
         }
 
-        Spacer(Modifier.height(20.dp))
-
-        SectionLabel("내 캘린더 색상")
-
-        Spacer(Modifier.height(11.dp))
-
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-            ColorPickerCard(
-                colors = calendarColors,
-                selectedId = selectedColorId,
-                onSelect = onSelectColor,
-            )
-        }
-
-        // 컬러 카드 아래 → CTA 위의 큰 여백. 화면이 커지면 이 부분만 늘어남.
-        Spacer(Modifier.weight(1f).fillMaxHeight())
-
-        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-            PrimaryButton(text = "다음", onClick = onNext)
-        }
-
-        Spacer(Modifier.height(24.dp))
+        // 상단 오버레이 앱바.
+        AppTopBar(
+            title = "프로필 편집",
+            onBack = onBack,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .windowInsetsPadding(WindowInsets.safeDrawing),
+        )
     }
 
     AppBottomSheet(
         visible = showBirthDateSheet,
-        onDismissRequest = { showBirthDateSheet = false },
+        onDismissRequest = {
+            showBirthDateSheet = false
+            // 시트가 닫히는 순간에만 pending → current 로 확정.
+            if (pendingBirthDate != currentBirthDate) {
+                currentBirthDate = pendingBirthDate
+                onBirthDateChange(currentBirthDate)
+            }
+        },
     ) {
-        BirthDatePickerSheet(initial = parseBirthDate(birthDate))
+        BirthDatePickerSheet(
+            initial = parseBirthDate(currentBirthDate),
+            onChange = { d -> pendingBirthDate = formatBirthDate(d) },
+        )
+    }
+
+    AppBottomSheet(
+        visible = showNicknameSheet,
+        onDismissRequest = { showNicknameSheet = false },
+        fullyExpanded = true, // 텍스트 입력 시트는 화면을 거의 채우도록 초기부터 fully expanded
+        dragHandle = null,    // 자체 X/✓ 툴바를 그리므로 드래그 핸들 숨김
+    ) {
+        NicknameEditSheet(
+            initial = currentNickname,
+            onCancel = { showNicknameSheet = false },
+            onConfirm = { newName ->
+                showNicknameSheet = false
+                currentNickname = newName
+                onNicknameChange(newName)
+            },
+        )
     }
 }
+
+private fun formatBirthDate(d: BirthDate): String =
+    "${d.year}. ${d.month.toString().padStart(2, '0')}. ${d.day.toString().padStart(2, '0')}."
 
 private data class BirthDate(val year: Int, val month: Int, val day: Int)
 
@@ -167,7 +250,10 @@ private fun daysInMonth(year: Int, month: Int): Int = when (month) {
 }
 
 @Composable
-private fun BirthDatePickerSheet(initial: BirthDate) {
+private fun BirthDatePickerSheet(
+    initial: BirthDate,
+    onChange: (BirthDate) -> Unit,
+) {
     // 월/일이 바뀌면 day 상한이 달라지므로 상호 조정.
     var yearIndex by remember { mutableStateOf((initial.year - YEAR_MIN).coerceIn(0, YEAR_MAX - YEAR_MIN)) }
     var monthIndex by remember { mutableStateOf((initial.month - 1).coerceIn(0, 11)) }
@@ -180,6 +266,13 @@ private fun BirthDatePickerSheet(initial: BirthDate) {
     val maxDay = daysInMonth(currentYear, currentMonth)
     val days = remember(maxDay) { (1..maxDay).map { "${it}일" } }
     if (dayIndex > maxDay - 1) dayIndex = maxDay - 1
+
+    // 휠이 스냅될 때마다 상위로 라이브 전달. 초기 컴포지션에도 한 번 호출되지만
+    // 값이 기존과 같으니 UI에는 영향 없음.
+    val emitted by remember(yearIndex, monthIndex, dayIndex) {
+        derivedStateOf { BirthDate(YEAR_MIN + yearIndex, monthIndex + 1, dayIndex + 1) }
+    }
+    LaunchedEffect(emitted) { onChange(emitted) }
 
     val wheelItemHeight = 40.dp
     val wheelVisibleCount = 5
@@ -229,49 +322,10 @@ private fun BirthDatePickerSheet(initial: BirthDate) {
 }
 
 @Composable
-private fun TopBar(title: String, onBack: () -> Unit) {
-    val font = LocalPretendardFontFamily.current
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(54.dp)
-            .padding(horizontal = 16.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        // Back button (leading)
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(SurfaceCard)
-                .clickable(onClick = onBack),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "‹",
-                style = TextStyle(
-                    color = TextPrimary,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    fontFamily = font,
-                ),
-            )
-        }
-        Text(
-            text = title,
-            style = TextStyle(
-                color = TextPrimary,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
-                fontFamily = font,
-            ),
-        )
-    }
-}
-
-@Composable
-private fun ProfilePhotoSection(onEditPhoto: () -> Unit) {
+private fun ProfilePhotoSection(
+    image: ImageBitmap?,
+    onEditPhoto: () -> Unit,
+) {
     val font = LocalPretendardFontFamily.current
     Column(
         modifier = Modifier
@@ -288,15 +342,24 @@ private fun ProfilePhotoSection(onEditPhoto: () -> Unit) {
                 .clickable(onClick = onEditPhoto),
             contentAlignment = Alignment.Center,
         ) {
-            // 사용자 아바타 미설정 상태의 placeholder. 이후 실제 이미지로 교체.
-            Text(
-                text = "👤", // 👤
-                style = TextStyle(
-                    color = AvatarPlaceholderFg,
-                    fontSize = 56.sp,
-                    fontFamily = font,
-                ),
-            )
+            if (image != null) {
+                Image(
+                    bitmap = image,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(100.dp).clip(CircleShape),
+                )
+            } else {
+                // 아직 사진 없음 → 이모지 placeholder.
+                Text(
+                    text = "👤",
+                    style = TextStyle(
+                        color = AvatarPlaceholderFg,
+                        fontSize = 56.sp,
+                        fontFamily = font,
+                    ),
+                )
+            }
         }
         Text(
             text = "사진 변경",
@@ -384,21 +447,6 @@ private fun InfoRow(
 }
 
 @Composable
-private fun SectionLabel(text: String) {
-    val font = LocalPretendardFontFamily.current
-    Row(Modifier.fillMaxWidth().padding(horizontal = 32.dp)) {
-        Text(
-            text = text,
-            style = TextStyle(
-                color = TextTertiary,
-                fontSize = 13.sp,
-                fontFamily = font,
-            ),
-        )
-    }
-}
-
-@Composable
 private fun ColorPickerCard(
     colors: List<CalendarColorOption>,
     selectedId: String,
@@ -464,28 +512,146 @@ private fun ColorSwatch(
     }
 }
 
+/**
+ * 닉네임 편집 시트 콘텐츠. AppBottomSheet 안에 배치되며, 자체 상단 툴바
+ * (X 닫기 / 닉네임 타이틀 / ✓ 확인)를 그리므로 시트의 드래그 핸들은 숨긴다.
+ *
+ * @param initial 시트가 열릴 때 표시할 초기 닉네임. 최초 focus 시 커서가 문자열 끝에 위치.
+ * @param onCancel X 버튼 또는 시트 dismiss 시 호출. 저장 없이 닫는 신호.
+ * @param onConfirm ✓ 버튼 또는 키보드 return 시 호출. 최종 확정 닉네임을 전달.
+ */
 @Composable
-private fun PrimaryButton(
-    text: String,
+private fun NicknameEditSheet(
+    initial: String,
+    onCancel: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    val font = LocalPretendardFontFamily.current
+    var value by remember {
+        mutableStateOf(TextFieldValue(initial, selection = TextRange(initial.length)))
+    }
+    val focusRequester = remember { FocusRequester() }
+    // 시트가 열리면 즉시 필드에 포커스 → iOS/Android 모두 시스템 키보드 자동 표시.
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()          // fullyExpanded 시트가 실제로 세로를 다 차지하도록 확장
+            .imePadding()
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+    ) {
+        // 상단 툴바: X | 닉네임 | ✓
+        Box(Modifier.fillMaxWidth().height(44.dp)) {
+            CircleIconButton(
+                symbol = "✕",
+                background = SurfaceCard,
+                iconColor = TextPrimary,
+                iconWeight = FontWeight.Medium,
+                iconSize = 18.sp,
+                onClick = onCancel,
+                modifier = Modifier.align(Alignment.CenterStart),
+            )
+            Text(
+                text = "닉네임",
+                modifier = Modifier.align(Alignment.Center),
+                style = TextStyle(
+                    color = TextPrimary,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = font,
+                ),
+            )
+            CircleIconButton(
+                symbol = "✓",
+                background = PrimaryBlue,
+                iconColor = OnPrimary,
+                iconWeight = FontWeight.Bold,
+                iconSize = 22.sp,
+                onClick = { onConfirm(value.text.trim()) },
+                modifier = Modifier.align(Alignment.CenterEnd),
+            )
+        }
+
+        // 입력 카드: 좌측 "닉네임" 라벨 + 우측 텍스트 필드
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(18.dp))
+                .background(SurfaceCard)
+                .padding(horizontal = 20.dp, vertical = 17.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = "닉네임",
+                modifier = Modifier.width(96.dp),
+                style = TextStyle(
+                    color = TextPrimary,
+                    fontSize = 17.sp,
+                    fontFamily = font,
+                ),
+            )
+            BasicTextField(
+                value = value,
+                onValueChange = { value = it },
+                modifier = Modifier
+                    .weight(1f)
+                    .focusRequester(focusRequester),
+                textStyle = TextStyle(
+                    color = TextPrimary,
+                    fontSize = 17.sp,
+                    fontFamily = font,
+                ),
+                singleLine = true,
+                cursorBrush = SolidColor(PrimaryBlue),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(
+                    onDone = { onConfirm(value.text.trim()) },
+                ),
+            )
+        }
+    }
+}
+
+/**
+ * 원형 아이콘 버튼 — X / ✓ 같은 간단한 심볼용.
+ * 별도 Icon 리소스 없이 유니코드 문자만으로 그린다.
+ *
+ * @param symbol 표시할 문자(예: "✕", "✓").
+ * @param background 배경 원 색상.
+ * @param iconColor 심볼 색상.
+ * @param iconWeight 심볼 폰트 굵기.
+ * @param iconSize 심볼 폰트 크기.
+ * @param onClick 탭 콜백.
+ * @param modifier 외부 [Modifier].
+ * @param diameter 원 지름 (기본 44dp — 44pt 최소 터치 영역).
+ */
+@Composable
+private fun CircleIconButton(
+    symbol: String,
+    background: Color,
+    iconColor: Color,
+    iconWeight: FontWeight,
+    iconSize: androidx.compose.ui.unit.TextUnit,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    diameter: androidx.compose.ui.unit.Dp = 44.dp,
 ) {
     val font = LocalPretendardFontFamily.current
     Box(
         modifier = modifier
-            .fillMaxWidth()
-            .height(52.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(PrimaryBlue)
+            .size(diameter)
+            .clip(CircleShape)
+            .background(background)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = text,
+            text = symbol,
             style = TextStyle(
-                color = OnPrimary,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.SemiBold,
+                color = iconColor,
+                fontSize = iconSize,
+                fontWeight = iconWeight,
                 fontFamily = font,
             ),
         )
@@ -498,9 +664,12 @@ private fun ProfileSetupScreenPreview() {
     ProvidePretendard {
         // Preview에서 상태 확인용으로 remember 사용.
         var selected by remember { mutableStateOf("blue") }
+        var name by remember { mutableStateOf("현진") }
         ProfileSetupScreen(
+            nickname = name,
             selectedColorId = selected,
             onSelectColor = { selected = it },
+            onNicknameChange = { name = it },
         )
     }
 }
