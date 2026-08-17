@@ -22,26 +22,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.hyunjine.linker.ui.theme.pretendardFontFamily
+import com.hyunjine.linker.ui.theme.Background
+import com.hyunjine.linker.ui.theme.KakaoLabel
+import com.hyunjine.linker.ui.theme.KakaoYellow
+import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
+import com.hyunjine.linker.ui.theme.LogoGradient
+import com.hyunjine.linker.ui.theme.ProvidePretendard
+import com.hyunjine.linker.ui.theme.TextPrimary
 import linker.shared.generated.resources.Res
 import linker.shared.generated.resources.ic_kakao_bubble
 import org.jetbrains.compose.resources.painterResource
-
-private val LogoGradient = Brush.horizontalGradient(
-    colors = listOf(Color(0xFFFF7E86), Color(0xFFFFB47A))
-)
-private val TextPrimary = Color(0xFF1A1A1A)
-private val KakaoYellow = Color(0xFFFEE500)
-private val KakaoLabel = Color(0xFF3C1E1E)
 
 // Figma 프레임 402x844 기준 비율.
 // 세로: 위여백:히어로:중간여백:버튼:아래여백 = 189 : (intrinsic) : 174 : (intrinsic) : 279
@@ -50,18 +47,16 @@ private val KakaoLabel = Color(0xFF3C1E1E)
 fun LoginScreen(
     onKakaoLoginClick: () -> Unit = {},
 ) {
-    val font = pretendardFontFamily()
-
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White)
+            .background(Background)
             .windowInsetsPadding(WindowInsets.safeDrawing),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Spacer(Modifier.fillMaxHeight().weight(189f))
 
-        Hero(font)
+        Hero()
 
         Spacer(Modifier.fillMaxHeight().weight(174f))
 
@@ -72,7 +67,6 @@ fun LoginScreen(
             Spacer(Modifier.fillMaxWidth().weight(20f))
             KakaoLoginButton(
                 onClick = onKakaoLoginClick,
-                font = font,
                 modifier = Modifier.weight(362f),
             )
             Spacer(Modifier.fillMaxWidth().weight(20f))
@@ -83,10 +77,8 @@ fun LoginScreen(
 }
 
 @Composable
-private fun Hero(
-    font: FontFamily,
-    modifier: Modifier = Modifier,
-) {
+private fun Hero(modifier: Modifier = Modifier) {
+    val font = LocalPretendardFontFamily.current
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -127,9 +119,9 @@ private fun Hero(
 @Composable
 private fun KakaoLoginButton(
     onClick: () -> Unit,
-    font: FontFamily,
     modifier: Modifier = Modifier,
 ) {
+    val font = LocalPretendardFontFamily.current
     // 버튼 자체는 콘텐츠(아이콘 + 텍스트)를 감싸는 컨테이너. 내부 패딩·아이콘·텍스트 간격은
     // 카카오 가이드 고정 규격이라 dp 그대로 유지 (px-[20px] py-[15px], gap-[8px]).
     Row(
@@ -163,5 +155,8 @@ private fun KakaoLoginButton(
 @Preview
 @Composable
 private fun LoginScreenPreview() {
-    LoginScreen()
+    // Preview에서도 CompositionLocal이 필요하므로 여기서 감싸줍니다.
+    ProvidePretendard {
+        LoginScreen()
+    }
 }
