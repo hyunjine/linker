@@ -93,10 +93,10 @@ fun BackCircleButton(
     Box(
         modifier = modifier
             .size(diameter)
-            .shadow(elevation = 4.dp, shape = CircleShape, ambientColor = Color.Black, spotColor = Color.Black)
+//            .shadow(elevation = 4.dp, shape = CircleShape, ambientColor = Color.Black, spotColor = Color.Black)
             .clip(CircleShape)
-//            .background(Color.White.copy(alpha = 0.55f))
-//            .border(width = 0.6.dp, brush = topHighlight, shape = CircleShape)
+            .background(Color.White.copy(alpha = 0.55f))
+            .border(width = 0.6.dp, brush = topHighlight, shape = CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
