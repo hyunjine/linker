@@ -19,3 +19,27 @@ val LogoGradient: Brush = Brush.horizontalGradient(
 // 카카오 로그인 버튼
 val KakaoYellow = Color(0xFFFEE500)
 val KakaoLabel = Color(0xFF3C1E1E)
+
+// iOS 시스템 톤 (프로필 편집 등에서 사용)
+val SurfaceGray = Color(0xFFF2F2F7)      // 화면 배경
+val SurfaceCard = Color.White            // 카드 배경
+val TextSecondary = Color(0xFF8E8E93)    // 보조 텍스트
+val TextTertiary = Color(0xFF6D6D73)     // 섹션 라벨
+val Separator = Color(0xFFC6C6C8)        // 리스트/카드 구분선
+val Chevron = Color(0xFFC6C6C8)          // > 화살표
+val AvatarPlaceholderBg = Color(0xFFE5E5EA)
+val AvatarPlaceholderFg = Color(0xFF8E8E93)
+
+// 브랜드/인터랙션 (iOS 계열 파랑)
+val PrimaryBlue = Color(0xFF008AFF)
+val OnPrimary = Color.White
+
+// 내 캘린더 색상 팔레트
+val CalendarBlue = Color(0xFF008AFF)
+val CalendarMint = Color(0xFF4ECDC4)
+val CalendarGreen = Color(0xFF34C759)
+val CalendarYellow = Color(0xFFFFCC00)
+val CalendarOrange = Color(0xFFFF9500)
+val CalendarPink = Color(0xFFFF375F)
+val CalendarPurple = Color(0xFFAF52DE)
+val CalendarGray = Color(0xFF8E8E93)
