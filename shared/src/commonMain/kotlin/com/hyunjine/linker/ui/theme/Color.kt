@@ -26,7 +26,10 @@ val SurfaceCard = Color.White            // 카드 배경
 val TextSecondary = Color(0xFF8E8E93)    // 보조 텍스트
 val TextTertiary = Color(0xFF6D6D73)     // 섹션 라벨
 val Separator = Color(0xFFC6C6C8)        // 리스트/카드 구분선
+val SeparatorGrouped = Color(0xFFD9D9DE) // iOS 26 modal-style 카드 내부 세퍼레이터 (더 옅음)
 val Chevron = Color(0xFFC6C6C8)          // > 화살표
+val SegmentTrack = Color(0xFFE8E8ED)     // iOS 26 세그먼트 컨트롤 트랙 배경
+val PlaceholderText = Color(0xFF999999)  // iOS 26 폼 필드 placeholder
 val AvatarPlaceholderBg = Color(0xFFE5E5EA)
 val AvatarPlaceholderFg = Color(0xFF8E8E93)
 
