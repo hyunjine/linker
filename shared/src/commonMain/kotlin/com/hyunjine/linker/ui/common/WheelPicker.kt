@@ -17,14 +17,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hyunjine.linker.platform.rememberSelectionHaptic
 import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.ui.theme.TextPrimary
 import kotlin.math.abs
@@ -65,7 +64,7 @@ fun WheelPicker(
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = selectedIndex)
     val fling = rememberSnapFlingBehavior(listState)
     val font = LocalPretendardFontFamily.current
-    val haptic = LocalHapticFeedback.current
+    val fireHaptic = rememberSelectionHaptic()
 
     // 스크롤이 멈춘 뒤 firstVisibleItemIndex 가 곧 선택된 인덱스.
     // scrollInProgress 가 false 로 떨어질 때만 방출해 스크롤 중 중복 콜백 방지.
@@ -92,7 +91,7 @@ fun WheelPicker(
     LaunchedEffect(listState) {
         snapshotFlow { listState.firstVisibleItemIndex }
             .drop(1)
-            .collect { haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove) }
+            .collect { fireHaptic() }
     }
 
     Box(
