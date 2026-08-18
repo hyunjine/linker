@@ -8,7 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
-import androidx.compose.ui.interop.LocalUIViewController
+import androidx.compose.ui.uikit.LocalUIViewController
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf

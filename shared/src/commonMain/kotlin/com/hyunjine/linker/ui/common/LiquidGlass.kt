@@ -1,9 +1,12 @@
 package com.hyunjine.linker.ui.common
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.dp
 import com.kyant.backdrop.Backdrop
 import com.kyant.backdrop.drawBackdrop
@@ -53,31 +56,40 @@ object LiquidGlassDefaults {
  * @param pressProgress 눌림 진행도 (0..1) 를 반환하는 람다. 지정 시 눌린 순간 렌즈 굴절 강화
  *        + chromatic aberration 이 살짝 켜진다. 기본값은 항상 0 (정적 유리).
  */
+@Composable
 fun Modifier.liquidGlass(
     backdrop: Backdrop,
     shape: Shape = CircleShape,
     tint: Color = LiquidGlassDefaults.Tint,
     pressProgress: () -> Float = { 0f },
-): Modifier = this.drawBackdrop(
-    backdrop = backdrop,
-    shape = { shape },
-    effects = {
-        vibrancy()
-        blur(LiquidGlassDefaults.BlurRadius.toPx())
-        // pressProgress 를 lambda 호출로 읽어 draw 시점마다 최신 값 반영. 애니메이션 중에도
-        // Modifier 를 재생성하지 않고 shader 파라미터만 갱신된다.
-        val press = pressProgress()
-        lens(
-            refractionHeight = LiquidGlassDefaults.LensRefractionHeight.toPx() +
-                LiquidGlassDefaults.LensPressBoostHeight.toPx() * press,
-            refractionAmount = LiquidGlassDefaults.LensRefractionAmount.toPx() +
-                LiquidGlassDefaults.LensPressBoostAmount.toPx() * press,
-            chromaticAberration = press > 0f,
-        )
-    },
-    highlight = { Highlight.Ambient },
-    shadow = { Shadow(radius = LiquidGlassDefaults.ShadowRadius, color = LiquidGlassDefaults.ShadowColor) },
-    onDrawSurface = {
-        if (tint.alpha > 0f) drawRect(tint)
-    },
-)
+): Modifier {
+    // Layoutlib(Compose Preview 렌더러) 는 drawBackdrop 의 shader 캡처 사이클을 처리하지 못해
+    // prepareTreeImpl 재귀로 스택 오버플로우 크래시가 난다. 프리뷰에서는 유리 대신 단색 tint 로
+    // 폴백해서 스택은 유지하되 형태만 확인할 수 있게 한다.
+    if (LocalInspectionMode.current) {
+        return this.background(color = tint, shape = shape)
+    }
+    return this.drawBackdrop(
+        backdrop = backdrop,
+        shape = { shape },
+        effects = {
+            vibrancy()
+            blur(LiquidGlassDefaults.BlurRadius.toPx())
+            // pressProgress 를 lambda 호출로 읽어 draw 시점마다 최신 값 반영. 애니메이션 중에도
+            // Modifier 를 재생성하지 않고 shader 파라미터만 갱신된다.
+            val press = pressProgress()
+            lens(
+                refractionHeight = LiquidGlassDefaults.LensRefractionHeight.toPx() +
+                    LiquidGlassDefaults.LensPressBoostHeight.toPx() * press,
+                refractionAmount = LiquidGlassDefaults.LensRefractionAmount.toPx() +
+                    LiquidGlassDefaults.LensPressBoostAmount.toPx() * press,
+                chromaticAberration = press > 0f,
+            )
+        },
+        highlight = { Highlight.Ambient },
+        shadow = { Shadow(radius = LiquidGlassDefaults.ShadowRadius, color = LiquidGlassDefaults.ShadowColor) },
+        onDrawSurface = {
+            if (tint.alpha > 0f) drawRect(tint)
+        },
+    )
+}

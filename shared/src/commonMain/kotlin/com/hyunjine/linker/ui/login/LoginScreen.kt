@@ -154,7 +154,7 @@ private fun KakaoLoginButton(
 
 @Preview
 @Composable
-private fun LoginScreenPreview() {
+fun LoginScreenPreview() {
     // Preview에서도 CompositionLocal이 필요하므로 여기서 감싸줍니다.
     ProvidePretendard {
         LoginScreen()
