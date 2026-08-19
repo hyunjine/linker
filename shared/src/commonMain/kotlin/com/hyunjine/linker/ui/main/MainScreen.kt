@@ -176,6 +176,8 @@ fun MainScreen(
     // 타이틀 탭 시 년/월 피커 시트 오픈. dismiss 시 선택 값으로 pager 를 해당 월까지 스크롤.
     var pickerVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    // 셀 탭 시 날짜 상세 시트 오픈. null 이면 안 보임. dummy 데이터는 임시 (후속 이슈에서 실제 소스 연결).
+    var dayDetail by remember { mutableStateOf<DayDetail?>(null) }
 
     Column(
         modifier = Modifier
@@ -203,7 +205,10 @@ fun MainScreen(
                 cells = cells,
                 today = today,
                 entries = mergedEntries,
-                onDayClick = onDayClick,
+                onDayClick = { date ->
+                    onDayClick(date)
+                    dayDetail = dummyDayDetail(date)
+                },
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -223,7 +228,46 @@ fun MainScreen(
         },
         onCancel = { pickerVisible = false },
     )
+
+    // 셀 탭 → 날짜 상세 시트.
+    DayDetailSheet(
+        visible = dayDetail != null,
+        detail = dayDetail,
+        onDismiss = { dayDetail = null },
+        onToggleTask = { taskId ->
+            // TODO(#9 후속): 실제 저장소 연결. 지금은 dummy 라 토글 반영 안 됨.
+            val current = dayDetail ?: return@DayDetailSheet
+            dayDetail = current.copy(
+                tasks = current.tasks.map { if (it.id == taskId) it.copy(isDone = !it.isDone) else it },
+            )
+        },
+    )
 }
+
+/**
+ * MVP 용 dummy detail 생성기. Figma 2693:63255 스펙에 있는 예시 데이터를 그대로 씀.
+ * 실제 데이터 소스 (로컬 DB / 커플 공유 상태) 는 후속 이슈에서 연결.
+ */
+private fun dummyDayDetail(date: LocalDate): DayDetail = DayDetail(
+    date = date,
+    lunarLabel = "음력 6.22",
+    tasks = listOf(
+        DayTask("t1", "항공권 예약하기", isDone = false, owner = DayOwner.Me),
+        DayTask("t2", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
+        DayTask("t3", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
+        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
+        DayTask("t5", "선물·준비하기", isDone = true, owner = DayOwner.Me),
+    ),
+    timedSchedules = listOf(
+        TimedSchedule("s1", "오전 10:00", "오후 12:00", "브런치 데이트", DayOwner.Us),
+        TimedSchedule("s2", "오후 2:00", "오후 4:00", "카페 미팅", DayOwner.Me),
+        TimedSchedule("s3", "오후 7:00", "오후 9:00", "저녁 약속", DayOwner.Partner),
+    ),
+    allDaySchedules = listOf(
+        AllDaySchedule("a1", "부산 여행", DayOwner.Us),
+        AllDaySchedule("a2", "결혼기념일", DayOwner.Us),
+    ),
+)
 
 /** [other] 로부터 이 [YearMonth] 까지 몇 개월 뒤인지. `other.plusMonths(this.monthsSince(other)) == this`. */
 private fun YearMonth.monthsSince(other: YearMonth): Int =
