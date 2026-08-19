@@ -158,6 +158,12 @@ fun MainScreen(
     val currentYearMonth by remember(initialYearMonth) {
         derivedStateOf { initialYearMonth.plusMonths(pagerState.currentPage - anchorPage) }
     }
+    // data.go.kr 특일정보 API 로 현재 보이는 연도의 공휴일 자동 로드. 실패해도 빈 맵.
+    val holidayEntries = rememberHolidayEntries(currentYearMonth.year)
+    val mergedEntries = remember(entries, holidayEntries) {
+        mergeEntries(base = holidayEntries, override = entries)
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -180,12 +186,33 @@ fun MainScreen(
             CalendarGrid(
                 cells = cells,
                 today = today,
-                entries = entries,
+                entries = mergedEntries,
                 onDayClick = onDayClick,
                 modifier = Modifier.fillMaxSize(),
             )
         }
     }
+}
+
+/**
+ * 두 entry 맵을 병합. 같은 날짜면 events 를 이어 붙이고 (base + override 순), lunarLabel 은
+ * override 우선. 사용자 지정 entries (override) 가 API 공휴일 (base) 위에 얹히는 방향.
+ */
+private fun mergeEntries(
+    base: Map<LocalDate, CalendarDayEntry>,
+    override: Map<LocalDate, CalendarDayEntry>,
+): Map<LocalDate, CalendarDayEntry> {
+    if (override.isEmpty()) return base
+    if (base.isEmpty()) return override
+    val out = base.toMutableMap()
+    for ((date, ov) in override) {
+        val b = out[date]
+        out[date] = if (b == null) ov else CalendarDayEntry(
+            events = b.events + ov.events,
+            lunarLabel = ov.lunarLabel ?: b.lunarLabel,
+        )
+    }
+    return out
 }
 
 // ────────── Toolbar ──────────
