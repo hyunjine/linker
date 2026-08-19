@@ -19,14 +19,27 @@ object LiquidGlassDefaults {
     val HighlightTop: Color = Color.White.copy(alpha = 0.85f)
     /** 유리 하단 톤. 위/아래 미묘한 그라디언트로 굴절 하이라이트 느낌. */
     val HighlightBottom: Color = Color.White.copy(alpha = 0.55f)
-    /** 유리 edge highlight (얇은 흰색 스트로크). */
-    val BorderColor: Color = Color.White.copy(alpha = 0.6f)
-    val BorderWidth: Dp = 0.5.dp
+
+    /**
+     * 유리 rim (border) 브러시. 좌상단에서 사선으로 햇빛이 비치는 톤:
+     *   - 0% (좌상단): 흰색 알파 0.95 - 광원 쪽 하이라이트
+     *   - 45% (중간): 흰색 알파 0.05 - rim 이 거의 사라지며 뒤 색이 비침
+     *   - 100% (우하단): 흰색 알파 0.7 - 반대편 반사광 (테두리 유리 안쪽 반사)
+     * 기본 `Brush.linearGradient(colors)` 의 start/end 가 (0,0)→(Infinity,Infinity) 라 대각선.
+     */
+    val BorderBrush: Brush = Brush.linearGradient(
+        0.00f to Color.White.copy(alpha = 0.95f),
+        0.45f to Color.White.copy(alpha = 0.05f),
+        1.00f to Color.White.copy(alpha = 0.70f),
+    )
+
+    /** 그라디언트 하이라이트가 잘 보이도록 살짝 두껍게. */
+    val BorderWidth: Dp = 1.dp
 }
 
 /**
  * iOS 26 리퀴드 글래스 스타일을 임의 요소에 얹는 Modifier. 세로 흰색 알파 그라디언트 fill +
- * 얇은 흰색 border 조합으로 유리 시각 톤을 근사한다.
+ * 사선 광원 하이라이트 border 조합으로 유리 시각 톤을 근사한다.
  *
  * 실제 배경 블러는 표준 Compose 만으로 배경 요소에 소급 적용할 수 없어 생략한다. 반투명 fill 이
  * 배경 색을 은은히 비춰 리퀴드 글래스 톤을 낸다. blur/lens/vibrancy 가 꼭 필요하면 별도 라이브러리
@@ -38,16 +51,16 @@ object LiquidGlassDefaults {
  *
  * @param shape 유리 서피스 형태. 기본 [CircleShape].
  * @param fill 유리 fill 브러시. 기본 상단→하단 흰색 알파 그라디언트.
- * @param borderColor 유리 edge highlight 색.
- * @param borderWidth 유리 edge highlight 두께.
+ * @param borderBrush 유리 rim 하이라이트 브러시. 기본 좌상→우하 사선 광원.
+ * @param borderWidth 유리 rim 두께.
  */
 fun Modifier.liquidGlass(
     shape: Shape = CircleShape,
     fill: Brush = Brush.verticalGradient(
         colors = listOf(LiquidGlassDefaults.HighlightTop, LiquidGlassDefaults.HighlightBottom),
     ),
-    borderColor: Color = LiquidGlassDefaults.BorderColor,
+    borderBrush: Brush = LiquidGlassDefaults.BorderBrush,
     borderWidth: Dp = LiquidGlassDefaults.BorderWidth,
 ): Modifier = this
     .background(brush = fill, shape = shape)
-    .border(width = borderWidth, color = borderColor, shape = shape)
+    .border(width = borderWidth, brush = borderBrush, shape = shape)
