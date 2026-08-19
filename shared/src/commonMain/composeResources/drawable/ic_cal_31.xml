@@ -1,0 +1,20 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="22dp"
+    android:height="22dp"
+    android:viewportWidth="22"
+    android:viewportHeight="22">
+    <!-- 캘린더 본체 (rounded rect) -->
+    <path
+        android:pathData="M4,4.5 L18,4.5 A2,2 0 0 1 20,6.5 L20,17.5 A2,2 0 0 1 18,19.5 L4,19.5 A2,2 0 0 1 2,17.5 L2,6.5 A2,2 0 0 1 4,4.5 Z"
+        android:strokeColor="#FF1A1A1A"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <!-- 상단 두 hanger + 상단 구분선 -->
+    <path
+        android:pathData="M7,2 L7,6 M15,2 L15,6 M2,9 L20,9"
+        android:strokeColor="#FF1A1A1A"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

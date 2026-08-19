@@ -63,6 +63,9 @@ val ChipSeasonText = Color(0xFF6B6B75)  // 절기 글자
 val ChipPersonalBg = Color(0xFFFADEE3)  // 개인 일정 배경
 val ChipPersonalText = Color(0xFFBF404D) // 개인 일정 글자
 
+// 드로워 강조 버튼 배경 (기념일 설정 등)
+val DrawerButtonBg = Color(0xFFF5F5F7)
+
 // 소유자 태그 pill (날짜 상세 시트)
 val OwnerMeBg = Color(0xFFFFF3D6)       // 나 배경 (옅은 노랑)
 val OwnerMeText = Color(0xFFB08800)     // 나 글자

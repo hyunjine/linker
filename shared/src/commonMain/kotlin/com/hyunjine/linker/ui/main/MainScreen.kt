@@ -44,7 +44,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.rememberDrawerState
 import com.hyunjine.linker.data.specialday.SpecialDayKind
+import com.hyunjine.linker.ui.common.AppDrawer
 import com.hyunjine.linker.ui.common.YearMonthPickerSheet
 import com.hyunjine.linker.ui.common.liquidGlass
 import com.hyunjine.linker.ui.theme.Background
@@ -165,20 +168,44 @@ fun MainScreen(
         derivedStateOf { initialYearMonth.plusMonths(pagerState.currentPage - anchorPage) }
     }
     // data.go.kr 특일정보 API 로 현재 보이는 연도의 공휴일 + 24절기 자동 로드. 실패해도 빈 맵.
+    // 항상 둘 다 fetch 해서 캐시에 담아두고, 표시 여부는 아래 filter 로 즉시 반영 (토글 시 네트워크 대기 없음).
     val specialDayEntries = rememberSpecialDayEntries(
         year = currentYearMonth.year,
         SpecialDayKind.Holiday,
         SpecialDayKind.SolarTerm,
     )
-    val mergedEntries = remember(entries, specialDayEntries) {
-        mergeEntries(base = specialDayEntries, override = entries)
-    }
     // 타이틀 탭 시 년/월 피커 시트 오픈. dismiss 시 선택 값으로 pager 를 해당 월까지 스크롤.
     var pickerVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     // 셀 탭 시 날짜 상세 시트 오픈. null 이면 안 보임. dummy 데이터는 임시 (후속 이슈에서 실제 소스 연결).
     var dayDetail by remember { mutableStateOf<DayDetail?>(null) }
+    // 사이드 드로워 상태 + 표시 옵션 (MVP: 로컬 state, 저장·연동은 후속 이슈).
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    var displayState by remember { mutableStateOf(DrawerDisplayState()) }
 
+    // 표시 토글 반영: 공휴일/절기 chip 을 옵션대로 걸러 낸 후 사용자 entries 와 병합.
+    val mergedEntries = remember(entries, specialDayEntries, displayState.showHolidays, displayState.showSolarTerms) {
+        val filtered = specialDayEntries.filterByToggles(
+            showHolidays = displayState.showHolidays,
+            showSolarTerms = displayState.showSolarTerms,
+        )
+        mergeEntries(base = filtered, override = entries)
+    }
+
+    AppDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            MainDrawerContent(
+                profileName = "양현진",
+                profileHandle = "thevlakk1",
+                displayState = displayState,
+                onToggleMyCalendar = { displayState = displayState.copy(showMyCalendar = it) },
+                onTogglePartnerCalendar = { displayState = displayState.copy(showPartnerCalendar = it) },
+                onToggleHolidays = { displayState = displayState.copy(showHolidays = it) },
+                onToggleSolarTerms = { displayState = displayState.copy(showSolarTerms = it) },
+            )
+        },
+    ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -187,7 +214,10 @@ fun MainScreen(
     ) {
         MainToolbar(
             yearMonth = currentYearMonth,
-            onMenuClick = onMenuClick,
+            onMenuClick = {
+                onMenuClick()
+                scope.launch { drawerState.open() }
+            },
             onTitleClick = {
                 onTitleClick()
                 pickerVisible = true
@@ -242,6 +272,7 @@ fun MainScreen(
             )
         },
     )
+    } // ← AppDrawer content lambda close
 }
 
 /**
@@ -272,6 +303,32 @@ private fun dummyDayDetail(date: LocalDate): DayDetail = DayDetail(
 /** [other] 로부터 이 [YearMonth] 까지 몇 개월 뒤인지. `other.plusMonths(this.monthsSince(other)) == this`. */
 private fun YearMonth.monthsSince(other: YearMonth): Int =
     (year - other.year) * 12 + (month - other.month)
+
+/**
+ * 드로워의 표시 옵션에 따라 API-derived entries 에서 chip 을 걸러낸다.
+ * 남는 이벤트가 없어지고 [CalendarDayEntry.lunarLabel] 도 없다면 해당 날짜는 맵에서 제거해
+ * 셀 렌더링에서 무의미한 조회를 없앤다.
+ */
+private fun Map<LocalDate, CalendarDayEntry>.filterByToggles(
+    showHolidays: Boolean,
+    showSolarTerms: Boolean,
+): Map<LocalDate, CalendarDayEntry> {
+    if (showHolidays && showSolarTerms) return this
+    val out = mutableMapOf<LocalDate, CalendarDayEntry>()
+    for ((date, entry) in this) {
+        val kept = entry.events.filter { ev ->
+            when (ev.type) {
+                CalendarEventType.Holiday -> showHolidays
+                CalendarEventType.Season -> showSolarTerms
+                CalendarEventType.Personal -> true
+            }
+        }
+        if (kept.isNotEmpty() || entry.lunarLabel != null) {
+            out[date] = entry.copy(events = kept)
+        }
+    }
+    return out
+}
 
 /**
  * 두 entry 맵을 병합. 같은 날짜면 events 를 이어 붙이고 (base + override 순), lunarLabel 은
