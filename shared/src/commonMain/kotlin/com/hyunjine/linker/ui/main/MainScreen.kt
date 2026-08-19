@@ -209,12 +209,13 @@ fun MainScreen(
         }
     }
 
+    // 캘린더는 오늘 기준 ±100년 이동 가능.
     YearMonthPickerSheet(
         visible = pickerVisible,
         year = currentYearMonth.year,
         month = currentYearMonth.month,
-        minYear = 1900,
-        maxYear = today.year,
+        minYear = today.year - 100,
+        maxYear = today.year + 100,
         onConfirm = { pickedYear, pickedMonth ->
             pickerVisible = false
             val target = YearMonth(pickedYear, pickedMonth)

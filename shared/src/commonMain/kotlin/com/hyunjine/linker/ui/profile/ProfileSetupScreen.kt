@@ -78,6 +78,10 @@ import com.hyunjine.linker.ui.theme.SurfaceCard
 import com.hyunjine.linker.ui.theme.SurfaceGray
 import com.hyunjine.linker.ui.theme.TextPrimary
 import com.hyunjine.linker.ui.theme.TextSecondary
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 data class CalendarColorOption(val id: String, val color: Color)
 
@@ -229,6 +233,10 @@ fun ProfileSetupScreen(
 
 private fun formatBirthDate(d: BirthDate): String =
     "${d.year}. ${d.month.toString().padStart(2, '0')}. ${d.day.toString().padStart(2, '0')}."
+
+@OptIn(ExperimentalTime::class)
+private fun todayYear(): Int =
+    Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date.year
 
 private data class BirthDate(val year: Int, val month: Int, val day: Int)
 
