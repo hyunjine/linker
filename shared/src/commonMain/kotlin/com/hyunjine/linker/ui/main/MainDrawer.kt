@@ -1,5 +1,6 @@
 package com.hyunjine.linker.ui.main
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +24,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hyunjine.linker.platform.rememberSelectionHaptic
 import com.hyunjine.linker.ui.theme.AvatarPlaceholderBg
 import com.hyunjine.linker.ui.theme.AvatarPlaceholderFg
 import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
@@ -31,6 +33,10 @@ import com.hyunjine.linker.ui.theme.Separator
 import com.hyunjine.linker.ui.theme.SurfaceCard
 import com.hyunjine.linker.ui.theme.TextPrimary
 import com.hyunjine.linker.ui.theme.TextSecondary
+import linker.shared.generated.resources.Res
+import linker.shared.generated.resources.ic_chevron_right
+import linker.shared.generated.resources.ic_gear
+import org.jetbrains.compose.resources.painterResource
 
 /** 사이드 드로워의 캘린더 표시 옵션 상태. */
 data class DrawerDisplayState(
@@ -44,7 +50,7 @@ data class DrawerDisplayState(
  * 메인 화면 사이드 드로워 콘텐츠. Figma 2693:62775 마지막 panel 참고.
  *
  * 구성:
- *  - 프로필 헤더 (아바타 + 이름/핸들 + 설정 아이콘)
+ *  - 프로필 헤더 (아바타 + 이름/핸들 + [ic_gear] 설정 아이콘)
  *  - "기념일 설정" 진입 row
  *  - "일정 표시" 섹션 — 내 캘린더 / 상대방 캘린더 스위치
  *  - "달력 정보 표시" 섹션 — 공휴일 / 음력 스위치
@@ -149,21 +155,18 @@ private fun ProfileHeader(name: String, handle: String, onSettingsClick: () -> U
                 ),
             )
         }
-        // 설정 아이콘 자리 (실제 아이콘은 후속 이슈에서 리소스 추가)
+        // 설정 아이콘 — 40dp 원형 탭 타겟 안에 22dp gear 벡터. ripple 은 원형.
         Box(
             modifier = Modifier
-                .size(32.dp)
+                .size(40.dp)
                 .clip(CircleShape)
                 .clickable(onClick = onSettingsClick),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = "⚙",
-                style = TextStyle(
-                    fontFamily = pretendard,
-                    fontSize = 18.sp,
-                    color = TextSecondary,
-                ),
+            Image(
+                painter = painterResource(Res.drawable.ic_gear),
+                contentDescription = "설정",
+                modifier = Modifier.size(22.dp),
             )
         }
     }
@@ -189,14 +192,10 @@ private fun NavRow(text: String, onClick: () -> Unit) {
                 color = TextPrimary,
             ),
         )
-        Text(
-            text = "›",
-            style = TextStyle(
-                fontFamily = pretendard,
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                color = Separator,
-            ),
+        Image(
+            painter = painterResource(Res.drawable.ic_chevron_right),
+            contentDescription = null,
+            modifier = Modifier.size(16.dp),
         )
     }
 }
@@ -219,10 +218,11 @@ private fun SectionLabel(text: String) {
 @Composable
 private fun ToggleRow(text: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     val pretendard = LocalPretendardFontFamily.current
+    val fireHaptic = rememberSelectionHaptic()
+    // Row 는 tap 안 받음 → ripple 이 Switch 안에서만. Switch 콜백에서 selection 햅틱 발화.
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
             .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -238,7 +238,10 @@ private fun ToggleRow(text: String, checked: Boolean, onCheckedChange: (Boolean)
         )
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = { new ->
+                fireHaptic()
+                onCheckedChange(new)
+            },
             colors = SwitchDefaults.colors(
                 checkedThumbColor = SurfaceCard,
                 checkedTrackColor = PrimaryBlue,
