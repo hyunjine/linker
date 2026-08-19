@@ -1,4 +1,4 @@
-package com.hyunjine.linker.data.holiday
+package com.hyunjine.linker.data.specialday
 
 import com.hyunjine.linker.data.Secrets
 import io.ktor.client.HttpClient
@@ -18,31 +18,30 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-/** 하루짜리 공휴일 응답 항목. `locdate` 는 yyyyMMdd 정수. */
-data class HolidayDto(
+/** 하루짜리 특일 응답 항목. `locdate` 는 yyyyMMdd 정수. */
+data class SpecialDayDto(
     val locdate: Int,
     val dateName: String,
     val isHoliday: Boolean,
 )
 
 /**
- * data.go.kr 특일정보 API 래퍼. 연 단위로 국경일 + 공휴일 + 대체공휴일을 가져온다.
+ * data.go.kr 특일정보(SpcdeInfoService) API 래퍼. [SpecialDayKind] 로 엔드포인트를 골라 연 단위로 fetch.
  *
  * 응답 JSON 은 `response.body.items.item` 경로에 항목이 오는데, item 이 없으면 `items = ""` 로 오는
  * 이상한 관례가 있어 primitive 여부를 먼저 확인해야 한다 (한국 공공 API 흔한 함정).
+ *
+ * 서비스 키 이중 인코딩 주의: `local.properties` 의 키는 이미 URL 인코딩 (%2F/%3D) 상태라
+ * 그대로 `parameter(...)` 로 넘기면 Ktor 가 다시 인코딩 (%252F) 해서 유효하지 않은 키가 됨.
+ * 한 번 디코드해서 raw 로 만든 뒤 Ktor 가 한 번 인코딩하도록 한다.
  */
-class HolidayApi(
+class SpecialDayApi(
     private val client: HttpClient = defaultClient(),
 ) {
-    suspend fun fetchYear(year: Int): List<HolidayDto> {
-        // solMonth 를 안 넘기면 해당 연 전체를 반환. numOfRows 는 넉넉히 (연 최대 30건 정도).
-        //
-        // 서비스 키 처리 주의: local.properties 의 키는 이미 URL 인코딩(%2F/%3D 포함) 이라
-        // 그대로 `parameter(...)` 로 넘기면 Ktor 가 다시 인코딩 (%252F) 해서 유효하지 않은 키가 됨.
-        // 한 번 디코드해서 raw 로 만든 뒤 Ktor 가 한 번 인코딩하도록 한다.
+    suspend fun fetchYear(year: Int, kind: SpecialDayKind): List<SpecialDayDto> {
         val serviceKey = Secrets.HolidayApiKey.decodeURLQueryComponent(plusIsSpace = true)
         val response: JsonElement = client
-            .get("https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo") {
+            .get("https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/${kind.endpoint}") {
                 parameter("serviceKey", serviceKey)
                 parameter("solYear", year)
                 parameter("numOfRows", 100)
@@ -53,7 +52,7 @@ class HolidayApi(
         return parseItems(response)
     }
 
-    private fun parseItems(root: JsonElement): List<HolidayDto> {
+    private fun parseItems(root: JsonElement): List<SpecialDayDto> {
         val body = root.jsonObject["response"]
             ?.jsonObject?.get("body")
             ?.jsonObject ?: return emptyList()
@@ -66,7 +65,7 @@ class HolidayApi(
         }
     }
 
-    private fun JsonObject.toDto(): HolidayDto = HolidayDto(
+    private fun JsonObject.toDto(): SpecialDayDto = SpecialDayDto(
         locdate = this["locdate"]?.jsonPrimitive?.intOrNull ?: 0,
         dateName = this["dateName"]?.jsonPrimitive?.contentOrNull.orEmpty(),
         isHoliday = this["isHoliday"]?.jsonPrimitive?.contentOrNull == "Y",
