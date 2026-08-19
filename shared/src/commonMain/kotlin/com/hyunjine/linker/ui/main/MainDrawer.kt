@@ -44,7 +44,7 @@ data class DrawerDisplayState(
     val showMyCalendar: Boolean = true,
     val showPartnerCalendar: Boolean = true,
     val showHolidays: Boolean = true,
-    val showLunar: Boolean = true,
+    val showSolarTerms: Boolean = true,
 )
 
 /**
@@ -68,7 +68,7 @@ fun MainDrawerContent(
     onToggleMyCalendar: (Boolean) -> Unit = {},
     onTogglePartnerCalendar: (Boolean) -> Unit = {},
     onToggleHolidays: (Boolean) -> Unit = {},
-    onToggleLunar: (Boolean) -> Unit = {},
+    onToggleSolarTerms: (Boolean) -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -103,9 +103,9 @@ fun MainDrawerContent(
             onCheckedChange = onToggleHolidays,
         )
         ToggleRow(
-            text = "음력",
-            checked = displayState.showLunar,
-            onCheckedChange = onToggleLunar,
+            text = "절기",
+            checked = displayState.showSolarTerms,
+            onCheckedChange = onToggleSolarTerms,
         )
     }
 }

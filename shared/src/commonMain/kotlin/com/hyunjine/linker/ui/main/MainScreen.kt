@@ -195,7 +195,7 @@ fun MainScreen(
                 onToggleMyCalendar = { displayState = displayState.copy(showMyCalendar = it) },
                 onTogglePartnerCalendar = { displayState = displayState.copy(showPartnerCalendar = it) },
                 onToggleHolidays = { displayState = displayState.copy(showHolidays = it) },
-                onToggleLunar = { displayState = displayState.copy(showLunar = it) },
+                onToggleSolarTerms = { displayState = displayState.copy(showSolarTerms = it) },
             )
         },
     ) {
