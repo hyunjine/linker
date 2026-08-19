@@ -209,16 +209,15 @@ fun MainScreen(
         }
     }
 
-    // 캘린더는 오늘 기준 ±100년 이동 가능.
+    // 캘린더는 오늘 기준 ±100년 이동 가능. 월은 각 연도 1~12 전체 허용.
     YearMonthPickerSheet(
         visible = pickerVisible,
-        year = currentYearMonth.year,
-        month = currentYearMonth.month,
-        minYear = today.year - 100,
-        maxYear = today.year + 100,
-        onConfirm = { pickedYear, pickedMonth ->
+        date = LocalDate(currentYearMonth.year, currentYearMonth.month, 1),
+        minDate = LocalDate(today.year - 100, 1, 1),
+        maxDate = LocalDate(today.year + 100, 12, 1),
+        onConfirm = { picked ->
             pickerVisible = false
-            val target = YearMonth(pickedYear, pickedMonth)
+            val target = YearMonth(picked.year, picked.month.ordinal + 1)
             val delta = target.monthsSince(initialYearMonth)
             scope.launch { pagerState.scrollToPage(anchorPage + delta) }
         },

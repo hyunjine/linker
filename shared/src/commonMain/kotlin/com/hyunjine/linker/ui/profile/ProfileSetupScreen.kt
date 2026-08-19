@@ -76,6 +76,7 @@ import com.hyunjine.linker.ui.theme.SurfaceCard
 import com.hyunjine.linker.ui.theme.SurfaceGray
 import com.hyunjine.linker.ui.theme.TextPrimary
 import com.hyunjine.linker.ui.theme.TextSecondary
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
@@ -193,16 +194,17 @@ fun ProfileSetupScreen(
     }
 
     val parsed = parseBirthDate(currentBirthDate)
+    // 생년월일 범위: 1900-01-01 ~ 오늘. 미래 날짜는 아예 목록에서 제외.
     YearMonthDayPickerSheet(
         visible = showBirthDateSheet,
-        year = parsed.year,
-        month = parsed.month,
-        day = parsed.day,
-        minYear = 1900,
-        maxYear = 2026,
-        onConfirm = { y, m, d ->
+        date = LocalDate(parsed.year, parsed.month, parsed.day),
+        minDate = LocalDate(1900, 1, 1),
+        maxDate = today(),
+        onConfirm = { picked ->
             showBirthDateSheet = false
-            val next = formatBirthDate(BirthDate(y, m, d))
+            val next = formatBirthDate(
+                BirthDate(picked.year, picked.month.ordinal + 1, picked.day),
+            )
             if (next != currentBirthDate) {
                 currentBirthDate = next
                 onBirthDateChange(next)
@@ -233,8 +235,8 @@ private fun formatBirthDate(d: BirthDate): String =
     "${d.year}. ${d.month.toString().padStart(2, '0')}. ${d.day.toString().padStart(2, '0')}."
 
 @OptIn(ExperimentalTime::class)
-private fun todayYear(): Int =
-    Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date.year
+private fun today(): LocalDate =
+    Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
 
 private data class BirthDate(val year: Int, val month: Int, val day: Int)
 

@@ -28,9 +28,14 @@ import androidx.compose.ui.unit.dp
 import com.hyunjine.linker.ui.theme.ProvidePretendard
 import com.hyunjine.linker.ui.theme.SegmentTrack
 import com.hyunjine.linker.ui.theme.SurfaceCard
+import kotlinx.datetime.LocalDate
 
 /**
  * iOS 스타일 년/월 피커 바텀시트. 두 컬럼 [WheelPicker] + 중앙 SelectionBar + 상하 fade + 하단 CTA.
+ *
+ * [minDate] ~ [maxDate] 범위 안에서만 선택 가능. [minDate]/[maxDate] 의 day 는 무시하고 year/month
+ * 만 사용. 현재 draft 년이 min/max 년이면 월 목록이 minDate.month / maxDate.month 로 잘림.
+ * [onConfirm] 은 선택 년/월의 1일 [LocalDate] 로 확정 값 전달.
  *
  * dismiss 의미가 두 갈래로 나뉜다:
  *  - **CTA 탭**: 현재 스크롤된 값이 확정되어 [onConfirm] 호출.
@@ -41,18 +46,24 @@ import com.hyunjine.linker.ui.theme.SurfaceCard
 @Composable
 fun YearMonthPickerSheet(
     visible: Boolean,
-    year: Int,
-    month: Int,
-    minYear: Int,
-    maxYear: Int,
-    onConfirm: (year: Int, month: Int) -> Unit,
+    date: LocalDate,
+    minDate: LocalDate,
+    maxDate: LocalDate,
+    onConfirm: (LocalDate) -> Unit,
     onCancel: () -> Unit,
 ) {
-    var draftYear by remember(visible) { mutableStateOf(year) }
-    var draftMonth by remember(visible) { mutableStateOf(month) }
+    val initial = remember(visible, date, minDate, maxDate) { date.coerceIn(minDate, maxDate) }
+    var draftYear by remember(visible) { mutableStateOf(initial.year) }
+    var draftMonth by remember(visible) { mutableStateOf(initial.monthOfYear()) }
 
-    val years = remember(minYear, maxYear) { (minYear..maxYear).map { "${it}년" } }
-    val months = remember { (1..12).map { "${it}월" } }
+    val years = remember(minDate, maxDate) {
+        (minDate.year..maxDate.year).map { "${it}년" }
+    }
+    val minMonth = if (draftYear == minDate.year) minDate.monthOfYear() else 1
+    val maxMonth = if (draftYear == maxDate.year) maxDate.monthOfYear() else 12
+    val months = remember(minMonth, maxMonth) { (minMonth..maxMonth).map { "${it}월" } }
+    if (draftMonth < minMonth) draftMonth = minMonth
+    if (draftMonth > maxMonth) draftMonth = maxMonth
 
     AppBottomSheet(
         visible = visible,
@@ -61,48 +72,60 @@ fun YearMonthPickerSheet(
         PickerSurface {
             WheelPicker(
                 items = years,
-                selectedIndex = (draftYear - minYear).coerceIn(0, years.lastIndex),
-                onSelectedChange = { draftYear = minYear + it },
+                selectedIndex = (draftYear - minDate.year).coerceIn(0, years.lastIndex),
+                onSelectedChange = { draftYear = minDate.year + it },
                 modifier = Modifier.weight(1f),
             )
             WheelPicker(
                 items = months,
-                selectedIndex = (draftMonth - 1).coerceIn(0, 11),
-                onSelectedChange = { draftMonth = it + 1 },
+                selectedIndex = (draftMonth - minMonth).coerceIn(0, months.lastIndex),
+                onSelectedChange = { draftMonth = minMonth + it },
                 modifier = Modifier.weight(1f),
             )
         }
-        ConfirmCta { onConfirm(draftYear, draftMonth) }
+        ConfirmCta { onConfirm(LocalDate(draftYear, draftMonth, 1)) }
     }
 }
 
 /**
  * iOS 스타일 년/월/일 피커 바텀시트. 세 컬럼 [WheelPicker] + 중앙 SelectionBar + 상하 fade + 하단 CTA.
  *
- * 월 변경 시 day 상한이 자동 조정 (2월 → 28/29일, 4/6/9/11 → 30일). draft 가 초과되면 마지막 유효
- * 일자로 클램프.
+ * [minDate] ~ [maxDate] 범위 안에서만 선택 가능. 현재 선택된 년·월에 따라 월/일 목록이 동적으로
+ * 잘려서 범위 밖 날짜는 아예 스크롤되지 않는다 (예: `maxDate=2026.08.19` 면 2026년 8월 선택 시
+ * 20~31일이 목록에서 사라짐, 2026년 9~12월도 안 뜸).
  *
  * dismiss 의미는 [YearMonthPickerSheet] 와 동일 — CTA=확정, 그 외=취소.
  */
 @Composable
 fun YearMonthDayPickerSheet(
     visible: Boolean,
-    year: Int,
-    month: Int,
-    day: Int,
-    minYear: Int,
-    maxYear: Int,
-    onConfirm: (year: Int, month: Int, day: Int) -> Unit,
+    date: LocalDate,
+    minDate: LocalDate,
+    maxDate: LocalDate,
+    onConfirm: (LocalDate) -> Unit,
     onCancel: () -> Unit,
 ) {
-    var draftYear by remember(visible) { mutableStateOf(year) }
-    var draftMonth by remember(visible) { mutableStateOf(month) }
-    var draftDay by remember(visible) { mutableStateOf(day) }
+    val initial = remember(visible, date, minDate, maxDate) { date.coerceIn(minDate, maxDate) }
+    var draftYear by remember(visible) { mutableStateOf(initial.year) }
+    var draftMonth by remember(visible) { mutableStateOf(initial.monthOfYear()) }
+    var draftDay by remember(visible) { mutableStateOf(initial.day) }
 
-    val years = remember(minYear, maxYear) { (minYear..maxYear).map { "${it}년" } }
-    val months = remember { (1..12).map { "${it}월" } }
-    val maxDay = remember(draftYear, draftMonth) { daysInMonth(draftYear, draftMonth) }
-    val days = remember(maxDay) { (1..maxDay).map { "${it}일" } }
+    // Year: 항상 min~max 범위.
+    val years = remember(minDate, maxDate) {
+        (minDate.year..maxDate.year).map { "${it}년" }
+    }
+    // Month: draftYear 가 min 년이면 min.month 부터, max 년이면 max.month 까지.
+    val minMonth = if (draftYear == minDate.year) minDate.monthOfYear() else 1
+    val maxMonth = if (draftYear == maxDate.year) maxDate.monthOfYear() else 12
+    val months = remember(minMonth, maxMonth) { (minMonth..maxMonth).map { "${it}월" } }
+    if (draftMonth < minMonth) draftMonth = minMonth
+    if (draftMonth > maxMonth) draftMonth = maxMonth
+    // Day: 월별 상한 (윤년 포함) + 경계 년/월 이면 min.day/max.day 로 잘림.
+    val monthCap = daysInMonth(draftYear, draftMonth)
+    val minDay = if (draftYear == minDate.year && draftMonth == minDate.monthOfYear()) minDate.day else 1
+    val maxDay = if (draftYear == maxDate.year && draftMonth == maxDate.monthOfYear()) minOf(maxDate.day, monthCap) else monthCap
+    val days = remember(minDay, maxDay) { (minDay..maxDay).map { "${it}일" } }
+    if (draftDay < minDay) draftDay = minDay
     if (draftDay > maxDay) draftDay = maxDay
 
     AppBottomSheet(
@@ -112,25 +135,35 @@ fun YearMonthDayPickerSheet(
         PickerSurface {
             WheelPicker(
                 items = years,
-                selectedIndex = (draftYear - minYear).coerceIn(0, years.lastIndex),
-                onSelectedChange = { draftYear = minYear + it },
+                selectedIndex = (draftYear - minDate.year).coerceIn(0, years.lastIndex),
+                onSelectedChange = { draftYear = minDate.year + it },
                 modifier = Modifier.weight(1f),
             )
             WheelPicker(
                 items = months,
-                selectedIndex = (draftMonth - 1).coerceIn(0, 11),
-                onSelectedChange = { draftMonth = it + 1 },
+                selectedIndex = (draftMonth - minMonth).coerceIn(0, months.lastIndex),
+                onSelectedChange = { draftMonth = minMonth + it },
                 modifier = Modifier.weight(1f),
             )
             WheelPicker(
                 items = days,
-                selectedIndex = (draftDay - 1).coerceIn(0, days.lastIndex),
-                onSelectedChange = { draftDay = it + 1 },
+                selectedIndex = (draftDay - minDay).coerceIn(0, days.lastIndex),
+                onSelectedChange = { draftDay = minDay + it },
                 modifier = Modifier.weight(1f),
             )
         }
-        ConfirmCta { onConfirm(draftYear, draftMonth, draftDay) }
+        ConfirmCta {
+            onConfirm(LocalDate(draftYear, draftMonth, draftDay))
+        }
     }
+}
+
+private fun LocalDate.monthOfYear(): Int = month.ordinal + 1
+
+private fun LocalDate.coerceIn(min: LocalDate, max: LocalDate): LocalDate = when {
+    this < min -> min
+    this > max -> max
+    else -> this
 }
 
 /**
