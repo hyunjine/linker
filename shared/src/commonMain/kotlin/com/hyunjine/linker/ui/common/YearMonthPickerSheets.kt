@@ -155,7 +155,14 @@ private fun PickerSurface(
                 .clip(RoundedCornerShape(12.dp))
                 .background(SegmentTrack),
         )
-        Row(modifier = Modifier.fillMaxWidth(), content = content)
+        // Figma 2725:77274 기준 년 텍스트 x=130, 월 텍스트 x=272 (sheet 402dp) →
+        // 컬럼 폭 141dp, 좌우 60dp 인셋. 이 인셋으로 columns 를 안쪽으로 모아 텍스트 간 여백 축소.
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 60.dp),
+            content = content,
+        )
         Box(
             modifier = Modifier
                 .align(Alignment.TopCenter)
