@@ -51,7 +51,7 @@ fun App() {
                     }
                     entry<CoupleLinkRoute> {
                         CoupleLinkScreen(
-                            onCancel = { backStack.removeLastOrNull() },
+                            onBack = { backStack.removeLastOrNull() },
                         )
                     }
                 },

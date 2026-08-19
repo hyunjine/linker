@@ -69,8 +69,6 @@ import com.hyunjine.linker.ui.common.PrimaryButton
 import com.hyunjine.linker.ui.common.SectionLabel
 import com.hyunjine.linker.ui.common.WheelPicker
 import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
-import com.kyant.backdrop.backdrops.layerBackdrop
-import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 import com.hyunjine.linker.ui.theme.OnPrimary
 import com.hyunjine.linker.ui.theme.PrimaryBlue
 import com.hyunjine.linker.ui.theme.ProvidePretendard
@@ -127,10 +125,6 @@ fun ProfileSetupScreen(
     val launchPhotoPicker = rememberImagePicker { picked ->
         if (picked != null) avatarImage = picked
     }
-    // Liquid Glass 백 버튼이 샘플링할 배경 backdrop. 콘텐츠 컬럼에 layerBackdrop 을 붙여
-    // 프로필 화면 배경/콘텐츠가 backdrop 에 캡처되도록 한다.
-    val backdrop = rememberLayerBackdrop()
-
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -139,7 +133,6 @@ fun ProfileSetupScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .layerBackdrop(backdrop)
                 .windowInsetsPadding(WindowInsets.safeDrawing),
         ) {
             // 상단 앱바가 오버레이로 뜨므로 콘텐츠는 그 높이만큼 시작 지점을 밀어준다.
@@ -193,7 +186,6 @@ fun ProfileSetupScreen(
         AppTopBar(
             title = "프로필 편집",
             onBack = onBack,
-            backdrop = backdrop,
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .windowInsetsPadding(WindowInsets.safeDrawing),

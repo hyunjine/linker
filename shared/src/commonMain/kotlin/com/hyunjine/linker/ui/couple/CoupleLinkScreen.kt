@@ -32,117 +32,130 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.hyunjine.linker.ui.common.ModalTopBar
-import com.hyunjine.linker.ui.theme.Background
+import com.hyunjine.linker.ui.common.AppTopBar
+import com.hyunjine.linker.ui.common.PrimaryButton
+import com.hyunjine.linker.ui.common.SectionLabel
+import com.hyunjine.linker.ui.theme.Chevron
 import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
-import com.hyunjine.linker.ui.theme.PlaceholderText
 import com.hyunjine.linker.ui.theme.PrimaryBlue
-import com.hyunjine.linker.ui.theme.ProvidePretendard
-import com.hyunjine.linker.ui.theme.SeparatorGrouped
+import com.hyunjine.linker.ui.theme.Separator
 import com.hyunjine.linker.ui.theme.SurfaceCard
+import com.hyunjine.linker.ui.theme.SurfaceGray
 import com.hyunjine.linker.ui.theme.TextPrimary
-import com.hyunjine.linker.ui.theme.TextTertiary
+import com.hyunjine.linker.ui.theme.TextSecondary
 
-// Figma 참조 프레임 (ScheduleEdit — 2614:3206) 의 iOS 26 스타일 적용:
-//   - 배경: 흰색, 카드도 흰색 (rounded 10dp) — 시각 분리는 얇은 세퍼레이터 (#D9D9DE, 0.5dp) 만으로.
-//   - 상단 툴바: 취소 / 타이틀 / 연결 (모두 텍스트 버튼) — 별도 오버레이 없이 상단에 정렬.
-//   - 폼 그룹 상하 간격은 16dp (Figma p-[16px] gap-[16px]).
+// Figma (2672:59198) 기준 iOS grouped 스타일:
+//   - 배경 SurfaceGray (F2F2F7), 카드는 흰색 rounded 18dp
+//   - 상단 AppTopBar (좌측 유리 back circle + 중앙 타이틀). 하단 CTA 는 PrimaryButton
+//   - AppTopBar 는 오버레이로 띄우고 콘텐츠는 TOP_BAR_HEIGHT 만큼 위쪽 여백을 준다
+
+private val TOP_BAR_HEIGHT = 54.dp
 
 /**
- * 커플 연결 화면 — iOS 26 모달 편집 스타일. 내 초대코드를 상대에게 공유하거나
- * 상대의 초대코드를 입력해 두 계정을 잇는다.
+ * 커플 연결 화면. 내 초대코드를 상대에게 공유하거나 상대 초대코드를 입력해 두 계정을 잇는다.
  *
- * @param myCode 로그인한 사용자의 초대코드. 서버 발급 값을 표시만.
- * @param onCancel 좌측 상단 "취소" 탭 시 호출. 저장 없이 화면 닫기.
- * @param onCopyMyCode 내 초대코드 행 탭 시 호출. 보통 클립보드 복사.
- * @param onShareMyCode "공유하기" 행 탭 시 호출. 시스템 공유 시트 오픈에 위임.
- * @param onLink 우측 상단 "연결" 탭 시 호출. 사용자가 입력한 상대 코드 전달.
+ * @param myCode 서버가 발급한 내 초대코드. 표시만.
+ * @param onBack 좌측 상단 원형 back 탭 콜백.
+ * @param onCopyMyCode "내 초대코드" 행 탭 시 호출 (보통 클립보드 복사).
+ * @param onShareMyCode "공유하기" 행 탭 시 호출 (시스템 공유 시트 오픈에 위임).
+ * @param onLink 하단 "연결하기" 탭 시 호출. 사용자가 입력한 상대 코드 전달.
  */
 @Composable
 fun CoupleLinkScreen(
     myCode: String = "ABC123",
-    onCancel: () -> Unit = {},
+    onBack: () -> Unit = {},
     onCopyMyCode: () -> Unit = {},
     onShareMyCode: () -> Unit = {},
     onLink: (partnerCode: String) -> Unit = {},
 ) {
     var partnerCode by rememberSaveable { mutableStateOf("") }
-    // 상대 코드가 비어있으면 우측 상단 "연결" 버튼 비활성. iOS 저장 버튼 관례.
     val canLink by remember { derivedStateOf { partnerCode.isNotBlank() } }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Background)
-            .windowInsetsPadding(WindowInsets.safeDrawing),
+            .background(SurfaceGray),
     ) {
-        ModalTopBar(
-            title = "커플 연결",
-            leadingText = "취소",
-            onLeadingClick = onCancel,
-            trailingText = "연결",
-            onTrailingClick = { onLink(partnerCode.trim()) },
-            trailingEnabled = canLink,
-        )
-
-        // Figma: content column p-[16px] gap-[16px]. 폼 요소 간 균일한 16dp 세로 갭.
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing),
         ) {
-            DescriptionText()
+            // 상단 오버레이 앱바 자리 확보.
+            Spacer(Modifier.height(TOP_BAR_HEIGHT))
 
+            DescriptionText(
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+            )
+
+            Spacer(Modifier.height(24.dp))
+
+            SectionLabel(text = "내 초대코드", horizontalPadding = 20.dp)
+            Spacer(Modifier.height(8.dp))
             MyCodeCard(
                 code = myCode,
                 onCopy = onCopyMyCode,
                 onShare = onShareMyCode,
+                modifier = Modifier.padding(horizontal = 16.dp),
             )
 
-            SectionLabel("상대방 초대코드")
+            Spacer(Modifier.height(24.dp))
 
+            SectionLabel(text = "상대방 초대코드", horizontalPadding = 20.dp)
+            Spacer(Modifier.height(8.dp))
             PartnerCodeInputCard(
                 value = partnerCode,
                 onValueChange = { partnerCode = it },
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+
+            Spacer(Modifier.weight(1f))
+
+            PrimaryButton(
+                text = "연결하기",
+                onClick = { if (canLink) onLink(partnerCode.trim()) },
+                modifier = Modifier
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 12.dp),
             )
         }
+
+        // 상단 오버레이 앱바.
+        AppTopBar(
+            title = "커플 연결",
+            onBack = onBack,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .windowInsetsPadding(WindowInsets.safeDrawing),
+        )
     }
 }
 
 @Composable
-private fun DescriptionText() {
+private fun DescriptionText(modifier: Modifier = Modifier) {
     val font = LocalPretendardFontFamily.current
+    // Figma: labels/secondary rgba(60,60,67,0.6), 15sp, lineHeight 1.35
     Text(
         text = "상대방의 초대코드를 입력하거나\n내 코드를 상대에게 공유하세요.",
+        modifier = modifier,
         style = TextStyle(
-            color = TextTertiary,
-            fontSize = 13.sp,
-            lineHeight = 18.sp,
+            color = TextSecondary,
+            fontSize = 15.sp,
+            lineHeight = 20.sp,
             fontFamily = font,
         ),
     )
 }
 
-@Composable
-private fun SectionLabel(text: String) {
-    val font = LocalPretendardFontFamily.current
-    Text(
-        text = text,
-        style = TextStyle(color = TextTertiary, fontSize = 13.sp, fontFamily = font),
-    )
-}
-
 /**
- * "내 초대코드" 카드. iOS 26 modal 스타일:
- *   - 흰 배경 + 10dp radius
- *   - 두 행 사이 0.5dp #D9D9DE 세퍼레이터 (좌측 인셋 없음 — ScheduleEdit 카드와 동일)
- *   - 행별 px 16, py 12 (15sp 텍스트)
+ * "내 초대코드" 카드. iOS grouped list 톤:
+ *   - 흰 배경 + 18dp radius, 두 행 사이 0.5dp #C6C6C8 세퍼레이터 (좌측 16dp inset)
+ *   - Row height 52dp, 17sp 텍스트
  */
 @Composable
 private fun MyCodeCard(
@@ -154,7 +167,7 @@ private fun MyCodeCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(18.dp))
             .background(SurfaceCard),
     ) {
         CardRow(
@@ -162,7 +175,7 @@ private fun MyCodeCard(
             trailingText = code,
             onClick = onCopy,
         )
-        CardSeparator()
+        InsetSeparator()
         CardRow(
             label = "공유하기",
             trailingText = null,
@@ -181,37 +194,55 @@ private fun CardRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .height(52.dp)
             .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = label,
-            style = TextStyle(color = TextPrimary, fontSize = 15.sp, fontFamily = font),
+            style = TextStyle(color = TextPrimary, fontSize = 17.sp, fontFamily = font),
         )
         Spacer(Modifier.weight(1f))
         if (trailingText != null) {
-            Text(
-                text = trailingText,
-                style = TextStyle(color = TextTertiary, fontSize = 15.sp, fontFamily = font),
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    text = trailingText,
+                    style = TextStyle(color = TextSecondary, fontSize = 17.sp, fontFamily = font),
+                )
+                Text(
+                    text = "›",
+                    style = TextStyle(
+                        color = Chevron,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Medium,
+                        fontFamily = font,
+                    ),
+                )
+            }
         }
     }
 }
 
 @Composable
-private fun CardSeparator() {
-    Box(
-        Modifier
-            .fillMaxWidth()
-            .height(0.5.dp)
-            .background(SeparatorGrouped),
-    )
+private fun InsetSeparator() {
+    Row(Modifier.fillMaxWidth()) {
+        Spacer(Modifier.width(16.dp))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(0.5.dp)
+                .background(Separator),
+        )
+    }
 }
 
 /**
- * 상대방 초대코드 입력 카드. 단일 행짜리 흰 카드에 텍스트 필드 하나.
- * Figma: 값이 비어있으면 회색 placeholder (#999). 카드는 rounded 10dp.
+ * 상대방 초대코드 입력 카드. 단일 행 흰 카드에 라벨 + 텍스트 필드.
+ * 빈 값이면 회색 placeholder ("ABC123") 를 겹쳐 보여준다.
  */
 @Composable
 private fun PartnerCodeInputCard(
@@ -223,23 +254,24 @@ private fun PartnerCodeInputCard(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(18.dp))
             .background(SurfaceCard)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .height(56.dp)
+            .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = "초대코드",
-            modifier = Modifier.width(88.dp),
-            style = TextStyle(color = TextPrimary, fontSize = 15.sp, fontFamily = font),
+            modifier = Modifier.width(100.dp),
+            style = TextStyle(color = TextPrimary, fontSize = 17.sp, fontFamily = font),
         )
         Box(Modifier.weight(1f)) {
             if (value.isEmpty()) {
                 Text(
                     text = "ABC123",
                     style = TextStyle(
-                        color = PlaceholderText,
-                        fontSize = 15.sp,
+                        color = TextSecondary,
+                        fontSize = 17.sp,
                         fontFamily = font,
                     ),
                 )
@@ -248,7 +280,7 @@ private fun PartnerCodeInputCard(
                 value = value,
                 onValueChange = onValueChange,
                 modifier = Modifier.fillMaxWidth(),
-                textStyle = TextStyle(color = TextPrimary, fontSize = 15.sp, fontFamily = font),
+                textStyle = TextStyle(color = TextPrimary, fontSize = 17.sp, fontFamily = font),
                 singleLine = true,
                 cursorBrush = SolidColor(PrimaryBlue),
                 keyboardOptions = KeyboardOptions(
@@ -258,13 +290,5 @@ private fun PartnerCodeInputCard(
                 keyboardActions = KeyboardActions(),
             )
         }
-    }
-}
-
-@Preview
-@Composable
-private fun CoupleLinkScreenPreview() {
-    ProvidePretendard {
-        CoupleLinkScreen()
     }
 }
