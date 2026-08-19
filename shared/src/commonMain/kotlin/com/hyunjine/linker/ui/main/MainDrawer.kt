@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -175,11 +176,15 @@ private fun ProfileHeader(name: String, handle: String, onSettingsClick: () -> U
 @Composable
 private fun NavRow(text: String, onClick: () -> Unit) {
     val pretendard = LocalPretendardFontFamily.current
+    // ripple 이 사각형으로 튀지 않게 12dp 인셋 + 12dp 라운드 클립. 내부 padding 은 8dp 로 낮춰
+    // 텍스트의 실효 좌우 여백은 기존 20dp 그대로 (12 outer + 8 inner).
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 12.dp)
+            .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 14.dp),
+            .padding(horizontal = 8.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
