@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -6,6 +7,39 @@ plugins {
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.kotlinSerialization)
+}
+
+// local.properties 의 holiday.api.key 를 읽어 commonMain 에 생성되는 Secrets.kt 파일에 넣는다.
+// local.properties 는 gitignore 되어 있어 키가 저장소에 안 들어감.
+val localProperties = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+val holidayApiKey: String = localProperties.getProperty("holiday.api.key", "")
+
+val generatedSecretsDir: Provider<Directory> =
+    layout.buildDirectory.dir("generated/secrets/kotlin")
+
+val generateSecrets by tasks.registering {
+    val outputDir = generatedSecretsDir
+    val keyValue = holidayApiKey
+    inputs.property("holidayApiKey", keyValue)
+    outputs.dir(outputDir)
+    doLast {
+        val file = outputDir.get().asFile.resolve("com/hyunjine/linker/data/Secrets.kt")
+        file.parentFile.mkdirs()
+        file.writeText(
+            """
+            // GENERATED. Do not edit. Source: local.properties → shared/build.gradle.kts
+            package com.hyunjine.linker.data
+
+            internal object Secrets {
+                /** data.go.kr 특일정보 API 서비스 키 (URL-encoded 원본). local.properties `holiday.api.key`. */
+                const val HolidayApiKey: String = "$keyValue"
+            }
+            """.trimIndent() + "\n"
+        )
+    }
 }
 
 kotlin {
@@ -18,12 +52,12 @@ kotlin {
             isStatic = true
         }
     }
-    
+
     android {
        namespace = "com.hyunjine.linker.shared"
        compileSdk = libs.versions.android.compileSdk.get().toInt()
        minSdk = libs.versions.android.minSdk.get().toInt()
-    
+
        compilerOptions {
            jvmTarget = JvmTarget.JVM_11
        }
@@ -39,11 +73,12 @@ kotlin {
            instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
        }
     }
-    
+
     sourceSets {
         androidMain.dependencies {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.uiTooling)
+            implementation(libs.ktor.client.okhttp)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
@@ -57,6 +92,17 @@ kotlin {
             implementation(libs.navigation3.ui)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.serialization.core)
+            implementation(libs.kotlinx.serialization.json)
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.serialization.kotlinx.json)
+        }
+        commonMain {
+            kotlin.srcDir(generateSecrets.map { generatedSecretsDir })
+        }
+        iosMain.dependencies {
+            implementation(libs.ktor.client.darwin)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
