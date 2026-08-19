@@ -46,3 +46,19 @@ val CalendarOrange = Color(0xFFFF9500)
 val CalendarPink = Color(0xFFFF375F)
 val CalendarPurple = Color(0xFFAF52DE)
 val CalendarGray = Color(0xFF8E8E93)
+
+// 메인 캘린더 화면 (월 그리드)
+val CalendarWeekdayText = Color(0xFF1A1A1A) // 평일 숫자 (TextPrimary 와 동일하지만 시맨틱 구분)
+val CalendarSunday = Color(0xFFF0474D)      // 일요일/공휴일 숫자
+val CalendarSaturday = Color(0xFF1A7AFA)    // 토요일 숫자
+val CalendarLunarText = Color(0xFF9999A6)   // 셀 안 음력 날짜
+val CalendarTodayCircle = Color(0xFF1A1A1A) // 오늘 원 배경 (검정)
+val CalendarTodayText = Color.White         // 오늘 숫자 (흰색)
+
+// 이벤트 chip (하루 셀 안 표시)
+val ChipHolidayBg = Color(0xFFFCE8EB)   // 공휴일 배경
+val ChipHolidayText = Color(0xFFDE4752) // 공휴일 글자
+val ChipSeasonBg = Color(0xFFF0F0F2)    // 절기 배경
+val ChipSeasonText = Color(0xFF6B6B75)  // 절기 글자
+val ChipPersonalBg = Color(0xFFFADEE3)  // 개인 일정 배경
+val ChipPersonalText = Color(0xFFBF404D) // 개인 일정 글자

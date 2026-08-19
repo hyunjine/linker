@@ -8,6 +8,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import androidx.savedstate.serialization.SavedStateConfiguration
 import com.hyunjine.linker.ui.couple.CoupleLinkScreen
+import com.hyunjine.linker.ui.main.MainScreen
 import com.hyunjine.linker.ui.profile.ProfileSetupScreen
 import com.hyunjine.linker.ui.theme.ProvidePretendard
 import kotlinx.serialization.Serializable
@@ -21,6 +22,9 @@ import kotlinx.serialization.modules.subclass
  * saved state 복원이 가능하다 (KMP 는 리플렉션이 없어 명시 등록 필수).
  */
 @Serializable
+private data object MainRoute : NavKey
+
+@Serializable
 private data object ProfileSetupRoute : NavKey
 
 @Serializable
@@ -29,6 +33,7 @@ private data object CoupleLinkRoute : NavKey
 private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
     serializersModule = SerializersModule {
         polymorphic(NavKey::class) {
+            subclass(MainRoute::class, MainRoute.serializer())
             subclass(ProfileSetupRoute::class, ProfileSetupRoute.serializer())
             subclass(CoupleLinkRoute::class, CoupleLinkRoute.serializer())
         }
@@ -39,11 +44,14 @@ private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
 fun App() {
     MaterialTheme {
         ProvidePretendard {
-            val backStack = rememberNavBackStack(NavConfig, ProfileSetupRoute)
+            val backStack = rememberNavBackStack(NavConfig, MainRoute)
             NavDisplay(
                 backStack = backStack,
                 onBack = { backStack.removeLastOrNull() },
                 entryProvider = entryProvider {
+                    entry<MainRoute> {
+                        MainScreen()
+                    }
                     entry<ProfileSetupRoute> {
                         ProfileSetupScreen(
                             onNext = { backStack.add(CoupleLinkRoute) },
