@@ -21,6 +21,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hyunjine.linker.platform.rememberSelectionHaptic
@@ -58,6 +59,7 @@ fun WheelPicker(
     visibleItemCount: Int = 5,
     itemHeight: Dp = 40.dp,
     textAlign: TextAlign = TextAlign.Center,
+    fontSize: TextUnit = 18.sp,
 ) {
     require(visibleItemCount % 2 == 1) { "visibleItemCount must be odd" }
     val halfCount = visibleItemCount / 2
@@ -123,7 +125,7 @@ fun WheelPicker(
                         textAlign = textAlign,
                         style = TextStyle(
                             color = TextPrimary.copy(alpha = alpha),
-                            fontSize = 18.sp,
+                            fontSize = fontSize,
                             fontWeight = weight,
                             fontFamily = font,
                         ),

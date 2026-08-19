@@ -27,7 +27,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -168,6 +172,9 @@ fun MainScreen(
     val mergedEntries = remember(entries, specialDayEntries) {
         mergeEntries(base = specialDayEntries, override = entries)
     }
+    // 타이틀 탭 시 년/월 피커 시트 오픈. dismiss 시 선택 값으로 pager 를 해당 월까지 스크롤.
+    var pickerVisible by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -178,7 +185,10 @@ fun MainScreen(
         MainToolbar(
             yearMonth = currentYearMonth,
             onMenuClick = onMenuClick,
-            onTitleClick = onTitleClick,
+            onTitleClick = {
+                onTitleClick()
+                pickerVisible = true
+            },
             onSearchClick = onSearchClick,
         )
         WeekdaysRow()
@@ -197,7 +207,25 @@ fun MainScreen(
             )
         }
     }
+
+    YearMonthPickerSheet(
+        visible = pickerVisible,
+        year = currentYearMonth.year,
+        month = currentYearMonth.month,
+        minYear = 1900,
+        maxYear = today.year,
+        onDismiss = { pickedYear, pickedMonth ->
+            pickerVisible = false
+            val target = YearMonth(pickedYear, pickedMonth)
+            val delta = target.monthsSince(initialYearMonth)
+            scope.launch { pagerState.scrollToPage(anchorPage + delta) }
+        },
+    )
 }
+
+/** [other] 로부터 이 [YearMonth] 까지 몇 개월 뒤인지. `other.plusMonths(this.monthsSince(other)) == this`. */
+private fun YearMonth.monthsSince(other: YearMonth): Int =
+    (year - other.year) * 12 + (month - other.month)
 
 /**
  * 두 entry 맵을 병합. 같은 날짜면 events 를 이어 붙이고 (base + override 순), lunarLabel 은
