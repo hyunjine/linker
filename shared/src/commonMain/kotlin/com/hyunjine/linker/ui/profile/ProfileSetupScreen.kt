@@ -273,7 +273,7 @@ private fun BirthDatePickerSheet(
     }
     LaunchedEffect(emitted) { onChange(emitted) }
 
-    val wheelItemHeight = 40.dp
+    val wheelItemHeight = 44.dp
     val wheelVisibleCount = 5
 
     Box(

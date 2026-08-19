@@ -20,7 +20,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.hyunjine.linker.ui.common.AppBottomSheet
 import com.hyunjine.linker.ui.common.WheelPicker
 import com.hyunjine.linker.ui.theme.SegmentTrack
@@ -91,8 +90,6 @@ fun YearMonthPickerSheet(
                     onSelectedChange = { draftYear = minYear + it },
                     modifier = Modifier.weight(1f),
                     visibleItemCount = VisibleItemCount,
-                    itemHeight = ItemHeight,
-                    fontSize = FontSize,
                 )
                 WheelPicker(
                     items = months,
@@ -100,8 +97,6 @@ fun YearMonthPickerSheet(
                     onSelectedChange = { draftMonth = it + 1 },
                     modifier = Modifier.weight(1f),
                     visibleItemCount = VisibleItemCount,
-                    itemHeight = ItemHeight,
-                    fontSize = FontSize,
                 )
             }
             // 상단 fade — 위쪽 두 줄 알파 감쇠를 시각적으로 마무리 (white → transparent)
@@ -133,7 +128,7 @@ fun YearMonthPickerSheet(
     }
 }
 
+/** WheelPicker 기본값 (44dp) 과 동일. SelectionBar 높이도 이 값을 재사용한다. */
 private val ItemHeight = 44.dp
 private const val VisibleItemCount = 5
-private val FontSize = 22.sp
 private val FadeHeight = 60.dp

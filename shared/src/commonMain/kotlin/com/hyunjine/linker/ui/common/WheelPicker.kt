@@ -57,9 +57,9 @@ fun WheelPicker(
     onSelectedChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
     visibleItemCount: Int = 5,
-    itemHeight: Dp = 40.dp,
+    itemHeight: Dp = 44.dp,
     textAlign: TextAlign = TextAlign.Center,
-    fontSize: TextUnit = 18.sp,
+    fontSize: TextUnit = 22.sp,
 ) {
     require(visibleItemCount % 2 == 1) { "visibleItemCount must be odd" }
     val halfCount = visibleItemCount / 2
