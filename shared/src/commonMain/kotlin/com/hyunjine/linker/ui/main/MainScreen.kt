@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -55,6 +56,8 @@ import com.hyunjine.linker.ui.theme.ChipSeasonBg
 import com.hyunjine.linker.ui.theme.ChipSeasonText
 import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.ui.theme.ProvidePretendard
+import com.hyunjine.linker.ui.theme.SurfaceGray
+import com.hyunjine.linker.ui.theme.TextPrimary
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlinx.datetime.DateTimeUnit
@@ -155,11 +158,10 @@ fun MainScreen(
     val currentYearMonth by remember(initialYearMonth) {
         derivedStateOf { initialYearMonth.plusMonths(pagerState.currentPage - anchorPage) }
     }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Background)
+            .background(SurfaceGray)
             .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical)),
     ) {
         MainToolbar(
@@ -205,11 +207,12 @@ private fun MainToolbar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        // 좌: 햄버거 — 44dp 리퀴드 글래스 원형 버튼 안에 24dp 아이콘
+        // 좌: 햄버거 — 44dp 리퀴드 글래스 원형 버튼 안에 24dp 아이콘 (BackCircleButton 과 동일한 tint)
         IconTapTarget(onClick = onMenuClick) {
             Image(
                 painter = painterResource(Res.drawable.ic_menu),
                 contentDescription = "메뉴 열기",
+                colorFilter = ColorFilter.tint(TextPrimary),
                 modifier = Modifier.size(24.dp),
             )
         }
@@ -239,11 +242,12 @@ private fun MainToolbar(
             )
         }
 
-        // 우: 검색 — 44dp 리퀴드 글래스 원형 버튼 안에 24dp 아이콘
+        // 우: 검색 — 햄버거/BackCircleButton 과 동일 톤 (tint TextPrimary)
         IconTapTarget(onClick = onSearchClick) {
             Image(
                 painter = painterResource(Res.drawable.ic_search),
                 contentDescription = "검색",
+                colorFilter = ColorFilter.tint(TextPrimary),
                 modifier = Modifier.size(24.dp),
             )
         }
@@ -251,9 +255,9 @@ private fun MainToolbar(
 }
 
 /**
- * 44dp 리퀴드 글래스 원형 버튼. 리플은 원으로 잘리고, 배경은 [Modifier.liquidGlass] 로 유리 톤.
- * `clip` 이 `liquidGlass` 보다 먼저 와야 유리 fill 과 border 도 원으로 잘리고, `clickable` 은
- * 마지막에 오도록 두어 ripple 이 유리 위에 얹힌다.
+ * 44dp 리퀴드 글래스 원형 버튼. `ui/common/AppTopBar.BackCircleButton` (ProfileSetupScreen 뒤로가기)
+ * 과 동일한 모디파이어 구성으로 톤을 통일한다: `liquidGlass(CircleShape)` → `clip(CircleShape)` →
+ * `clickable`. clip 이 clickable 앞이라 ripple 이 원형으로 잘림.
  */
 @Composable
 private fun IconTapTarget(
@@ -263,8 +267,8 @@ private fun IconTapTarget(
     Box(
         modifier = Modifier
             .size(44.dp)
+            .liquidGlass(shape = CircleShape)
             .clip(CircleShape)
-            .liquidGlass()
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
