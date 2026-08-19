@@ -230,15 +230,16 @@ private fun TaskRow(task: DayTask, onToggle: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onToggle)
             .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        // ripple 은 체크박스 안에서만. clip → clickable 순으로 두어야 ripple 이 rounded rect 로 잘림.
         Box(
             modifier = Modifier
                 .size(22.dp)
                 .clip(RoundedCornerShape(6.dp))
+                .clickable(onClick = onToggle)
                 .background(if (task.isDone) PrimaryBlue else Color.Transparent)
                 .border(
                     width = 1.5.dp,
