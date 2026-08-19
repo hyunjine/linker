@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hyunjine.linker.ui.common.AppBottomSheet
@@ -267,7 +268,8 @@ private fun TaskRow(task: DayTask, onToggle: () -> Unit) {
                 fontFamily = pretendard,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 16.sp,
-                color = TextPrimary,
+                color = if (task.isDone) TextSecondary else TextPrimary,
+                textDecoration = if (task.isDone) TextDecoration.LineThrough else null,
             ),
         )
         OwnerPill(owner = task.owner)
