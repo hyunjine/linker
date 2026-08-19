@@ -44,7 +44,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.rememberDrawerState
 import com.hyunjine.linker.data.specialday.SpecialDayKind
+import com.hyunjine.linker.ui.common.AppDrawer
 import com.hyunjine.linker.ui.common.YearMonthPickerSheet
 import com.hyunjine.linker.ui.common.liquidGlass
 import com.hyunjine.linker.ui.theme.Background
@@ -178,7 +181,24 @@ fun MainScreen(
     val scope = rememberCoroutineScope()
     // 셀 탭 시 날짜 상세 시트 오픈. null 이면 안 보임. dummy 데이터는 임시 (후속 이슈에서 실제 소스 연결).
     var dayDetail by remember { mutableStateOf<DayDetail?>(null) }
+    // 사이드 드로워 상태 + 표시 옵션 (MVP: 로컬 state, 저장·연동은 후속 이슈).
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    var displayState by remember { mutableStateOf(DrawerDisplayState()) }
 
+    AppDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            MainDrawerContent(
+                profileName = "양현진",
+                profileHandle = "thevlakk1",
+                displayState = displayState,
+                onToggleMyCalendar = { displayState = displayState.copy(showMyCalendar = it) },
+                onTogglePartnerCalendar = { displayState = displayState.copy(showPartnerCalendar = it) },
+                onToggleHolidays = { displayState = displayState.copy(showHolidays = it) },
+                onToggleLunar = { displayState = displayState.copy(showLunar = it) },
+            )
+        },
+    ) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -187,7 +207,10 @@ fun MainScreen(
     ) {
         MainToolbar(
             yearMonth = currentYearMonth,
-            onMenuClick = onMenuClick,
+            onMenuClick = {
+                onMenuClick()
+                scope.launch { drawerState.open() }
+            },
             onTitleClick = {
                 onTitleClick()
                 pickerVisible = true
@@ -242,6 +265,7 @@ fun MainScreen(
             )
         },
     )
+    } // ← AppDrawer content lambda close
 }
 
 /**
