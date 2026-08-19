@@ -45,6 +45,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hyunjine.linker.data.specialday.SpecialDayKind
+import com.hyunjine.linker.ui.common.YearMonthPickerSheet
 import com.hyunjine.linker.ui.common.liquidGlass
 import com.hyunjine.linker.ui.theme.Background
 import com.hyunjine.linker.ui.theme.CalendarLunarText
@@ -214,12 +215,13 @@ fun MainScreen(
         month = currentYearMonth.month,
         minYear = 1900,
         maxYear = today.year,
-        onDismiss = { pickedYear, pickedMonth ->
+        onConfirm = { pickedYear, pickedMonth ->
             pickerVisible = false
             val target = YearMonth(pickedYear, pickedMonth)
             val delta = target.monthsSince(initialYearMonth)
             scope.launch { pagerState.scrollToPage(anchorPage + delta) }
         },
+        onCancel = { pickerVisible = false },
     )
 }
 

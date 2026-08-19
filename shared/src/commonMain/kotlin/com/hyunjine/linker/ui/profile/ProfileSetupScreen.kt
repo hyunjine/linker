@@ -64,6 +64,7 @@ import com.hyunjine.linker.ui.theme.CalendarYellow
 import com.hyunjine.linker.ui.theme.Chevron
 import com.hyunjine.linker.platform.rememberImagePicker
 import com.hyunjine.linker.ui.common.AppBottomSheet
+import com.hyunjine.linker.ui.common.YearMonthDayPickerSheet
 import com.hyunjine.linker.ui.common.AppTopBar
 import com.hyunjine.linker.ui.common.PrimaryButton
 import com.hyunjine.linker.ui.common.SectionLabel
@@ -116,9 +117,6 @@ fun ProfileSetupScreen(
     var currentNickname by rememberSaveable { mutableStateOf(nickname) }
     var currentBirthDate by rememberSaveable { mutableStateOf(birthDate) }
     var currentColorId by rememberSaveable { mutableStateOf(selectedColorId) }
-    // 생년월일 시트는 실시간 스크롤 값을 pending 에만 쌓아두고, 시트가 닫히는 순간에만
-    // currentBirthDate 에 커밋한다. 사용자가 스크롤 중일 때는 뒤 화면 값이 흔들리지 않음.
-    var pendingBirthDate by remember { mutableStateOf(birthDate) }
     // 사용자가 사진 라이브러리에서 고른 아바타. 메모리 전용 (파일 저장은 이후).
     // rememberSaveable 은 ImageBitmap 을 저장할 수 없어 remember 로만 유지.
     var avatarImage by remember { mutableStateOf<ImageBitmap?>(null) }
@@ -192,22 +190,24 @@ fun ProfileSetupScreen(
         )
     }
 
-    AppBottomSheet(
+    val parsed = parseBirthDate(currentBirthDate)
+    YearMonthDayPickerSheet(
         visible = showBirthDateSheet,
-        onDismissRequest = {
+        year = parsed.year,
+        month = parsed.month,
+        day = parsed.day,
+        minYear = 1900,
+        maxYear = 2026,
+        onConfirm = { y, m, d ->
             showBirthDateSheet = false
-            // 시트가 닫히는 순간에만 pending → current 로 확정.
-            if (pendingBirthDate != currentBirthDate) {
-                currentBirthDate = pendingBirthDate
-                onBirthDateChange(currentBirthDate)
+            val next = formatBirthDate(BirthDate(y, m, d))
+            if (next != currentBirthDate) {
+                currentBirthDate = next
+                onBirthDateChange(next)
             }
         },
-    ) {
-        BirthDatePickerSheet(
-            initial = parseBirthDate(currentBirthDate),
-            onChange = { d -> pendingBirthDate = formatBirthDate(d) },
-        )
-    }
+        onCancel = { showBirthDateSheet = false },
+    )
 
     AppBottomSheet(
         visible = showNicknameSheet,
@@ -236,88 +236,6 @@ private data class BirthDate(val year: Int, val month: Int, val day: Int)
 private fun parseBirthDate(raw: String): BirthDate {
     val parts = raw.split('.').mapNotNull { it.trim().toIntOrNull() }
     return if (parts.size == 3) BirthDate(parts[0], parts[1], parts[2]) else BirthDate(2000, 1, 1)
-}
-
-private const val YEAR_MIN = 1900
-private const val YEAR_MAX = 2026
-
-private fun daysInMonth(year: Int, month: Int): Int = when (month) {
-    1, 3, 5, 7, 8, 10, 12 -> 31
-    4, 6, 9, 11 -> 30
-    2 -> if ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0) 29 else 28
-    else -> 30
-}
-
-@Composable
-private fun BirthDatePickerSheet(
-    initial: BirthDate,
-    onChange: (BirthDate) -> Unit,
-) {
-    // 월/일이 바뀌면 day 상한이 달라지므로 상호 조정.
-    var yearIndex by remember { mutableStateOf((initial.year - YEAR_MIN).coerceIn(0, YEAR_MAX - YEAR_MIN)) }
-    var monthIndex by remember { mutableStateOf((initial.month - 1).coerceIn(0, 11)) }
-    var dayIndex by remember { mutableStateOf((initial.day - 1).coerceIn(0, 30)) }
-
-    val years = remember { (YEAR_MIN..YEAR_MAX).map { "${it}년" } }
-    val months = remember { (1..12).map { "${it}월" } }
-    val currentYear = YEAR_MIN + yearIndex
-    val currentMonth = monthIndex + 1
-    val maxDay = daysInMonth(currentYear, currentMonth)
-    val days = remember(maxDay) { (1..maxDay).map { "${it}일" } }
-    if (dayIndex > maxDay - 1) dayIndex = maxDay - 1
-
-    // 휠이 스냅될 때마다 상위로 라이브 전달. 초기 컴포지션에도 한 번 호출되지만
-    // 값이 기존과 같으니 UI에는 영향 없음.
-    val emitted by remember(yearIndex, monthIndex, dayIndex) {
-        derivedStateOf { BirthDate(YEAR_MIN + yearIndex, monthIndex + 1, dayIndex + 1) }
-    }
-    LaunchedEffect(emitted) { onChange(emitted) }
-
-    val wheelItemHeight = 44.dp
-    val wheelVisibleCount = 5
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 12.dp)
-            .height(wheelItemHeight * wheelVisibleCount),
-        contentAlignment = Alignment.Center,
-    ) {
-        // 하이라이트 바 하나 — 3개 컬럼을 관통.
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(wheelItemHeight)
-                .clip(RoundedCornerShape(8.dp))
-                .background(SurfaceGray),
-        )
-        Row(Modifier.fillMaxWidth()) {
-            WheelPicker(
-                items = years,
-                selectedIndex = yearIndex,
-                onSelectedChange = { yearIndex = it },
-                modifier = Modifier.weight(1f),
-                visibleItemCount = wheelVisibleCount,
-                itemHeight = wheelItemHeight,
-            )
-            WheelPicker(
-                items = months,
-                selectedIndex = monthIndex,
-                onSelectedChange = { monthIndex = it },
-                modifier = Modifier.weight(1f),
-                visibleItemCount = wheelVisibleCount,
-                itemHeight = wheelItemHeight,
-            )
-            WheelPicker(
-                items = days,
-                selectedIndex = dayIndex,
-                onSelectedChange = { dayIndex = it },
-                modifier = Modifier.weight(1f),
-                visibleItemCount = wheelVisibleCount,
-                itemHeight = wheelItemHeight,
-            )
-        }
-    }
 }
 
 @Composable
