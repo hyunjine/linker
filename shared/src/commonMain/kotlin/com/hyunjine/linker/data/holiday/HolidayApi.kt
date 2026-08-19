@@ -6,6 +6,7 @@ import io.ktor.client.call.body
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.request.get
 import io.ktor.client.request.parameter
+import io.ktor.http.decodeURLQueryComponent
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -35,9 +36,14 @@ class HolidayApi(
 ) {
     suspend fun fetchYear(year: Int): List<HolidayDto> {
         // solMonth 를 안 넘기면 해당 연 전체를 반환. numOfRows 는 넉넉히 (연 최대 30건 정도).
+        //
+        // 서비스 키 처리 주의: local.properties 의 키는 이미 URL 인코딩(%2F/%3D 포함) 이라
+        // 그대로 `parameter(...)` 로 넘기면 Ktor 가 다시 인코딩 (%252F) 해서 유효하지 않은 키가 됨.
+        // 한 번 디코드해서 raw 로 만든 뒤 Ktor 가 한 번 인코딩하도록 한다.
+        val serviceKey = Secrets.HolidayApiKey.decodeURLQueryComponent(plusIsSpace = true)
         val response: JsonElement = client
             .get("https://apis.data.go.kr/B090041/openapi/service/SpcdeInfoService/getRestDeInfo") {
-                parameter("serviceKey", Secrets.HolidayApiKey)
+                parameter("serviceKey", serviceKey)
                 parameter("solYear", year)
                 parameter("numOfRows", 100)
                 parameter("pageNo", 1)

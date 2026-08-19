@@ -16,7 +16,10 @@ class HolidayRepository(
     /** 실패 시 빈 리스트를 반환하고 예외를 삼킨다 — 캘린더는 공휴일 없이도 동작해야 함. */
     suspend fun getYear(year: Int): List<HolidayDto> = mutex.withLock {
         cache[year]?.let { return@withLock it }
-        val fetched = runCatching { api.fetchYear(year) }.getOrElse { emptyList() }
+        val fetched = runCatching { api.fetchYear(year) }
+            .onFailure { println("[HolidayRepository] $year fetch 실패: $it") }
+            .getOrElse { emptyList() }
+        println("[HolidayRepository] $year 결과: ${fetched.size} 개 (공휴일 ${fetched.count { it.isHoliday }} 개)")
         cache[year] = fetched
         fetched
     }
