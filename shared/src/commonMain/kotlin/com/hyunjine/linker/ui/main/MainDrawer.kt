@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import com.hyunjine.linker.platform.rememberSelectionHaptic
 import com.hyunjine.linker.ui.theme.AvatarPlaceholderBg
 import com.hyunjine.linker.ui.theme.AvatarPlaceholderFg
+import com.hyunjine.linker.ui.theme.DrawerButtonBg
 import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.ui.theme.PrimaryBlue
 import com.hyunjine.linker.ui.theme.Separator
@@ -35,8 +36,9 @@ import com.hyunjine.linker.ui.theme.SurfaceCard
 import com.hyunjine.linker.ui.theme.TextPrimary
 import com.hyunjine.linker.ui.theme.TextSecondary
 import linker.shared.generated.resources.Res
-import linker.shared.generated.resources.ic_chevron_right
-import linker.shared.generated.resources.ic_gear
+import linker.shared.generated.resources.ic_cal_31
+import linker.shared.generated.resources.ic_setting_filled
+import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 
 /** 사이드 드로워의 캘린더 표시 옵션 상태. */
@@ -51,7 +53,7 @@ data class DrawerDisplayState(
  * 메인 화면 사이드 드로워 콘텐츠. Figma 2693:62775 마지막 panel 참고.
  *
  * 구성:
- *  - 프로필 헤더 (아바타 + 이름/핸들 + [ic_gear] 설정 아이콘)
+ *  - 프로필 헤더 (아바타 + 이름/핸들 + `ic_setting_filled` 설정 아이콘)
  *  - "기념일 설정" 진입 row
  *  - "일정 표시" 섹션 — 내 캘린더 / 상대방 캘린더 스위치
  *  - "달력 정보 표시" 섹션 — 공휴일 / 음력 스위치
@@ -82,7 +84,11 @@ fun MainDrawerContent(
             onSettingsClick = onSettingsClick,
         )
         Spacer(Modifier.height(20.dp))
-        NavRow(text = "기념일 설정", onClick = onAnniversaryClick)
+        AllScheduleButton(
+            text = "기념일 설정",
+            iconRes = Res.drawable.ic_cal_31,
+            onClick = onAnniversaryClick,
+        )
         Spacer(Modifier.height(12.dp))
         SectionLabel(text = "일정 표시")
         ToggleRow(
@@ -156,7 +162,7 @@ private fun ProfileHeader(name: String, handle: String, onSettingsClick: () -> U
                 ),
             )
         }
-        // 설정 아이콘 — 40dp 원형 탭 타겟 안에 22dp gear 벡터. ripple 은 원형.
+        // 설정 아이콘 — 40dp 원형 탭 타겟 안에 22dp ant-design filled gear. ripple 은 원형.
         Box(
             modifier = Modifier
                 .size(40.dp)
@@ -165,7 +171,7 @@ private fun ProfileHeader(name: String, handle: String, onSettingsClick: () -> U
             contentAlignment = Alignment.Center,
         ) {
             Image(
-                painter = painterResource(Res.drawable.ic_gear),
+                painter = painterResource(Res.drawable.ic_setting_filled),
                 contentDescription = "설정",
                 modifier = Modifier.size(22.dp),
             )
@@ -173,34 +179,41 @@ private fun ProfileHeader(name: String, handle: String, onSettingsClick: () -> U
     }
 }
 
+/**
+ * Figma "AllScheduleBtn" 재현. 회색 라운드 컨테이너 + 좌측 22dp 아이콘 + Bold 15sp 텍스트.
+ * 우측 chevron 없음 (Figma 사양). 리플은 라운드 사각형으로 잘림.
+ */
 @Composable
-private fun NavRow(text: String, onClick: () -> Unit) {
+private fun AllScheduleButton(
+    text: String,
+    iconRes: DrawableResource,
+    onClick: () -> Unit,
+) {
     val pretendard = LocalPretendardFontFamily.current
-    // ripple 이 사각형으로 튀지 않게 12dp 인셋 + 12dp 라운드 클립. 내부 padding 은 8dp 로 낮춰
-    // 텍스트의 실효 좌우 여백은 기존 20dp 그대로 (12 outer + 8 inner).
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp)
+            .padding(horizontal = 16.dp)
             .clip(RoundedCornerShape(12.dp))
+            .background(DrawerButtonBg)
             .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 14.dp),
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        Image(
+            painter = painterResource(iconRes),
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+        )
         Text(
             text = text,
-            modifier = Modifier.weight(1f),
             style = TextStyle(
                 fontFamily = pretendard,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 fontSize = 15.sp,
                 color = TextPrimary,
             ),
-        )
-        Image(
-            painter = painterResource(Res.drawable.ic_chevron_right),
-            contentDescription = null,
-            modifier = Modifier.size(16.dp),
         )
     }
 }
