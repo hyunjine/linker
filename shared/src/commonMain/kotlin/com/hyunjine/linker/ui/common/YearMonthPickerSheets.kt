@@ -2,13 +2,16 @@ package com.hyunjine.linker.ui.common
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -20,7 +23,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.hyunjine.linker.ui.theme.ProvidePretendard
 import com.hyunjine.linker.ui.theme.SegmentTrack
 import com.hyunjine.linker.ui.theme.SurfaceCard
 
@@ -189,3 +194,107 @@ private fun daysInMonth(year: Int, month: Int): Int = when (month) {
 private val ItemHeight = 44.dp
 private const val VisibleItemCount = 5
 private val FadeHeight = 60.dp
+
+// ---------- Previews ----------
+// AppBottomSheet 은 내부적으로 Dialog 를 사용해 layoutlib 프리뷰가 제한적이라
+// (프로젝트 규약: AppBottomSheet.kt 참고) 실제 sheet 대신 sheet 내부에 들어갈 body 만
+// 카드로 감싸 그려서 상태별 콘텐츠 확인용으로 사용한다.
+
+@Composable
+private fun PickerSheetPreviewFrame(content: @Composable ColumnScope.() -> Unit) {
+    ProvidePretendard {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color(0xFFB8B8B8)), // dim scrim 근사
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                    .background(SurfaceCard),
+            ) {
+                // 드래그 핸들 자리
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(top = 8.dp, bottom = 8.dp)
+                        .width(36.dp)
+                        .height(5.dp)
+                        .clip(RoundedCornerShape(2.5.dp))
+                        .background(Color(0xFFD1D1D6)),
+                )
+                content()
+            }
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun YearMonthPickerSheetPreview() {
+    var draftYear by remember { mutableStateOf(1998) }
+    var draftMonth by remember { mutableStateOf(5) }
+    val years = remember { (1996..2000).map { "${it}년" } }
+    val months = remember { (1..12).map { "${it}월" } }
+    PickerSheetPreviewFrame {
+        PickerSurface {
+            WheelPicker(
+                items = years,
+                selectedIndex = draftYear - 1996,
+                onSelectedChange = { draftYear = 1996 + it },
+                modifier = Modifier.weight(1f),
+            )
+            WheelPicker(
+                items = months,
+                selectedIndex = draftMonth - 1,
+                onSelectedChange = { draftMonth = it + 1 },
+                modifier = Modifier.weight(1f),
+            )
+        }
+        ConfirmCta { }
+    }
+}
+
+@Preview
+@Composable
+private fun YearMonthDayPickerSheetPreview() {
+    var draftYear by remember { mutableStateOf(1998) }
+    var draftMonth by remember { mutableStateOf(5) }
+    var draftDay by remember { mutableStateOf(24) }
+    val years = remember { (1996..2000).map { "${it}년" } }
+    val months = remember { (1..12).map { "${it}월" } }
+    val maxDay = remember(draftYear, draftMonth) {
+        when (draftMonth) {
+            1, 3, 5, 7, 8, 10, 12 -> 31
+            4, 6, 9, 11 -> 30
+            2 -> if ((draftYear % 4 == 0 && draftYear % 100 != 0) || draftYear % 400 == 0) 29 else 28
+            else -> 30
+        }
+    }
+    val days = remember(maxDay) { (1..maxDay).map { "${it}일" } }
+    PickerSheetPreviewFrame {
+        PickerSurface {
+            WheelPicker(
+                items = years,
+                selectedIndex = draftYear - 1996,
+                onSelectedChange = { draftYear = 1996 + it },
+                modifier = Modifier.weight(1f),
+            )
+            WheelPicker(
+                items = months,
+                selectedIndex = draftMonth - 1,
+                onSelectedChange = { draftMonth = it + 1 },
+                modifier = Modifier.weight(1f),
+            )
+            WheelPicker(
+                items = days,
+                selectedIndex = (draftDay - 1).coerceIn(0, days.lastIndex),
+                onSelectedChange = { draftDay = it + 1 },
+                modifier = Modifier.weight(1f),
+            )
+        }
+        ConfirmCta { }
+    }
+}
