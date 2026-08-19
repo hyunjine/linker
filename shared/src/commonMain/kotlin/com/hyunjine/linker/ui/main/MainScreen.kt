@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hyunjine.linker.data.specialday.SpecialDayKind
 import com.hyunjine.linker.ui.common.liquidGlass
 import com.hyunjine.linker.ui.theme.Background
 import com.hyunjine.linker.ui.theme.CalendarLunarText
@@ -158,10 +159,14 @@ fun MainScreen(
     val currentYearMonth by remember(initialYearMonth) {
         derivedStateOf { initialYearMonth.plusMonths(pagerState.currentPage - anchorPage) }
     }
-    // data.go.kr 특일정보 API 로 현재 보이는 연도의 공휴일 자동 로드. 실패해도 빈 맵.
-    val holidayEntries = rememberHolidayEntries(currentYearMonth.year)
-    val mergedEntries = remember(entries, holidayEntries) {
-        mergeEntries(base = holidayEntries, override = entries)
+    // data.go.kr 특일정보 API 로 현재 보이는 연도의 공휴일 + 24절기 자동 로드. 실패해도 빈 맵.
+    val specialDayEntries = rememberSpecialDayEntries(
+        year = currentYearMonth.year,
+        SpecialDayKind.Holiday,
+        SpecialDayKind.SolarTerm,
+    )
+    val mergedEntries = remember(entries, specialDayEntries) {
+        mergeEntries(base = specialDayEntries, override = entries)
     }
 
     Column(
@@ -418,7 +423,8 @@ private fun DayCell(
             .fillMaxHeight()
             .clip(RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(top = 10.dp, start = 4.dp, end = 4.dp),
+            .padding(top = 10.dp)
+            .padding(horizontal = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
@@ -489,57 +495,47 @@ private fun dayNumberColor(cell: MonthCell): Color {
 
 @Composable
 private fun EventChip(event: CalendarEvent) {
-    val pretendard = LocalPretendardFontFamily.current
     val (bg, fg) = when (event.type) {
         CalendarEventType.Holiday -> ChipHolidayBg to ChipHolidayText
         CalendarEventType.Season -> ChipSeasonBg to ChipSeasonText
         CalendarEventType.Personal -> ChipPersonalBg to ChipPersonalText
     }
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(2.dp))
-            .background(bg)
-            .padding(horizontal = 3.dp, vertical = 1.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = event.label,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            style = TextStyle(
-                fontFamily = pretendard,
-                fontWeight = FontWeight.Bold,
-                fontSize = 8.sp,
-                color = fg,
-            ),
-        )
-    }
+    // API 가 "대체공휴일(광복절)" 처럼 괄호로 원출처를 덧붙여 보내는 케이스 → 셀 폭이 좁으니 chip 에는
+    // 괄호 앞까지만 노출. 원본은 [CalendarEvent.label] 에 그대로 유지 (나중에 상세 화면용).
+    val display = event.label.substringBefore('(').trim()
+    ChipText(text = display, bg = bg, fg = fg)
 }
 
 @Composable
 private fun OverflowChip(count: Int) {
+    ChipText(text = "+$count", bg = ChipSeasonBg, fg = ChipSeasonText)
+}
+
+/**
+ * chip 공통 렌더. Box 래퍼를 벗겨 배경·클립·패딩을 Text 에 직접 얹었다.
+ * 셀 가로 폭을 꽉 채우려면 [Modifier.fillMaxWidth] 가 필요하고, 그 안에서 가운데 정렬은
+ * [TextAlign.Center]. `maxLines=1 + Ellipsis` 로 좁은 셀에서도 넘치지 않게.
+ */
+@Composable
+private fun ChipText(text: String, bg: Color, fg: Color) {
     val pretendard = LocalPretendardFontFamily.current
-    Box(
+    Text(
+        text = text,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        textAlign = TextAlign.Center,
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(2.dp))
-            .background(ChipSeasonBg)
-            .padding(horizontal = 3.dp, vertical = 1.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = "+$count",
-            maxLines = 1,
-            style = TextStyle(
-                fontFamily = pretendard,
-                fontWeight = FontWeight.Bold,
-                fontSize = 8.sp,
-                color = ChipSeasonText,
-            ),
-        )
-    }
+            .clip(RoundedCornerShape(3.dp))
+            .background(bg)
+            .padding(horizontal = 2.dp, vertical = 1.dp),
+        style = TextStyle(
+            fontFamily = pretendard,
+            fontWeight = FontWeight.Bold,
+            fontSize = 10.sp,
+            color = fg,
+        ),
+    )
 }
 
 // ────────── Preview ──────────
