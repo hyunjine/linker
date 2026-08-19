@@ -62,3 +62,11 @@ val ChipSeasonBg = Color(0xFFF0F0F2)    // 절기 배경
 val ChipSeasonText = Color(0xFF6B6B75)  // 절기 글자
 val ChipPersonalBg = Color(0xFFFADEE3)  // 개인 일정 배경
 val ChipPersonalText = Color(0xFFBF404D) // 개인 일정 글자
+
+// 소유자 태그 pill (날짜 상세 시트)
+val OwnerMeBg = Color(0xFFFFF3D6)       // 나 배경 (옅은 노랑)
+val OwnerMeText = Color(0xFFB08800)     // 나 글자
+val OwnerPartnerBg = Color(0xFFFCE1EA)  // 상대방 배경 (옅은 분홍)
+val OwnerPartnerText = Color(0xFFC03A6B) // 상대방 글자
+val OwnerUsBg = Color(0xFFEEE1FA)       // 우리 배경 (옅은 보라)
+val OwnerUsText = Color(0xFF6E3AC0)     // 우리 글자
