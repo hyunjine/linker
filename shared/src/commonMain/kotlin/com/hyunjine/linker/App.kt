@@ -44,7 +44,7 @@ private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
 fun App() {
     MaterialTheme {
         ProvidePretendard {
-            val backStack = rememberNavBackStack(NavConfig, MainRoute)
+            val backStack = rememberNavBackStack(NavConfig, ProfileSetupRoute)
             NavDisplay(
                 backStack = backStack,
                 onBack = { backStack.removeLastOrNull() },

@@ -27,7 +27,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +45,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hyunjine.linker.data.specialday.SpecialDayKind
+import com.hyunjine.linker.ui.common.YearMonthPickerSheet
 import com.hyunjine.linker.ui.common.liquidGlass
 import com.hyunjine.linker.ui.theme.Background
 import com.hyunjine.linker.ui.theme.CalendarLunarText
@@ -168,6 +173,9 @@ fun MainScreen(
     val mergedEntries = remember(entries, specialDayEntries) {
         mergeEntries(base = specialDayEntries, override = entries)
     }
+    // 타이틀 탭 시 년/월 피커 시트 오픈. dismiss 시 선택 값으로 pager 를 해당 월까지 스크롤.
+    var pickerVisible by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -178,7 +186,10 @@ fun MainScreen(
         MainToolbar(
             yearMonth = currentYearMonth,
             onMenuClick = onMenuClick,
-            onTitleClick = onTitleClick,
+            onTitleClick = {
+                onTitleClick()
+                pickerVisible = true
+            },
             onSearchClick = onSearchClick,
         )
         WeekdaysRow()
@@ -197,7 +208,26 @@ fun MainScreen(
             )
         }
     }
+
+    // 캘린더는 오늘 기준 ±100년 이동 가능. 월은 각 연도 1~12 전체 허용.
+    YearMonthPickerSheet(
+        visible = pickerVisible,
+        date = LocalDate(currentYearMonth.year, currentYearMonth.month, 1),
+        minDate = LocalDate(today.year - 100, 1, 1),
+        maxDate = LocalDate(today.year + 100, 12, 1),
+        onConfirm = { picked ->
+            pickerVisible = false
+            val target = YearMonth(picked.year, picked.month.ordinal + 1)
+            val delta = target.monthsSince(initialYearMonth)
+            scope.launch { pagerState.scrollToPage(anchorPage + delta) }
+        },
+        onCancel = { pickerVisible = false },
+    )
 }
+
+/** [other] 로부터 이 [YearMonth] 까지 몇 개월 뒤인지. `other.plusMonths(this.monthsSince(other)) == this`. */
+private fun YearMonth.monthsSince(other: YearMonth): Int =
+    (year - other.year) * 12 + (month - other.month)
 
 /**
  * 두 entry 맵을 병합. 같은 날짜면 events 를 이어 붙이고 (base + override 순), lunarLabel 은
