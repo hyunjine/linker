@@ -10,6 +10,7 @@ import androidx.savedstate.serialization.SavedStateConfiguration
 import com.hyunjine.linker.ui.couple.CoupleLinkScreen
 import com.hyunjine.linker.ui.main.MainScreen
 import com.hyunjine.linker.ui.profile.ProfileSetupScreen
+import com.hyunjine.linker.ui.schedule.CreateScheduleScreen
 import com.hyunjine.linker.ui.theme.ProvidePretendard
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.modules.SerializersModule
@@ -30,12 +31,16 @@ private data object ProfileSetupRoute : NavKey
 @Serializable
 private data object CoupleLinkRoute : NavKey
 
+@Serializable
+private data object CreateScheduleRoute : NavKey
+
 private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
     serializersModule = SerializersModule {
         polymorphic(NavKey::class) {
             subclass(MainRoute::class, MainRoute.serializer())
             subclass(ProfileSetupRoute::class, ProfileSetupRoute.serializer())
             subclass(CoupleLinkRoute::class, CoupleLinkRoute.serializer())
+            subclass(CreateScheduleRoute::class, CreateScheduleRoute.serializer())
         }
     }
 }
@@ -60,6 +65,12 @@ fun App() {
                     entry<CoupleLinkRoute> {
                         CoupleLinkScreen(
                             onBack = { backStack.removeLastOrNull() },
+                        )
+                    }
+                    entry<CreateScheduleRoute> {
+                        CreateScheduleScreen(
+                            onBack = { backStack.removeLastOrNull() },
+                            onSave = { /* TODO(#15 후속): repository 저장 */ backStack.removeLastOrNull() },
                         )
                     }
                 },
