@@ -8,6 +8,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import androidx.savedstate.serialization.SavedStateConfiguration
 import com.hyunjine.linker.ui.couple.CoupleLinkScreen
+import com.hyunjine.linker.ui.login.LoginScreen
 import com.hyunjine.linker.ui.main.MainScreen
 import com.hyunjine.linker.ui.profile.ProfileSetupScreen
 import com.hyunjine.linker.ui.schedule.CreateScheduleScreen
@@ -23,6 +24,9 @@ import kotlinx.serialization.modules.subclass
  * saved state 복원이 가능하다 (KMP 는 리플렉션이 없어 명시 등록 필수).
  */
 @Serializable
+private data object LoginRoute : NavKey
+
+@Serializable
 private data object MainRoute : NavKey
 
 @Serializable
@@ -37,6 +41,7 @@ private data object CreateScheduleRoute : NavKey
 private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
     serializersModule = SerializersModule {
         polymorphic(NavKey::class) {
+            subclass(LoginRoute::class, LoginRoute.serializer())
             subclass(MainRoute::class, MainRoute.serializer())
             subclass(ProfileSetupRoute::class, ProfileSetupRoute.serializer())
             subclass(CoupleLinkRoute::class, CoupleLinkRoute.serializer())
@@ -49,24 +54,37 @@ private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
 fun App() {
     MaterialTheme {
         ProvidePretendard {
-            val backStack = rememberNavBackStack(NavConfig, MainRoute)
+            val backStack = rememberNavBackStack(NavConfig, LoginRoute)
+            // 온보딩 완료(커플 연결) 시점에 로그인·프로필·연결 스택을 전부 비우고 Main 만 남긴다.
+            // 홈에서 뒤로가기로 로그인 화면이 다시 뜨면 안 되므로 clear + push 조합.
+            val goHome: () -> Unit = {
+                backStack.clear()
+                backStack.add(MainRoute)
+            }
             NavDisplay(
                 backStack = backStack,
                 onBack = { backStack.removeLastOrNull() },
                 entryProvider = entryProvider {
-                    entry<MainRoute> {
-                        MainScreen(
-                            onAddSchedule = { backStack.add(CreateScheduleRoute) },
+                    entry<LoginRoute> {
+                        LoginScreen(
+                            onKakaoLoginClick = { backStack.add(ProfileSetupRoute) },
                         )
                     }
                     entry<ProfileSetupRoute> {
                         ProfileSetupScreen(
+                            onBack = { backStack.removeLastOrNull() },
                             onNext = { backStack.add(CoupleLinkRoute) },
                         )
                     }
                     entry<CoupleLinkRoute> {
                         CoupleLinkScreen(
                             onBack = { backStack.removeLastOrNull() },
+                            onLink = { _ -> goHome() },
+                        )
+                    }
+                    entry<MainRoute> {
+                        MainScreen(
+                            onAddSchedule = { backStack.add(CreateScheduleRoute) },
                         )
                     }
                     entry<CreateScheduleRoute> {
