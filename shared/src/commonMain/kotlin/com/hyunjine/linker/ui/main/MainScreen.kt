@@ -32,6 +32,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
@@ -182,7 +183,12 @@ fun MainScreen(
     var pickerVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     // 셀 탭 시 날짜 상세 시트 오픈. null 이면 안 보임. dummy 데이터는 임시 (후속 이슈에서 실제 소스 연결).
-    var dayDetail by remember { mutableStateOf<DayDetail?>(null) }
+    // 다른 nav 목적지(CreateSchedule) 가 위에 얹혔다가 돌아왔을 때 시트가 유지되어야 하므로
+    // 진짜 payload 는 rememberSaveable 로 남기고, dummy 렌더용 DayDetail 은 그로부터 파생.
+    // (LocalDate 는 saveable 불가 → 문자열로 저장)
+    var selectedDateString by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedDate = remember(selectedDateString) { selectedDateString?.let { LocalDate.parse(it) } }
+    var dayDetail by remember(selectedDate) { mutableStateOf(selectedDate?.let { dummyDayDetail(it) }) }
     // 사이드 드로워 상태 + 표시 옵션 (MVP: 로컬 state, 저장·연동은 후속 이슈).
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     var displayState by remember { mutableStateOf(DrawerDisplayState()) }
@@ -241,7 +247,7 @@ fun MainScreen(
                 entries = mergedEntries,
                 onDayClick = { date ->
                     onDayClick(date)
-                    dayDetail = dummyDayDetail(date)
+                    selectedDateString = date.toString()
                 },
                 onDayLongClick = onAddSchedule,
                 modifier = Modifier.fillMaxSize(),
@@ -268,7 +274,7 @@ fun MainScreen(
     DayDetailSheet(
         visible = dayDetail != null,
         detail = dayDetail,
-        onDismiss = { dayDetail = null },
+        onDismiss = { selectedDateString = null },
         onToggleTask = { taskId ->
             // TODO(#9 후속): 실제 저장소 연결. 지금은 dummy 라 토글 반영 안 됨.
             val current = dayDetail ?: return@DayDetailSheet
@@ -279,7 +285,7 @@ fun MainScreen(
         onAdd = { _ ->
             // 시트 안 chip 탭 → 일정 생성 진입. 시트는 그대로 두고 위에 새 화면을 스택으로 얹는다.
             // 초기 타입 전달은 후속 (CreateScheduleRoute param 도입 필요).
-            val date = dayDetail?.date ?: return@DayDetailSheet
+            val date = selectedDate ?: return@DayDetailSheet
             onAddSchedule(date)
         },
     )
@@ -297,6 +303,14 @@ private fun dummyDayDetail(date: LocalDate): DayDetail = DayDetail(
         DayTask("t1", "항공권 예약하기", isDone = false, owner = DayOwner.Me),
         DayTask("t2", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
         DayTask("t3", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
+        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
+        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
+        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
+        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
+        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
+        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
+        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
+        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
         DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
         DayTask("t5", "선물·준비하기", isDone = true, owner = DayOwner.Me),
     ),
