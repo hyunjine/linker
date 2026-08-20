@@ -1,14 +1,22 @@
 package com.hyunjine.linker.ui.common
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,8 +26,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
@@ -32,8 +40,13 @@ import com.hyunjine.linker.ui.theme.SurfaceCard
 import com.hyunjine.linker.ui.theme.SurfaceGray
 import com.hyunjine.linker.ui.theme.TextPrimary
 
+// 셀 높이 고정. 하이라이트 pill 이 `fillMaxHeight` 로 부모 높이에 의존하지 않게 하려는 목적.
+// `padding(vertical=8) + 13sp` 텍스트에서 자연스럽게 나오는 33dp 를 그대로 못박음.
+private val SegmentItemHeight = 33.dp
+
 /**
- * iOS 스타일 세그먼트 컨트롤. 트랙 배경 (SegmentTrack) 위에 선택된 항목만 흰색 pill 로 강조.
+ * iOS 스타일 세그먼트 컨트롤. 트랙 배경 (SegmentTrack) 위에 선택된 슬롯을 흰색 pill 로 강조하며,
+ * 다른 항목을 선택하면 pill 이 좌↔우로 슬라이드 애니메이션되며 이동한다.
  *
  * @param options 항목 목록. 순서대로 좌→우 배치. 균등 폭.
  * @param selected 현재 선택된 항목.
@@ -48,21 +61,43 @@ fun <T> SegmentedControl(
     label: (T) -> String,
     modifier: Modifier = Modifier,
 ) {
-    Row(
+    val selectedIndex = options.indexOf(selected).coerceAtLeast(0)
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(SegmentTrack)
             .padding(3.dp),
-        horizontalArrangement = Arrangement.spacedBy(0.dp),
     ) {
-        options.forEach { option ->
-            SegmentItem(
-                text = label(option),
-                selected = option == selected,
-                onClick = { onSelect(option) },
-                modifier = Modifier.weight(1f),
-            )
+        // 트랙 안쪽(padding 3dp 제외 후) 폭을 항목 수로 균등 분할.
+        val itemWidth = maxWidth / options.size
+        val animatedOffset by animateDpAsState(
+            targetValue = itemWidth * selectedIndex,
+            animationSpec = spring(dampingRatio = 0.85f, stiffness = 500f),
+            label = "segmentOffset",
+        )
+
+        // 하이라이트 pill — 트랙 위, 텍스트 아래 레이어. Row 보다 먼저 그려져야 텍스트가 pill 위에 올라감.
+        Box(
+            modifier = Modifier
+                .offset(x = animatedOffset)
+                .width(itemWidth)
+                .height(SegmentItemHeight)
+                .clip(RoundedCornerShape(8.dp))
+                .background(SurfaceCard),
+        )
+
+        Row(Modifier.fillMaxWidth()) {
+            options.forEachIndexed { index, option ->
+                SegmentItem(
+                    text = label(option),
+                    selected = index == selectedIndex,
+                    onClick = { onSelect(option) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(SegmentItemHeight),
+                )
+            }
         }
     }
 }
@@ -75,12 +110,19 @@ private fun SegmentItem(
     modifier: Modifier = Modifier,
 ) {
     val pretendard = LocalPretendardFontFamily.current
+    // iOS 스타일: Material 리플 대신 press 시 살짝 흐려지는 opacity 피드백. 배경 pill 은 상위 오버레이에서
+    // 그려주므로 여기서는 배경을 두지 않는다 (이중으로 그리면 애니메이션 중 잔상 발생).
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val pressAlpha by animateFloatAsState(if (pressed) 0.6f else 1f, label = "segmentPress")
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(if (selected) SurfaceCard else Color.Transparent)
-            .clickable(onClick = onClick)
-            .padding(vertical = 8.dp),
+            .clickable(
+                interactionSource = interaction,
+                indication = null,
+                onClick = onClick,
+            )
+            .alpha(pressAlpha),
         contentAlignment = Alignment.Center,
     ) {
         Text(

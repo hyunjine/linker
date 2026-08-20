@@ -18,8 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -36,6 +34,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hyunjine.linker.ui.common.AppSwitch
 import com.hyunjine.linker.ui.common.AppTopBar
 import com.hyunjine.linker.ui.common.SegmentedControl
 import com.hyunjine.linker.ui.common.YearMonthDayPickerSheet
@@ -43,7 +42,6 @@ import com.hyunjine.linker.ui.theme.Chevron
 import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.ui.theme.PlaceholderText
 import com.hyunjine.linker.ui.theme.PrimaryBlue
-import com.hyunjine.linker.ui.theme.Separator
 import com.hyunjine.linker.ui.theme.SeparatorGrouped
 import com.hyunjine.linker.ui.theme.SurfaceCard
 import com.hyunjine.linker.ui.theme.SurfaceGray
@@ -80,7 +78,11 @@ fun CreateScheduleScreen(
     var startDateSheet by remember { mutableStateOf(false) }
     var endDateSheet by remember { mutableStateOf(false) }
 
-    val canEdit = draft.isEditableByCurrentUser
+    // 편집 가능 여부는 "이 화면을 어떤 자격으로 열었나" 로만 정해진다.
+    // create 모드에서는 owner 를 자유롭게 지정할 수 있어야 하고, edit 모드에서는 화면 진입 시점의
+    // 원본 owner 로 판정한다 — mutating `draft.owner` 를 참조하면 사용자가 세그먼트에서 "상대방" 을
+    // 고른 순간 화면 전체가 잠겨 다시 "나/공동" 으로 되돌릴 방법이 없어진다.
+    val canEdit = !editing || (initial?.isEditableByCurrentUser ?: true)
 
     Box(
         modifier = Modifier
@@ -306,18 +308,7 @@ private fun AllDayRow(checked: Boolean, enabled: Boolean, onChange: (Boolean) ->
                 color = TextPrimary,
             ),
         )
-        Switch(
-            checked = checked,
-            enabled = enabled,
-            onCheckedChange = onChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = SurfaceCard,
-                checkedTrackColor = PrimaryBlue,
-                uncheckedThumbColor = SurfaceCard,
-                uncheckedTrackColor = Separator,
-                uncheckedBorderColor = Separator,
-            ),
-        )
+        AppSwitch(checked = checked, onCheckedChange = onChange, enabled = enabled)
     }
 }
 

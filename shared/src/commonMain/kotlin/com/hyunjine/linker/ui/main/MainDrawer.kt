@@ -14,8 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -25,13 +23,11 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.hyunjine.linker.platform.rememberSelectionHaptic
+import com.hyunjine.linker.ui.common.AppSwitch
 import com.hyunjine.linker.ui.theme.AvatarPlaceholderBg
 import com.hyunjine.linker.ui.theme.AvatarPlaceholderFg
 import com.hyunjine.linker.ui.theme.DrawerButtonBg
 import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
-import com.hyunjine.linker.ui.theme.PrimaryBlue
-import com.hyunjine.linker.ui.theme.Separator
 import com.hyunjine.linker.ui.theme.SurfaceCard
 import com.hyunjine.linker.ui.theme.TextPrimary
 import com.hyunjine.linker.ui.theme.TextSecondary
@@ -236,8 +232,8 @@ private fun SectionLabel(text: String) {
 @Composable
 private fun ToggleRow(text: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     val pretendard = LocalPretendardFontFamily.current
-    val fireHaptic = rememberSelectionHaptic()
-    // Row 는 tap 안 받음 → ripple 이 Switch 안에서만. Switch 콜백에서 selection 햅틱 발화.
+    // Row 자체는 tap 을 받지 않으므로 Switch 영역만 인터랙션.
+    // Selection 햅틱은 AppSwitch 내부에서 처리 — 여기서 별도 발화 X.
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -254,19 +250,6 @@ private fun ToggleRow(text: String, checked: Boolean, onCheckedChange: (Boolean)
                 color = TextPrimary,
             ),
         )
-        Switch(
-            checked = checked,
-            onCheckedChange = { new ->
-                fireHaptic()
-                onCheckedChange(new)
-            },
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = SurfaceCard,
-                checkedTrackColor = PrimaryBlue,
-                uncheckedThumbColor = SurfaceCard,
-                uncheckedTrackColor = Separator,
-                uncheckedBorderColor = Separator,
-            ),
-        )
+        AppSwitch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
