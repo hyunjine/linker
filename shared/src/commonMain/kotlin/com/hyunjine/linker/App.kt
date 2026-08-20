@@ -49,13 +49,15 @@ private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
 fun App() {
     MaterialTheme {
         ProvidePretendard {
-            val backStack = rememberNavBackStack(NavConfig, CreateScheduleRoute)
+            val backStack = rememberNavBackStack(NavConfig, MainRoute)
             NavDisplay(
                 backStack = backStack,
                 onBack = { backStack.removeLastOrNull() },
                 entryProvider = entryProvider {
                     entry<MainRoute> {
-                        MainScreen()
+                        MainScreen(
+                            onAddSchedule = { backStack.add(CreateScheduleRoute) },
+                        )
                     }
                     entry<ProfileSetupRoute> {
                         ProfileSetupScreen(

@@ -1,8 +1,10 @@
 package com.hyunjine.linker.ui.main
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -146,6 +148,7 @@ private fun today(): LocalDate =
  * @param onTitleClick 중앙 "YYYY. M v" 탭 (월 피커 열기).
  * @param onSearchClick 우상단 검색 탭.
  * @param onDayClick 그리드 셀 탭 (해당 날짜 상세 열기).
+ * @param onAddSchedule 그리드 셀 롱프레스 (iOS 캘린더 관습) — 해당 날짜를 기준으로 일정 생성 화면 진입.
  */
 @Composable
 fun MainScreen(
@@ -156,6 +159,7 @@ fun MainScreen(
     onTitleClick: () -> Unit = {},
     onSearchClick: () -> Unit = {},
     onDayClick: (LocalDate) -> Unit = {},
+    onAddSchedule: (LocalDate) -> Unit = {},
 ) {
     // Int.MAX_VALUE 크기의 pager 로 사실상 무한 좌우 스와이프. 중간에서 시작해 양쪽으로 무제한 이동.
     val anchorPage = remember { Int.MAX_VALUE / 2 }
@@ -239,6 +243,7 @@ fun MainScreen(
                     onDayClick(date)
                     dayDetail = dummyDayDetail(date)
                 },
+                onDayLongClick = onAddSchedule,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -506,6 +511,7 @@ private fun CalendarGrid(
     today: LocalDate,
     entries: Map<LocalDate, CalendarDayEntry>,
     onDayClick: (LocalDate) -> Unit,
+    onDayLongClick: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
@@ -524,6 +530,7 @@ private fun CalendarGrid(
                         isToday = cell.date == today,
                         entry = entries[cell.date],
                         onClick = { onDayClick(cell.date) },
+                        onLongClick = { onDayLongClick(cell.date) },
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                     )
                 }
@@ -532,12 +539,14 @@ private fun CalendarGrid(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DayCell(
     cell: MonthCell,
     isToday: Boolean,
     entry: CalendarDayEntry?,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val pretendard = LocalPretendardFontFamily.current
@@ -553,7 +562,7 @@ private fun DayCell(
             // 셀 전체 (숫자·chip 있든 없든) 를 리플 영역으로 잡기 위해 높이도 부모 (한 주 Row) 를 꽉 채움.
             .fillMaxHeight()
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(top = 10.dp)
             .padding(horizontal = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
