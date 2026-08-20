@@ -1,10 +1,13 @@
 package com.hyunjine.linker.ui.common
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -13,19 +16,24 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hyunjine.linker.platform.rememberSelectionHaptic
 import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
+import com.hyunjine.linker.ui.theme.ProvidePretendard
+import com.hyunjine.linker.ui.theme.SurfaceCard
 import com.hyunjine.linker.ui.theme.TextPrimary
 import kotlin.math.abs
 import kotlinx.coroutines.flow.drop
@@ -131,6 +139,61 @@ fun WheelPicker(
                         ),
                     )
                 }
+            }
+        }
+    }
+}
+
+// ---------- Previews ----------
+
+@Preview
+@Composable
+private fun WheelPickerPreview_Single() {
+    val items = remember { (1..12).map { "${it}월" } }
+    var idx by remember { mutableStateOf(4) }
+    ProvidePretendard {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(SurfaceCard)
+                .padding(16.dp),
+        ) {
+            WheelPicker(
+                items = items,
+                selectedIndex = idx,
+                onSelectedChange = { idx = it },
+            )
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun WheelPickerPreview_YearMonth() {
+    val years = remember { (1996..2000).map { "${it}년" } }
+    val months = remember { (1..12).map { "${it}월" } }
+    var yi by remember { mutableStateOf(2) }
+    var mi by remember { mutableStateOf(4) }
+    ProvidePretendard {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(SurfaceCard)
+                .padding(16.dp),
+        ) {
+            Row(Modifier.fillMaxWidth()) {
+                WheelPicker(
+                    items = years,
+                    selectedIndex = yi,
+                    onSelectedChange = { yi = it },
+                    modifier = Modifier.weight(1f),
+                )
+                WheelPicker(
+                    items = months,
+                    selectedIndex = mi,
+                    onSelectedChange = { mi = it },
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
     }

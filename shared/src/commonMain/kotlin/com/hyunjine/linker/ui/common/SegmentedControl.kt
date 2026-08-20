@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,17 +12,24 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
+import com.hyunjine.linker.ui.theme.ProvidePretendard
 import com.hyunjine.linker.ui.theme.SegmentTrack
 import com.hyunjine.linker.ui.theme.SurfaceCard
+import com.hyunjine.linker.ui.theme.SurfaceGray
 import com.hyunjine.linker.ui.theme.TextPrimary
 
 /**
@@ -84,5 +92,73 @@ private fun SegmentItem(
                 color = TextPrimary,
             ),
         )
+    }
+}
+
+// ---------- Previews ----------
+
+@Composable
+private fun PreviewFrame(content: @Composable () -> Unit) {
+    ProvidePretendard {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(SurfaceGray)
+                .padding(16.dp),
+        ) {
+            content()
+        }
+    }
+}
+
+@Preview
+@Composable
+private fun SegmentedControlPreview_TwoItems() {
+    var selected by remember { mutableStateOf("일정") }
+    PreviewFrame {
+        SegmentedControl(
+            options = listOf("할 일", "일정"),
+            selected = selected,
+            onSelect = { selected = it },
+            label = { it },
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun SegmentedControlPreview_ThreeItems() {
+    var selected by remember { mutableStateOf("나") }
+    PreviewFrame {
+        SegmentedControl(
+            options = listOf("나", "상대방", "공동"),
+            selected = selected,
+            onSelect = { selected = it },
+            label = { it },
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun SegmentedControlPreview_Stack() {
+    // 실제 사용처처럼 여러 세그먼트를 나열해 톤 확인.
+    var typeSel by remember { mutableStateOf("일정") }
+    var ownerSel by remember { mutableStateOf("나") }
+    PreviewFrame {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            SegmentedControl(
+                options = listOf("할 일", "일정"),
+                selected = typeSel,
+                onSelect = { typeSel = it },
+                label = { it },
+            )
+            SegmentedControl(
+                options = listOf("나", "상대방", "공동"),
+                selected = ownerSel,
+                onSelect = { ownerSel = it },
+                label = { it },
+            )
+        }
     }
 }
