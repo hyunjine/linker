@@ -283,9 +283,12 @@ fun MainScreen(
             )
         },
         onAdd = { _ ->
-            // 시트 안 chip 탭 → 일정 생성 진입. 시트는 그대로 두고 위에 새 화면을 스택으로 얹는다.
+            // 시트 안 chip 탭 → 일정 생성 진입. 시트를 즉시 composition 에서 빼서 (dismiss 애니메이션
+            // 없이) CreateSchedule 이 곧바로 포그라운드에 올라오게 한다. sheetState.hide() 로 닫으면
+            // sheet slide-down 애니메이션이 nav 전환 앞에 재생돼 새 화면이 늦게 노출된다.
             // 초기 타입 전달은 후속 (CreateScheduleRoute param 도입 필요).
             val date = selectedDate ?: return@DayDetailSheet
+            selectedDateString = null
             onAddSchedule(date)
         },
     )
