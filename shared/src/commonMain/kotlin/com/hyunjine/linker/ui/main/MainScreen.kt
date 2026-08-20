@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -182,13 +183,20 @@ fun MainScreen(
     // 타이틀 탭 시 년/월 피커 시트 오픈. dismiss 시 선택 값으로 pager 를 해당 월까지 스크롤.
     var pickerVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    // 셀 탭 시 날짜 상세 시트 오픈. null 이면 안 보임. dummy 데이터는 임시 (후속 이슈에서 실제 소스 연결).
-    // 다른 nav 목적지(CreateSchedule) 가 위에 얹혔다가 돌아왔을 때 시트가 유지되어야 하므로
-    // 진짜 payload 는 rememberSaveable 로 남기고, dummy 렌더용 DayDetail 은 그로부터 파생.
-    // (LocalDate 는 saveable 불가 → 문자열로 저장)
+    // 셀 탭 시 날짜 상세 시트 오픈. dummy 데이터는 임시 (후속 이슈에서 실제 소스 연결).
+    // 선택된 날짜(=진짜 payload)와 시트 visible 을 분리해서 관리한다:
+    //  - `selectedDateString` (rememberSaveable): CreateSchedule 등 다른 nav 목적지에서 돌아왔을 때
+    //    이전 선택 날짜를 유지하기 위함.
+    //  - `sheetVisible` (remember): chip 탭으로 CreateSchedule 진입 직전에만 false 로 만들어 시트
+    //    slide-down 애니메이션 없이 즉시 사라지게 하기 위함. 최초 진입 or pop 재진입 시
+    //    LaunchedEffect 로 selectedDate 가 있으면 true 로 자동 복원.
     var selectedDateString by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedDate = remember(selectedDateString) { selectedDateString?.let { LocalDate.parse(it) } }
     var dayDetail by remember(selectedDate) { mutableStateOf(selectedDate?.let { dummyDayDetail(it) }) }
+    var sheetVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (selectedDate != null) sheetVisible = true
+    }
     // 사이드 드로워 상태 + 표시 옵션 (MVP: 로컬 state, 저장·연동은 후속 이슈).
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     var displayState by remember { mutableStateOf(DrawerDisplayState()) }
@@ -248,6 +256,7 @@ fun MainScreen(
                 onDayClick = { date ->
                     onDayClick(date)
                     selectedDateString = date.toString()
+                    sheetVisible = true
                 },
                 onDayLongClick = onAddSchedule,
                 modifier = Modifier.fillMaxSize(),
@@ -272,9 +281,12 @@ fun MainScreen(
 
     // 셀 탭 → 날짜 상세 시트.
     DayDetailSheet(
-        visible = dayDetail != null,
+        visible = sheetVisible && dayDetail != null,
         detail = dayDetail,
-        onDismiss = { selectedDateString = null },
+        onDismiss = {
+            sheetVisible = false
+            selectedDateString = null
+        },
         onToggleTask = { taskId ->
             // TODO(#9 후속): 실제 저장소 연결. 지금은 dummy 라 토글 반영 안 됨.
             val current = dayDetail ?: return@DayDetailSheet
@@ -283,12 +295,14 @@ fun MainScreen(
             )
         },
         onAdd = { _ ->
-            // 시트 안 chip 탭 → 일정 생성 진입. 시트를 즉시 composition 에서 빼서 (dismiss 애니메이션
-            // 없이) CreateSchedule 이 곧바로 포그라운드에 올라오게 한다. sheetState.hide() 로 닫으면
-            // sheet slide-down 애니메이션이 nav 전환 앞에 재생돼 새 화면이 늦게 노출된다.
-            // 초기 타입 전달은 후속 (CreateScheduleRoute param 도입 필요).
+            // 시트 안 chip 탭 → 일정 생성 진입.
+            //  - `sheetVisible = false` 로 시트를 즉시 composition 에서 빼 CreateSchedule 이
+            //    slide-down 애니메이션 지연 없이 곧바로 포그라운드에 올라오게 한다.
+            //  - `selectedDateString` 은 유지해서 pop 으로 돌아오면 위 LaunchedEffect 가
+            //    같은 날짜 시트를 다시 열어 준다.
+            //    초기 타입 전달은 후속 (CreateScheduleRoute param 도입 필요).
             val date = selectedDate ?: return@DayDetailSheet
-            selectedDateString = null
+            sheetVisible = false
             onAddSchedule(date)
         },
     )
