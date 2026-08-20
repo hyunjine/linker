@@ -17,7 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -40,9 +40,10 @@ import com.hyunjine.linker.ui.theme.SurfaceCard
 import com.hyunjine.linker.ui.theme.SurfaceGray
 import com.hyunjine.linker.ui.theme.TextPrimary
 
-// 셀 높이 고정. 하이라이트 pill 이 `fillMaxHeight` 로 부모 높이에 의존하지 않게 하려는 목적.
-// `padding(vertical=8) + 13sp` 텍스트에서 자연스럽게 나오는 33dp 를 그대로 못박음.
-private val SegmentItemHeight = 33.dp
+// Figma 2772:78828 스펙: 트랙 370×32, 상하좌우 2dp 인셋, 버튼 자체 높이 28dp.
+// 트랙/pill 모두 완전한 pill(capsule) 형태 — `CircleShape` (radius=50%) 사용.
+private val SegmentItemHeight = 28.dp
+private val SegmentTrackInset = 2.dp
 
 /**
  * iOS 스타일 세그먼트 컨트롤. 트랙 배경 (SegmentTrack) 위에 선택된 슬롯을 흰색 pill 로 강조하며,
@@ -65,11 +66,11 @@ fun <T> SegmentedControl(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(10.dp))
+            .clip(CircleShape)
             .background(SegmentTrack)
-            .padding(3.dp),
+            .padding(SegmentTrackInset),
     ) {
-        // 트랙 안쪽(padding 3dp 제외 후) 폭을 항목 수로 균등 분할.
+        // 트랙 안쪽(padding 제외 후) 폭을 항목 수로 균등 분할.
         val itemWidth = maxWidth / options.size
         val animatedOffset by animateDpAsState(
             targetValue = itemWidth * selectedIndex,
@@ -83,7 +84,7 @@ fun <T> SegmentedControl(
                 .offset(x = animatedOffset)
                 .width(itemWidth)
                 .height(SegmentItemHeight)
-                .clip(RoundedCornerShape(8.dp))
+                .clip(CircleShape)
                 .background(SurfaceCard),
         )
 

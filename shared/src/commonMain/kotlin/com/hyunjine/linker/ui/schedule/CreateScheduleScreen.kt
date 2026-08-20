@@ -77,6 +77,7 @@ fun CreateScheduleScreen(
 
     var startDateSheet by remember { mutableStateOf(false) }
     var endDateSheet by remember { mutableStateOf(false) }
+    var repeatSheet by remember { mutableStateOf(false) }
 
     // 편집 가능 여부는 "이 화면을 어떤 자격으로 열었나" 로만 정해진다.
     // create 모드에서는 owner 를 자유롭게 지정할 수 있어야 하고, edit 모드에서는 화면 진입 시점의
@@ -139,7 +140,7 @@ fun CreateScheduleScreen(
                         RowItem(
                             label = "반복",
                             value = draft.repeat.label,
-                            onClick = { /* TODO(#15 후속): repeat picker sheet */ },
+                            onClick = { if (canEdit) repeatSheet = true },
                             enabled = canEdit,
                         )
                     }
@@ -204,6 +205,16 @@ fun CreateScheduleScreen(
             draft = draft.copy(endDate = picked)
         },
         onCancel = { endDateSheet = false },
+    )
+    RepeatPickerSheet(
+        visible = repeatSheet,
+        current = draft.repeat,
+        anchorDate = draft.startDate,
+        onSelect = { rule ->
+            draft = draft.copy(repeat = rule)
+            repeatSheet = false
+        },
+        onDismiss = { repeatSheet = false },
     )
 }
 
@@ -433,8 +444,9 @@ private val ScheduleDraftSaver = androidx.compose.runtime.saveable.Saver<Schedul
                 RepeatRule.None -> "none"
                 RepeatRule.Daily -> "daily"
                 is RepeatRule.Weekly -> "weekly"
-                is RepeatRule.Monthly -> "monthly:${(d.repeat as RepeatRule.Monthly).day}"
-                is RepeatRule.Yearly -> "yearly:${(d.repeat as RepeatRule.Yearly).month}:${(d.repeat as RepeatRule.Yearly).day}"
+                is RepeatRule.Monthly -> "monthly:${d.repeat.day}"
+                is RepeatRule.Yearly -> "yearly:${d.repeat.month}:${d.repeat.day}"
+                RepeatRule.Custom -> "custom"
             },
             d.owner.name,
         )
@@ -463,5 +475,6 @@ private fun parseRepeat(s: String): RepeatRule = when {
         val parts = s.substringAfter(":").split(":")
         RepeatRule.Yearly(parts.getOrNull(0)?.toIntOrNull() ?: 1, parts.getOrNull(1)?.toIntOrNull() ?: 1)
     }
+    s == "custom" -> RepeatRule.Custom
     else -> RepeatRule.None
 }

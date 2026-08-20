@@ -32,14 +32,20 @@ enum class ScheduleOwner(val label: String) {
 sealed interface RepeatRule {
     val label: String
 
-    object None : RepeatRule { override val label = "안 함" }
+    object None : RepeatRule { override val label = "반복 안함" }
     object Daily : RepeatRule { override val label = "매일" }
     data class Weekly(val days: Set<DayOfWeek>) : RepeatRule { override val label = "매주" }
     data class Monthly(val day: Int) : RepeatRule { override val label = "매월" }
     data class Yearly(val month: Int, val day: Int) : RepeatRule { override val label = "매년" }
 
+    /**
+     * 사용자 정의 반복. 세부 규칙 편집 UI 는 후속 이슈 (예: N주마다 · 종료 조건 등).
+     * 현재는 라벨 노출용 마커 값으로만 사용.
+     */
+    object Custom : RepeatRule { override val label = "사용자 설정" }
+
     companion object {
-        val Options: List<RepeatRule> = listOf(None, Daily, Weekly(emptySet()), Monthly(1), Yearly(1, 1))
+        val Options: List<RepeatRule> = listOf(None, Daily, Weekly(emptySet()), Monthly(1), Yearly(1, 1), Custom)
     }
 }
 
