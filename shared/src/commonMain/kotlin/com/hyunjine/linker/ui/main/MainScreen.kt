@@ -277,9 +277,9 @@ fun MainScreen(
             )
         },
         onAdd = { _ ->
-            // 시트 안 chip 탭 → 일정 생성 진입. 초기 타입 전달은 후속 (CreateScheduleRoute param 도입 필요).
+            // 시트 안 chip 탭 → 일정 생성 진입. 시트는 그대로 두고 위에 새 화면을 스택으로 얹는다.
+            // 초기 타입 전달은 후속 (CreateScheduleRoute param 도입 필요).
             val date = dayDetail?.date ?: return@DayDetailSheet
-            dayDetail = null
             onAddSchedule(date)
         },
     )
