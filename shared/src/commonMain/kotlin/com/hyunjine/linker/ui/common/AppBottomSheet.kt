@@ -7,11 +7,13 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -69,6 +71,9 @@ fun AppBottomSheet(
         sheetState = sheetState,
         containerColor = SurfaceCard,
         dragHandle = dragHandle,
+        // 시트 최대 확장을 status bar 아래까지로 제한. 없으면 fullyExpanded 시 status bar 까지
+        // 덮여서 시트가 아닌 한 페이지처럼 보인다.
+        contentWindowInsets = { WindowInsets.statusBars },
         content = content,
     )
 }
