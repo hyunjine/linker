@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
@@ -27,6 +28,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -37,9 +39,12 @@ import androidx.compose.ui.unit.sp
 import com.hyunjine.linker.ui.common.AppSwitch
 import com.hyunjine.linker.ui.common.AppTopBar
 import com.hyunjine.linker.ui.common.SegmentedControl
+import com.hyunjine.linker.ui.common.liquidGlass
+import com.hyunjine.linker.ui.common.TimePickerSheet
 import com.hyunjine.linker.ui.common.YearMonthDayPickerSheet
 import com.hyunjine.linker.ui.theme.Chevron
 import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
+import com.hyunjine.linker.ui.theme.OnPrimary
 import com.hyunjine.linker.ui.theme.PlaceholderText
 import com.hyunjine.linker.ui.theme.PrimaryBlue
 import com.hyunjine.linker.ui.theme.SeparatorGrouped
@@ -77,6 +82,8 @@ fun CreateScheduleScreen(
 
     var startDateSheet by remember { mutableStateOf(false) }
     var endDateSheet by remember { mutableStateOf(false) }
+    var startTimeSheet by remember { mutableStateOf(false) }
+    var endTimeSheet by remember { mutableStateOf(false) }
     var repeatSheet by remember { mutableStateOf(false) }
 
     // 편집 가능 여부는 "이 화면을 어떤 자격으로 열었나" 로만 정해진다.
@@ -131,8 +138,8 @@ fun CreateScheduleScreen(
                     onToggleAllDay = { draft = draft.copy(allDay = it) },
                     onStartDateClick = { if (canEdit) startDateSheet = true },
                     onEndDateClick = { if (canEdit) endDateSheet = true },
-                    onStartTimeClick = { /* TODO(#15 후속): time picker sheet */ },
-                    onEndTimeClick = { /* TODO(#15 후속): time picker sheet */ },
+                    onStartTimeClick = { if (canEdit) startTimeSheet = true },
+                    onEndTimeClick = { if (canEdit) endTimeSheet = true },
                 )
 
                 SectionBlock(label = "반복") {
@@ -206,6 +213,34 @@ fun CreateScheduleScreen(
         },
         onCancel = { endDateSheet = false },
     )
+    TimePickerSheet(
+        visible = startTimeSheet,
+        time = draft.startTime,
+        onConfirm = { picked ->
+            startTimeSheet = false
+            // 같은 날 일정이고 종료 시각이 새 시작 시각보다 이르면 종료 시각도 함께 밀어준다.
+            val currentEnd = draft.endTime
+            val bumpedEnd = if (
+                draft.startDate == draft.endDate &&
+                currentEnd != null &&
+                compareHhMm(currentEnd, picked) < 0
+            ) picked else currentEnd
+            draft = draft.copy(startTime = picked, endTime = bumpedEnd)
+        },
+        onCancel = { startTimeSheet = false },
+    )
+    // 같은 날 일정이면 종료 시각은 시작 시각 이상으로만 선택 가능하도록 wheel range 를 잘라 준다.
+    // 다른 날이면 아무 시각이나 유효하므로 제약 없음.
+    TimePickerSheet(
+        visible = endTimeSheet,
+        time = draft.endTime,
+        minTime = if (draft.startDate == draft.endDate) draft.startTime else null,
+        onConfirm = { picked ->
+            endTimeSheet = false
+            draft = draft.copy(endTime = picked)
+        },
+        onCancel = { endTimeSheet = false },
+    )
     RepeatPickerSheet(
         visible = repeatSheet,
         current = draft.repeat,
@@ -218,24 +253,47 @@ fun CreateScheduleScreen(
     )
 }
 
+/** `"HH:MM"` 두 문자열의 시각 순서를 비교. 파싱 실패 시 0 반환 (동일 취급). */
+private fun compareHhMm(a: String, b: String): Int {
+    fun toMinutes(s: String): Int? {
+        val p = s.split(':')
+        if (p.size != 2) return null
+        val h = p[0].toIntOrNull() ?: return null
+        val m = p[1].toIntOrNull() ?: return null
+        return h * 60 + m
+    }
+    val am = toMinutes(a) ?: return 0
+    val bm = toMinutes(b) ?: return 0
+    return am.compareTo(bm)
+}
+
 // ────────── Building blocks ──────────
 
 @Composable
 private fun SaveAction(enabled: Boolean, onClick: () -> Unit) {
     val pretendard = LocalPretendardFontFamily.current
-    Text(
-        text = "저장",
+    // iOS 26 primary tinted 리퀴드 글래스 pill. `Modifier.liquidGlass` 의 fill 만 PrimaryBlue 로 교체 —
+    // 흰색 rim 하이라이트는 그대로 유지해 back circle 과 톤을 맞춤.
+    Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(8.dp))
+            .height(36.dp)
+            .clip(CircleShape)
+            .liquidGlass(shape = CircleShape, fill = SolidColor(PrimaryBlue))
             .clickable(enabled = enabled, onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-        style = TextStyle(
-            fontFamily = pretendard,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 17.sp,
-            color = if (enabled) PrimaryBlue else TextSecondary,
-        ),
-    )
+            .alpha(if (enabled) 1f else 0.5f)
+            .padding(horizontal = 14.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "저장",
+            style = TextStyle(
+                fontFamily = pretendard,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp,
+                color = OnPrimary,
+            ),
+        )
+    }
 }
 
 @Composable
