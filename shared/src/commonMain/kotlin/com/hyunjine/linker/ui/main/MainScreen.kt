@@ -276,6 +276,12 @@ fun MainScreen(
                 tasks = current.tasks.map { if (it.id == taskId) it.copy(isDone = !it.isDone) else it },
             )
         },
+        onAdd = { _ ->
+            // 시트 안 chip 탭 → 일정 생성 진입. 초기 타입 전달은 후속 (CreateScheduleRoute param 도입 필요).
+            val date = dayDetail?.date ?: return@DayDetailSheet
+            dayDetail = null
+            onAddSchedule(date)
+        },
     )
     } // ← AppDrawer content lambda close
 }

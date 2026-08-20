@@ -1,5 +1,6 @@
 package com.hyunjine.linker.ui.main
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,12 +22,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hyunjine.linker.ui.common.AppBottomSheet
+import com.hyunjine.linker.ui.schedule.ScheduleType
 import com.hyunjine.linker.ui.theme.CalendarLunarText
 import com.hyunjine.linker.ui.theme.CalendarSaturday
 import com.hyunjine.linker.ui.theme.CalendarSunday
@@ -44,6 +47,10 @@ import com.hyunjine.linker.ui.theme.TextPrimary
 import com.hyunjine.linker.ui.theme.TextSecondary
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
+import linker.shared.generated.resources.Res
+import linker.shared.generated.resources.ic_cal_31
+import linker.shared.generated.resources.ic_check
+import org.jetbrains.compose.resources.painterResource
 
 /** 이벤트/할 일의 소유자 태그. Figma 3종: 나 (노랑), 상대방 (분홍), 우리 (보라). */
 enum class DayOwner(val label: String, val bg: Color, val fg: Color) {
@@ -104,6 +111,7 @@ fun DayDetailSheet(
     detail: DayDetail?,
     onDismiss: () -> Unit,
     onToggleTask: (taskId: String) -> Unit = {},
+    onAdd: (ScheduleType) -> Unit = {},
 ) {
     AppBottomSheet(
         visible = visible,
@@ -114,7 +122,7 @@ fun DayDetailSheet(
         Column(modifier = Modifier.fillMaxWidth().padding(bottom = 24.dp)) {
             DayHeader(date = detail.date, lunarLabel = detail.lunarLabel)
             Spacer(Modifier.height(12.dp))
-            SegmentPills(taskCount = detail.tasks.size, scheduleCount = detail.timedSchedules.size + detail.allDaySchedules.size)
+            AddChips(onAdd = onAdd)
             Spacer(Modifier.height(20.dp))
             TaskSection(tasks = detail.tasks, onToggle = onToggleTask)
             if (detail.timedSchedules.isNotEmpty()) {
@@ -174,33 +182,56 @@ private fun DayOfWeek.koreanShort(): String = when (this) {
     DayOfWeek.SUNDAY -> "일"
 }
 
-// ────────── Segment ──────────
+// ────────── Add chips ──────────
 
+/**
+ * Figma 2822:79389 스펙 (AddChips). 헤더 아래 pill 두 개 — 각 chip 은 좌측 아이콘 + 라벨.
+ * 카운트는 노출하지 않고, 탭 시 해당 [ScheduleType] 으로 일정 생성 진입 콜백.
+ */
 @Composable
-private fun SegmentPills(taskCount: Int, scheduleCount: Int) {
+private fun AddChips(onAdd: (ScheduleType) -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        SegmentPill(text = "할 일 $taskCount", selected = true)
-        SegmentPill(text = "일정 $scheduleCount", selected = false)
+        AddChip(
+            iconRes = Res.drawable.ic_check,
+            label = ScheduleType.Task.label,
+            onClick = { onAdd(ScheduleType.Task) },
+        )
+        AddChip(
+            iconRes = Res.drawable.ic_cal_31,
+            label = ScheduleType.Schedule.label,
+            onClick = { onAdd(ScheduleType.Schedule) },
+        )
     }
 }
 
 @Composable
-private fun SegmentPill(text: String, selected: Boolean) {
+private fun AddChip(
+    iconRes: org.jetbrains.compose.resources.DrawableResource,
+    label: String,
+    onClick: () -> Unit,
+) {
     val pretendard = LocalPretendardFontFamily.current
-    val bg = if (selected) SegmentTrack else Color.Transparent
-    val border = if (selected) Color.Transparent else Separator
-    Box(
+    // Figma 78dp / 74dp width — 좌 12dp / 우 14dp / 상하 8dp 패딩 + icon 16dp + 6dp gap + text.
+    Row(
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
-            .background(bg)
-            .border(width = 1.dp, color = border, shape = RoundedCornerShape(999.dp))
-            .padding(horizontal = 14.dp, vertical = 7.dp),
+            .background(SegmentTrack)
+            .clickable(onClick = onClick)
+            .padding(start = 12.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
+        Image(
+            painter = painterResource(iconRes),
+            contentDescription = null,
+            colorFilter = ColorFilter.tint(TextPrimary),
+            modifier = Modifier.size(16.dp),
+        )
         Text(
-            text = text,
+            text = label,
             style = TextStyle(
                 fontFamily = pretendard,
                 fontWeight = FontWeight.SemiBold,
