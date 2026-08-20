@@ -49,7 +49,7 @@ import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import linker.shared.generated.resources.Res
 import linker.shared.generated.resources.ic_cal_31
-import linker.shared.generated.resources.ic_check
+import linker.shared.generated.resources.ic_todo
 import org.jetbrains.compose.resources.painterResource
 
 /** 이벤트/할 일의 소유자 태그. Figma 3종: 나 (노랑), 상대방 (분홍), 우리 (보라). */
@@ -195,7 +195,7 @@ private fun AddChips(onAdd: (ScheduleType) -> Unit) {
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         AddChip(
-            iconRes = Res.drawable.ic_check,
+            iconRes = Res.drawable.ic_todo,
             label = ScheduleType.Task.label,
             onClick = { onAdd(ScheduleType.Task) },
         )
