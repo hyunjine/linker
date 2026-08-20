@@ -31,17 +31,19 @@ import linker.shared.generated.resources.ic_chevron_left
 import org.jetbrains.compose.resources.painterResource
 
 /**
- * iOS 26 톤 상단 앱바. 좌측 원형 리퀴드 글래스 뒤로가기 버튼 + 중앙 타이틀.
+ * iOS 26 톤 상단 앱바. 좌측 원형 리퀴드 글래스 뒤로가기 버튼 + 중앙 타이틀 + (옵션) 우측 슬롯.
  *
  * @param title 중앙 타이틀 문자열.
  * @param onBack 뒤로가기 버튼 탭 콜백.
  * @param modifier 외부 [Modifier].
+ * @param trailing 우측 정렬 액션 슬롯. 저장 · 완료 등 텍스트 버튼이나 아이콘 버튼 배치용. null 이면 생략.
  */
 @Composable
 fun AppTopBar(
     title: String,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val font = LocalPretendardFontFamily.current
     Box(
@@ -64,6 +66,11 @@ fun AppTopBar(
                 fontFamily = font,
             ),
         )
+        if (trailing != null) {
+            Box(modifier = Modifier.align(Alignment.CenterEnd)) {
+                trailing()
+            }
+        }
     }
 }
 

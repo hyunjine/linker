@@ -18,6 +18,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,11 +36,14 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hyunjine.linker.ui.common.AppTopBar
 import com.hyunjine.linker.ui.common.SegmentedControl
 import com.hyunjine.linker.ui.common.YearMonthDayPickerSheet
+import com.hyunjine.linker.ui.theme.Chevron
 import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.ui.theme.PlaceholderText
 import com.hyunjine.linker.ui.theme.PrimaryBlue
+import com.hyunjine.linker.ui.theme.Separator
 import com.hyunjine.linker.ui.theme.SeparatorGrouped
 import com.hyunjine.linker.ui.theme.SurfaceCard
 import com.hyunjine.linker.ui.theme.SurfaceGray
@@ -54,14 +59,10 @@ import kotlinx.datetime.toLocalDateTime
 /**
  * 일정 등록 / 수정 화면. Figma 2759:77318 iOS 26 톤.
  *
- * 편집 대상이 없으면 (신규 등록) [initial] 은 오늘 기준 draft 로 시작, [editing] = false.
- * 수정 모드면 상위에서 채운 [initial] 을 넘기고 [editing] = true. 상대방 일정이면 저장/삭제 버튼이 비활성.
+ * 세그먼트는 `할 일` / `일정` 2 항목만 노출 (Figma 2772:78828). 종일 vs 시간은 `일정` 하위의 종일 스위치.
+ * 상단 앱바는 프로젝트 공통 [AppTopBar] 를 재사용하고 `trailing` 슬롯에 저장 텍스트 버튼을 얹는다.
  *
- * @param initial 최초 draft 상태. null 이면 오늘 기준 신규.
- * @param editing 수정 모드 여부 — 삭제 카드 노출 여부에 영향.
- * @param onBack 좌상단 back 탭.
- * @param onSave 상단 "저장" 탭 — 상위에서 validate 후 실제 저장.
- * @param onDelete 하단 "일정 삭제" 탭 — [editing] && 편집 가능 시에만 활성.
+ * 수정 모드 + 편집 가능 (상대방 일정이 아닐 때) 이면 하단에 일정 삭제 카드 노출.
  */
 @Composable
 fun CreateScheduleScreen(
@@ -72,9 +73,9 @@ fun CreateScheduleScreen(
     onDelete: () -> Unit = {},
 ) {
     val today = remember { todayLocalDate() }
-    var draft by rememberSaveable(
-        stateSaver = ScheduleDraftSaver,
-    ) { mutableStateOf(initial ?: ScheduleDraft(startDate = today, endDate = today)) }
+    var draft by rememberSaveable(stateSaver = ScheduleDraftSaver) {
+        mutableStateOf(initial ?: ScheduleDraft(startDate = today, endDate = today))
+    }
 
     var startDateSheet by remember { mutableStateOf(false) }
     var endDateSheet by remember { mutableStateOf(false) }
@@ -91,51 +92,13 @@ fun CreateScheduleScreen(
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing),
         ) {
-            // AppTopBar 오버레이가 아니라 인라인 → 콘텐츠는 이어서 시작.
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp).height(44.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                // 좌: back (원형 리퀴드 글래스 — AppTopBar 재활용 대신 여기선 심플 텍스트로)
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(999.dp))
-                        .clickable(onClick = onBack)
-                        .padding(horizontal = 12.dp, vertical = 6.dp),
-                ) {
-                    Text(
-                        text = "‹",
-                        style = TextStyle(
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 24.sp,
-                            color = TextPrimary,
-                        ),
-                    )
-                }
-                Text(
-                    text = if (editing) "일정 수정" else "일정 추가",
-                    style = TextStyle(
-                        fontFamily = LocalPretendardFontFamily.current,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 17.sp,
-                        color = TextPrimary,
-                    ),
-                )
-                Text(
-                    text = "저장",
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable(enabled = canEdit) { onSave(draft) }
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                    style = TextStyle(
-                        fontFamily = LocalPretendardFontFamily.current,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 15.sp,
-                        color = if (canEdit) PrimaryBlue else TextSecondary,
-                    ),
-                )
-            }
+            AppTopBar(
+                title = if (editing) "일정 수정" else "일정 추가",
+                onBack = onBack,
+                trailing = {
+                    SaveAction(enabled = canEdit) { onSave(draft) }
+                },
+            )
 
             Column(
                 modifier = Modifier
@@ -154,7 +117,7 @@ fun CreateScheduleScreen(
                     SegmentedControl(
                         options = ScheduleType.values().toList(),
                         selected = draft.type,
-                        onSelect = { draft = draft.copy(type = it) },
+                        onSelect = { if (canEdit) draft = draft.copy(type = it) },
                         label = { it.label },
                     )
                 }
@@ -162,18 +125,19 @@ fun CreateScheduleScreen(
                 DateTimeCard(
                     draft = draft,
                     enabled = canEdit,
+                    onToggleAllDay = { draft = draft.copy(allDay = it) },
                     onStartDateClick = { if (canEdit) startDateSheet = true },
                     onEndDateClick = { if (canEdit) endDateSheet = true },
-                    onStartTimeClick = { /* TODO: time picker sheet */ },
-                    onEndTimeClick = { /* TODO: time picker sheet */ },
+                    onStartTimeClick = { /* TODO(#15 후속): time picker sheet */ },
+                    onEndTimeClick = { /* TODO(#15 후속): time picker sheet */ },
                 )
 
                 SectionBlock(label = "반복") {
                     Card {
-                        Row_(
+                        RowItem(
                             label = "반복",
                             value = draft.repeat.label,
-                            onClick = { /* TODO: repeat picker sheet */ },
+                            onClick = { /* TODO(#15 후속): repeat picker sheet */ },
                             enabled = canEdit,
                         )
                     }
@@ -215,7 +179,7 @@ fun CreateScheduleScreen(
         }
     }
 
-    // 날짜 피커 (기존 공통 시트 재사용). 종료일은 시작일보다 이전이 될 수 없도록 min 설정.
+    // 날짜 시트 — 기존 공통 시트 재사용. 종료일은 시작일 이상 강제.
     YearMonthDayPickerSheet(
         visible = startDateSheet,
         date = draft.startDate,
@@ -242,6 +206,24 @@ fun CreateScheduleScreen(
 }
 
 // ────────── Building blocks ──────────
+
+@Composable
+private fun SaveAction(enabled: Boolean, onClick: () -> Unit) {
+    val pretendard = LocalPretendardFontFamily.current
+    Text(
+        text = "저장",
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(enabled = enabled, onClick = onClick)
+            .padding(horizontal = 8.dp, vertical = 6.dp),
+        style = TextStyle(
+            fontFamily = pretendard,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 17.sp,
+            color = if (enabled) PrimaryBlue else TextSecondary,
+        ),
+    )
+}
 
 @Composable
 private fun TitleCard(title: String, enabled: Boolean, onChange: (String) -> Unit) {
@@ -284,21 +266,58 @@ private fun TitleCard(title: String, enabled: Boolean, onChange: (String) -> Uni
 private fun DateTimeCard(
     draft: ScheduleDraft,
     enabled: Boolean,
+    onToggleAllDay: (Boolean) -> Unit,
     onStartDateClick: () -> Unit,
     onEndDateClick: () -> Unit,
     onStartTimeClick: () -> Unit,
     onEndTimeClick: () -> Unit,
 ) {
     Card {
-        Row_("시작일", value = formatDate(draft.startDate), onClick = onStartDateClick, enabled = enabled)
-        Divider()
-        Row_("종료일", value = formatDate(draft.endDate), onClick = onEndDateClick, enabled = enabled)
-        if (draft.type == ScheduleType.Timed) {
+        if (draft.showsAllDayToggle) {
+            AllDayRow(checked = draft.allDay, enabled = enabled, onChange = onToggleAllDay)
             Divider()
-            Row_("시작 시각", value = formatTime(draft.startTime), onClick = onStartTimeClick, enabled = enabled)
-            Divider()
-            Row_("종료 시각", value = formatTime(draft.endTime), onClick = onEndTimeClick, enabled = enabled)
         }
+        RowItem("시작일", value = formatDate(draft.startDate), onClick = onStartDateClick, enabled = enabled)
+        Divider()
+        RowItem("종료일", value = formatDate(draft.endDate), onClick = onEndDateClick, enabled = enabled)
+        if (draft.showsTimeRows) {
+            Divider()
+            RowItem("시작 시각", value = formatTime(draft.startTime), onClick = onStartTimeClick, enabled = enabled)
+            Divider()
+            RowItem("종료 시각", value = formatTime(draft.endTime), onClick = onEndTimeClick, enabled = enabled)
+        }
+    }
+}
+
+@Composable
+private fun AllDayRow(checked: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
+    val pretendard = LocalPretendardFontFamily.current
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Text(
+            text = "종일",
+            style = TextStyle(
+                fontFamily = pretendard,
+                fontWeight = FontWeight.Normal,
+                fontSize = 17.sp,
+                color = TextPrimary,
+            ),
+        )
+        Switch(
+            checked = checked,
+            enabled = enabled,
+            onCheckedChange = onChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = SurfaceCard,
+                checkedTrackColor = PrimaryBlue,
+                uncheckedThumbColor = SurfaceCard,
+                uncheckedTrackColor = Separator,
+                uncheckedBorderColor = Separator,
+            ),
+        )
     }
 }
 
@@ -321,22 +340,19 @@ private fun SectionBlock(label: String, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun Card(content: @Composable ColumnScopeShim.() -> Unit) {
+private fun Card(content: @Composable () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
             .background(SurfaceCard),
     ) {
-        ColumnScopeShim.content()
+        content()
     }
 }
 
-/** Card 안 slot 을 별도 receiver 로 감쌀 필요는 없지만, 실수로 Column 외 자식 넣는 걸 방지. */
-private object ColumnScopeShim
-
 @Composable
-private fun Row_(label: String, value: String, onClick: () -> Unit, enabled: Boolean) {
+private fun RowItem(label: String, value: String, onClick: () -> Unit, enabled: Boolean) {
     val pretendard = LocalPretendardFontFamily.current
     Row(
         modifier = Modifier
@@ -371,7 +387,7 @@ private fun Row_(label: String, value: String, onClick: () -> Unit, enabled: Boo
                     fontFamily = pretendard,
                     fontWeight = FontWeight.Normal,
                     fontSize = 18.sp,
-                    color = com.hyunjine.linker.ui.theme.Chevron,
+                    color = Chevron,
                 ),
             )
         }
@@ -411,7 +427,7 @@ private fun formatTime(t: String?): String {
     return "$ampm $h12:${m.toString().padStart(2, '0')}"
 }
 
-// rememberSaveable Saver for ScheduleDraft
+// rememberSaveable Saver
 private val ScheduleDraftSaver = androidx.compose.runtime.saveable.Saver<ScheduleDraft, List<Any?>>(
     save = { d ->
         listOf(
@@ -419,6 +435,7 @@ private val ScheduleDraftSaver = androidx.compose.runtime.saveable.Saver<Schedul
             d.startDate.toString(),
             d.endDate.toString(),
             d.type.name,
+            d.allDay,
             d.startTime,
             d.endTime,
             when (d.repeat) {
@@ -437,10 +454,11 @@ private val ScheduleDraftSaver = androidx.compose.runtime.saveable.Saver<Schedul
             startDate = LocalDate.parse(list[1] as String),
             endDate = LocalDate.parse(list[2] as String),
             type = ScheduleType.valueOf(list[3] as String),
-            startTime = list[4] as String?,
-            endTime = list[5] as String?,
-            repeat = parseRepeat(list[6] as String),
-            owner = ScheduleOwner.valueOf(list[7] as String),
+            allDay = list[4] as Boolean,
+            startTime = list[5] as String?,
+            endTime = list[6] as String?,
+            repeat = parseRepeat(list[7] as String),
+            owner = ScheduleOwner.valueOf(list[8] as String),
         )
     },
 )

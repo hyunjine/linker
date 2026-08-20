@@ -3,16 +3,16 @@ package com.hyunjine.linker.ui.schedule
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 
-/** 일정의 성격. UI 상 세그먼트로 노출되고, 노출되는 입력 필드 (시각 유무) 를 결정. */
+/**
+ * 일정의 성격. Figma 세그먼트 UI 는 두 항목 (`할 일` / `일정`) 만 노출한다.
+ * 종일 vs 시간 일정 구분은 [ScheduleDraft.allDay] 스위치로 처리.
+ */
 enum class ScheduleType(val label: String) {
-    /** 시각 필수. 약속·병원·영화 등. */
-    Timed("시간 일정"),
-
-    /** 시각 없이 하루 이상 지속. 여행·생일·기념일 등. */
-    AllDay("종일 일정"),
-
-    /** 시각 없이 처리해야 하는 항목. 완료 체크 가능. */
+    /** 완료 체크 가능한 항목. 택배 보내기, 이력서 내기 등. */
     Task("할 일"),
+
+    /** 시간 or 종일 일정 (allDay 스위치로 세부 구분). 약속·병원·여행·기념일 등. */
+    Schedule("일정"),
 }
 
 /** 일정 소유자. 편집·삭제 권한 판단에 사용. */
@@ -28,8 +28,6 @@ enum class ScheduleOwner(val label: String) {
 
 /**
  * 반복 규칙. 매주는 요일 다중 선택, 매월/매년은 기준 날짜 저장.
- * 매월/매년의 [day]/[month] 는 저장 시 스케줄의 시작일에서 자동 유도해도 되지만,
- * UI 에서 다른 값을 명시적으로 고를 수 있게 sealed 로 분리해 둠.
  */
 sealed interface RepeatRule {
     val label: String
@@ -41,25 +39,33 @@ sealed interface RepeatRule {
     data class Yearly(val month: Int, val day: Int) : RepeatRule { override val label = "매년" }
 
     companion object {
-        /** 옵션 시트에서 뿌릴 순서. */
         val Options: List<RepeatRule> = listOf(None, Daily, Weekly(emptySet()), Monthly(1), Yearly(1, 1))
     }
 }
 
 /**
  * 편집 중인 일정의 draft 상태. 화면이 소유하고 저장 시점에 검증·커밋.
- * [startTime]/[endTime] 은 [ScheduleType.Timed] 일 때만 유의미. UI 는 유형에 따라 필드를 감춤.
+ *
+ * [allDay] 는 [type] == [ScheduleType.Schedule] 일 때만 의미. `false` 면 시각 행이 노출된다.
+ * [type] == [ScheduleType.Task] 이면 시각 행은 항상 감춤.
+ * [startTime]/[endTime] 은 "HH:MM" (24h) 문자열, 5분 스텝. null 이면 기본값 사용.
  */
 data class ScheduleDraft(
     val title: String = "",
     val startDate: LocalDate,
     val endDate: LocalDate,
-    val type: ScheduleType = ScheduleType.Timed,
-    /** "HH:MM" 형식 (24h). null 이면 미설정. 실제 시각은 5분 스텝. */
+    val type: ScheduleType = ScheduleType.Schedule,
+    val allDay: Boolean = false,
     val startTime: String? = "10:00",
     val endTime: String? = "11:00",
     val repeat: RepeatRule = RepeatRule.None,
     val owner: ScheduleOwner = ScheduleOwner.Me,
 ) {
     val isEditableByCurrentUser: Boolean get() = owner != ScheduleOwner.Partner
+
+    /** 시각 행을 UI 에 노출할지. Schedule 유형에서 종일이 아닐 때만 true. */
+    val showsTimeRows: Boolean get() = type == ScheduleType.Schedule && !allDay
+
+    /** 종일 토글 UI 를 노출할지 (할 일 유형에서는 개념상 필요 없음). */
+    val showsAllDayToggle: Boolean get() = type == ScheduleType.Schedule
 }
