@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
@@ -67,13 +68,14 @@ fun AppBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = fullyExpanded)
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
-        modifier = modifier,
+        // 시트 컨테이너 자체를 status bar 만큼 아래로 밀어 상단 corner 가 노출되게 한다.
+        // contentWindowInsets 는 콘텐츠 padding 만 조정할 뿐 시트 프레임 자체는 top 까지 확장되어
+        // corner radius 가 화면 밖으로 나가 페이지처럼 보이는 문제가 있었다.
+        modifier = modifier.windowInsetsPadding(WindowInsets.statusBars),
         sheetState = sheetState,
         containerColor = SurfaceCard,
         dragHandle = dragHandle,
-        // 시트 최대 확장을 status bar 아래까지로 제한. 없으면 fullyExpanded 시 status bar 까지
-        // 덮여서 시트가 아닌 한 페이지처럼 보인다.
-        contentWindowInsets = { WindowInsets.statusBars },
+        contentWindowInsets = { WindowInsets(0) },
         content = content,
     )
 }
