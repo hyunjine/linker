@@ -28,6 +28,8 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":shared-api"))
+
     // Ktor server
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.netty)

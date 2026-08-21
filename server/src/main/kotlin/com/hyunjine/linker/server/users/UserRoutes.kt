@@ -1,6 +1,7 @@
 package com.hyunjine.linker.server.users
 
-import com.hyunjine.linker.server.auth.ApiMessage
+import com.hyunjine.linker.api.common.ApiError
+import com.hyunjine.linker.api.common.ErrorBody
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
@@ -15,7 +16,10 @@ fun Route.userRoutes() {
     route("/users/me") {
         get {
             // TODO(#후속): JWT auth → DB users 조회 → UserResponse 직렬화
-            call.respond(HttpStatusCode.NotImplemented, ApiMessage("not implemented"))
+            call.respond(
+                HttpStatusCode.NotImplemented,
+                ErrorBody(ApiError("NOT_IMPLEMENTED", "GET /users/me not implemented yet")),
+            )
         }
     }
 }

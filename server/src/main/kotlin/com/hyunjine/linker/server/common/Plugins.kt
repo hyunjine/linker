@@ -1,5 +1,7 @@
 package com.hyunjine.linker.server.common
 
+import com.hyunjine.linker.api.common.ApiError
+import com.hyunjine.linker.api.common.ErrorBody
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.Application
 import io.ktor.server.application.install
@@ -9,7 +11,6 @@ import io.ktor.server.plugins.cors.routing.CORS
 import io.ktor.server.plugins.statuspages.StatusPages
 import io.ktor.server.request.path
 import io.ktor.server.response.respond
-import kotlinx.serialization.Serializable
 import org.slf4j.event.Level
 
 /**
@@ -48,7 +49,7 @@ fun Application.installCommonPlugins() {
 }
 
 /**
- * 도메인 코드에서 던지는 표준 API 예외. StatusPages 가 잡아 [ErrorBody] 로 직렬화.
+ * 도메인 코드에서 던지는 표준 API 예외. StatusPages 가 잡아 [ErrorBody] (shared-api) 로 직렬화.
  * `code` 는 `docs/api-design.md` §1.4 에 정의된 문자열 상수.
  */
 class ApiException(
@@ -56,9 +57,3 @@ class ApiException(
     val code: String,
     message: String,
 ) : RuntimeException(message)
-
-@Serializable
-data class ApiError(val code: String, val message: String, val details: Map<String, String>? = null)
-
-@Serializable
-data class ErrorBody(val error: ApiError)
