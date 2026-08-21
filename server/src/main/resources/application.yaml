@@ -1,0 +1,26 @@
+ktor:
+    application:
+        modules:
+            - com.hyunjine.linker.server.ApplicationKt.module
+    deployment:
+        # Cloud Run 은 $PORT 환경변수를 주입한다. 로컬 기본은 8080.
+        port: $PORT:8080
+        host: 0.0.0.0
+
+server:
+    # 서비스 세션 JWT 서명 키. 로컬은 dev 값, 프로덕션은 Secret Manager 로 주입.
+    jwtSecret: $JWT_SECRET:"dev-only-secret-change-me"
+    jwtIssuer: $JWT_ISSUER:"linker.local"
+    jwtRealm: $JWT_REALM:"linker"
+
+kakao:
+    # 카카오 REST API Key (서버측 토큰 검증용). Secret Manager 로 주입.
+    restApiKey: $KAKAO_REST_API_KEY:""
+
+db:
+    # 로컬 개발: postgres://linker:linker@localhost:5432/linker
+    # 배포: Cloud SQL Postgres. Secret Manager 로 주입.
+    url: $DB_URL:"jdbc:postgresql://localhost:5432/linker"
+    user: $DB_USER:"linker"
+    password: $DB_PASSWORD:"linker"
+    maxPoolSize: $DB_MAX_POOL_SIZE:5
