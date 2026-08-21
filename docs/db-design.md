@@ -85,28 +85,39 @@ attachments ─┐
 
 ```sql
 CREATE TABLE users (
-    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    kakao_id          BIGINT UNIQUE NOT NULL,          -- 카카오 소셜 ID
-    nickname          VARCHAR(30) NOT NULL,
-    birth_date        DATE,                            -- 미입력 허용
-    profile_image_url TEXT,                            -- S3 URL 또는 null
-    calendar_color    VARCHAR(16) NOT NULL DEFAULT 'blue',
-                                                       -- blue|mint|green|yellow|orange|pink|purple|gray
-    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+    id                     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    kakao_id               BIGINT UNIQUE NOT NULL,          -- 카카오 소셜 ID
+    nickname               VARCHAR(30),                     -- shell 단계엔 null 허용
+    birth_date             DATE,                            -- 프로필 완성 시 세팅
+    profile_image_url      TEXT,                            -- S3 URL 또는 null
+    calendar_color         VARCHAR(16) NOT NULL DEFAULT 'blue',
+                                                            -- blue|mint|green|yellow|orange|pink|purple|gray
+    profile_completed_at   TIMESTAMPTZ,                     -- POST /users/me/profile 로 최초 완성된 시각
+    created_at             TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at             TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ```
+
+- 카카오 로그인 최초 진입 시 kakao_id 만 채운 shell row 로 upsert.
+- `profile_completed_at IS NOT NULL` ⇔ API 응답의 `is_profile_complete = true`.
+- 최초 완성 이후엔 `PATCH /users/me` 로 수정. `profile_completed_at` 자체는 그 이후 변경하지 않음 (감사 목적).
 
 ### 5.2 couples
 
 ```sql
 CREATE TABLE couples (
-    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    invite_code  VARCHAR(12) UNIQUE NOT NULL,           -- 상대에게 공유할 초대 코드
-    linked_at    TIMESTAMPTZ,                           -- 두 번째 멤버가 합류한 시각
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    invite_code   VARCHAR(12) UNIQUE NOT NULL,           -- 상대에게 공유할 초대 코드
+    display_name  VARCHAR(60),                           -- "현진이와 민교" 등, 자동 생성 후 편집 가능
+    start_date    DATE,                                  -- 사귄 날짜 (기념일 D+N 계산 근거)
+    linked_at     TIMESTAMPTZ,                           -- 두 번째 멤버가 합류한 시각
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ```
+
+- `display_name` 은 두 번째 멤버가 합류하는 순간 서버가 자동 생성 (`"{A}와 {B}"`), 이후 `PATCH /couples/me` 로 편집.
+- `start_date` 는 선택. 로그인 화면·홈에서 `D+N` 계산에 사용.
 
 ### 5.3 couple_members
 
@@ -210,6 +221,7 @@ CREATE TABLE user_preferences (
     show_partner_calendar  BOOLEAN NOT NULL DEFAULT true,
     show_holidays          BOOLEAN NOT NULL DEFAULT true,
     show_solar_terms       BOOLEAN NOT NULL DEFAULT true,
+    show_lunar             BOOLEAN NOT NULL DEFAULT false,   -- 드로워 "음력" 토글
     updated_at             TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 ```
@@ -272,9 +284,26 @@ CREATE TABLE schedule_attachments (
 );
 ```
 
-### 5.10 couple_anniversaries (미래)
+### 5.10 couple_anniversaries
 
-DayDetailSheet 스펙에 나오는 "결혼기념일" 등 커플 단위 반복 이벤트. 사실상 `schedules` 로 흡수 가능하지만, 별도 취급이 UX 상 낫다고 판단되면 분리.
+드로워 "기념일 설정" 메뉴 + 로그인/홈 상단 D+N 표시의 소스. 결혼기념일·처음 만난 날·100일 등 커플 단위 기념일.
+
+```sql
+CREATE TABLE couple_anniversaries (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    couple_id     UUID NOT NULL REFERENCES couples(id) ON DELETE CASCADE,
+    title         VARCHAR(60) NOT NULL,               -- "결혼기념일", "100일" 등
+    date          DATE NOT NULL,                      -- 원점이 되는 날짜
+    repeat_yearly BOOLEAN NOT NULL DEFAULT true,      -- 매년 반복 여부 (100일 같은 1회성은 false)
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX ix_anniversaries_couple ON couple_anniversaries(couple_id);
+```
+
+- 캘린더 조회(`GET /couples/me/schedules`) 응답에 이 기념일을 통합할지 별도로 내려줄지는 §8 open question.
+- `schedules` 로 흡수하지 않고 별도 테이블로 두는 이유: 드로워의 전용 관리 UI 와 D+N 계산 로직이 단순 스케줄과 분리되기 때문.
 
 ---
 
@@ -322,7 +351,10 @@ DayDetailSheet 스펙에 나오는 "결혼기념일" 등 커플 단위 반복 �
 4. 알림/푸시 스펙 (FCM/APNs) → 어느 시점의 일정에 대해 어떤 규칙으로 발송할지.
 5. 공휴일/절기 서버 프록시 여부 (`special_days` 테이블 도입 여부).
 6. 소프트 삭제 정책.
-7. 파일 업로드 스토리지 (S3 vs 다른 CDN).
+7. 파일 업로드 스토리지 (S3 vs 다른 CDN) + 업로드 방식 (서버 경유 multipart vs pre-signed URL).
+8. 프로필 완성 필수값에 `profile_image_url` 포함 여부.
+9. `couple_anniversaries` 를 캘린더 응답에 통합할지, 별도 리소스로만 유지할지.
+10. 커플 `display_name` 자동 생성 규칙 (`"A와 B"` vs 사용자 입력 유도).
 
 ---
 
