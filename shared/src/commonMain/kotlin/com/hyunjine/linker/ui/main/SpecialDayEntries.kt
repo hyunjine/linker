@@ -36,7 +36,7 @@ fun rememberSpecialDayEntries(
                 .map { kind -> async { kind to repository.getYear(year, kind) } }
                 .awaitAll()
                 .fold(mutableMapOf<LocalDate, CalendarDayEntry>()) { acc, (kind, dtos) ->
-                    for (dto in dtos.filterVisible(kind)) {
+                    for (dto in dtos) {
                         val date = dto.toLocalDate() ?: continue
                         val ev = CalendarEvent(dto.dateName, kind.eventType)
                         val existing = acc[date]
@@ -52,9 +52,6 @@ fun rememberSpecialDayEntries(
     }
     return entries
 }
-
-private fun List<SpecialDayDto>.filterVisible(kind: SpecialDayKind): List<SpecialDayDto> =
-    if (kind.includeAll) this else filter { it.isHoliday }
 
 private fun SpecialDayDto.toLocalDate(): LocalDate? {
     if (locdate <= 0) return null
