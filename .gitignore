@@ -21,3 +21,7 @@ node_modules/
 .claude/settings.json
 .claude/local/
 iosApp/Configuration/Config.xcconfig
+
+# infra 환경변수 (KAKAO/DB 시크릿 포함). .env.example 만 커밋.
+infra/.env
+.env
