@@ -15,9 +15,15 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.tooling.preview.Preview
 import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.ui.theme.OnPrimary
 import com.hyunjine.linker.ui.theme.PrimaryBlue
+import com.hyunjine.linker.ui.theme.ProvidePretendard
+import com.hyunjine.linker.ui.theme.SurfaceGray
 
 /**
  * 화면 하단 CTA 로 쓰는 주 액션 버튼. iOS 톤의 채워진 파랑 필 버튼.
@@ -51,5 +57,19 @@ fun PrimaryButton(
                 fontFamily = font,
             ),
         )
+    }
+}
+
+@Preview
+@Composable
+private fun PrimaryButtonPreview() {
+    ProvidePretendard {
+        Column(
+            modifier = Modifier.fillMaxWidth().background(SurfaceGray).padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            PrimaryButton(text = "다음", onClick = {})
+            PrimaryButton(text = "저장", onClick = {})
+        }
     }
 }

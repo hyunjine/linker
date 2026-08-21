@@ -2,11 +2,21 @@ package com.hyunjine.linker.ui.common
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -64,3 +74,53 @@ fun Modifier.liquidGlass(
 ): Modifier = this
     .background(brush = fill, shape = shape)
     .border(width = borderWidth, brush = borderBrush, shape = shape)
+
+// ---------- Previews ----------
+
+// 리퀴드 글래스는 뒤 배경이 은은히 비쳐야 톤이 살아나므로 컬러풀 그라디언트 위에 얹어 프리뷰.
+private val PreviewBackground: Brush = Brush.linearGradient(
+    colors = listOf(
+        Color(0xFFFFB199),
+        Color(0xFFFF77A9),
+        Color(0xFF9F6FFF),
+    ),
+)
+
+@Preview
+@Composable
+private fun LiquidGlassPreview_Shapes() {
+    Column(
+        modifier = Modifier
+            .size(320.dp, 200.dp)
+            .background(PreviewBackground)
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        // 원형 — BackCircleButton 등에서 쓰는 형태
+        Box(
+            modifier = Modifier.size(72.dp).liquidGlass(shape = CircleShape),
+        )
+        // 라운드 사각형 — 카드/버튼 서피스에 적용하는 형태
+        Box(
+            modifier = Modifier.fillMaxSize().liquidGlass(shape = RoundedCornerShape(18.dp)),
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun LiquidGlassPreview_Pill() {
+    Box(
+        modifier = Modifier
+            .size(240.dp, 80.dp)
+            .background(PreviewBackground)
+            .padding(12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(180.dp, 44.dp)
+                .liquidGlass(shape = RoundedCornerShape(22.dp)),
+        )
+    }
+}

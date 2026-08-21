@@ -171,7 +171,7 @@ private fun LocalDate.coerceIn(min: LocalDate, max: LocalDate): LocalDate = when
  * 상하단 white fade 그라디언트를 스택. [content] 안 각 WheelPicker 는 `Modifier.weight(1f)` 로 균등 분배.
  */
 @Composable
-private fun PickerSurface(
+internal fun PickerSurface(
     content: @Composable RowScope.() -> Unit,
 ) {
     Box(
@@ -215,7 +215,7 @@ private fun PickerSurface(
 
 /** 하단 CTA — 좌우 16dp 여백, 시트 하단 24dp 여백. 프로젝트 표준 [PrimaryButton] 사용. */
 @Composable
-private fun ColumnScope.ConfirmCta(onClick: () -> Unit) {
+internal fun ColumnScope.ConfirmCta(onClick: () -> Unit) {
     Spacer(Modifier.height(20.dp))
     Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
         PrimaryButton(text = "완료", onClick = onClick)

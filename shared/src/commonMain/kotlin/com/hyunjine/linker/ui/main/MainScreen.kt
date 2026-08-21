@@ -1,8 +1,10 @@
 package com.hyunjine.linker.ui.main
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,11 +27,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
@@ -146,6 +150,7 @@ private fun today(): LocalDate =
  * @param onTitleClick 중앙 "YYYY. M v" 탭 (월 피커 열기).
  * @param onSearchClick 우상단 검색 탭.
  * @param onDayClick 그리드 셀 탭 (해당 날짜 상세 열기).
+ * @param onAddSchedule 그리드 셀 롱프레스 (iOS 캘린더 관습) — 해당 날짜를 기준으로 일정 생성 화면 진입.
  */
 @Composable
 fun MainScreen(
@@ -156,6 +161,7 @@ fun MainScreen(
     onTitleClick: () -> Unit = {},
     onSearchClick: () -> Unit = {},
     onDayClick: (LocalDate) -> Unit = {},
+    onAddSchedule: (LocalDate) -> Unit = {},
 ) {
     // Int.MAX_VALUE 크기의 pager 로 사실상 무한 좌우 스와이프. 중간에서 시작해 양쪽으로 무제한 이동.
     val anchorPage = remember { Int.MAX_VALUE / 2 }
@@ -177,8 +183,20 @@ fun MainScreen(
     // 타이틀 탭 시 년/월 피커 시트 오픈. dismiss 시 선택 값으로 pager 를 해당 월까지 스크롤.
     var pickerVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    // 셀 탭 시 날짜 상세 시트 오픈. null 이면 안 보임. dummy 데이터는 임시 (후속 이슈에서 실제 소스 연결).
-    var dayDetail by remember { mutableStateOf<DayDetail?>(null) }
+    // 셀 탭 시 날짜 상세 시트 오픈. dummy 데이터는 임시 (후속 이슈에서 실제 소스 연결).
+    // 선택된 날짜(=진짜 payload)와 시트 visible 을 분리해서 관리한다:
+    //  - `selectedDateString` (rememberSaveable): CreateSchedule 등 다른 nav 목적지에서 돌아왔을 때
+    //    이전 선택 날짜를 유지하기 위함.
+    //  - `sheetVisible` (remember): chip 탭으로 CreateSchedule 진입 직전에만 false 로 만들어 시트
+    //    slide-down 애니메이션 없이 즉시 사라지게 하기 위함. 최초 진입 or pop 재진입 시
+    //    LaunchedEffect 로 selectedDate 가 있으면 true 로 자동 복원.
+    var selectedDateString by rememberSaveable { mutableStateOf<String?>(null) }
+    val selectedDate = remember(selectedDateString) { selectedDateString?.let { LocalDate.parse(it) } }
+    var dayDetail by remember(selectedDate) { mutableStateOf(selectedDate?.let { dummyDayDetail(it) }) }
+    var sheetVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (selectedDate != null) sheetVisible = true
+    }
     // 사이드 드로워 상태 + 표시 옵션 (MVP: 로컬 state, 저장·연동은 후속 이슈).
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     var displayState by remember { mutableStateOf(DrawerDisplayState()) }
@@ -237,8 +255,10 @@ fun MainScreen(
                 entries = mergedEntries,
                 onDayClick = { date ->
                     onDayClick(date)
-                    dayDetail = dummyDayDetail(date)
+                    selectedDateString = date.toString()
+                    sheetVisible = true
                 },
+                onDayLongClick = onAddSchedule,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -261,15 +281,29 @@ fun MainScreen(
 
     // 셀 탭 → 날짜 상세 시트.
     DayDetailSheet(
-        visible = dayDetail != null,
+        visible = sheetVisible && dayDetail != null,
         detail = dayDetail,
-        onDismiss = { dayDetail = null },
+        onDismiss = {
+            sheetVisible = false
+            selectedDateString = null
+        },
         onToggleTask = { taskId ->
             // TODO(#9 후속): 실제 저장소 연결. 지금은 dummy 라 토글 반영 안 됨.
             val current = dayDetail ?: return@DayDetailSheet
             dayDetail = current.copy(
                 tasks = current.tasks.map { if (it.id == taskId) it.copy(isDone = !it.isDone) else it },
             )
+        },
+        onAdd = { _ ->
+            // 시트 안 chip 탭 → 일정 생성 진입.
+            //  - `sheetVisible = false` 로 시트를 즉시 composition 에서 빼 CreateSchedule 이
+            //    slide-down 애니메이션 지연 없이 곧바로 포그라운드에 올라오게 한다.
+            //  - `selectedDateString` 은 유지해서 pop 으로 돌아오면 위 LaunchedEffect 가
+            //    같은 날짜 시트를 다시 열어 준다.
+            //    초기 타입 전달은 후속 (CreateScheduleRoute param 도입 필요).
+            val date = selectedDate ?: return@DayDetailSheet
+            sheetVisible = false
+            onAddSchedule(date)
         },
     )
     } // ← AppDrawer content lambda close
@@ -286,6 +320,14 @@ private fun dummyDayDetail(date: LocalDate): DayDetail = DayDetail(
         DayTask("t1", "항공권 예약하기", isDone = false, owner = DayOwner.Me),
         DayTask("t2", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
         DayTask("t3", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
+        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
+        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
+        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
+        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
+        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
+        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
+        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
+        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
         DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
         DayTask("t5", "선물·준비하기", isDone = true, owner = DayOwner.Me),
     ),
@@ -506,6 +548,7 @@ private fun CalendarGrid(
     today: LocalDate,
     entries: Map<LocalDate, CalendarDayEntry>,
     onDayClick: (LocalDate) -> Unit,
+    onDayLongClick: (LocalDate) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier) {
@@ -524,6 +567,7 @@ private fun CalendarGrid(
                         isToday = cell.date == today,
                         entry = entries[cell.date],
                         onClick = { onDayClick(cell.date) },
+                        onLongClick = { onDayLongClick(cell.date) },
                         modifier = Modifier.weight(1f).fillMaxWidth(),
                     )
                 }
@@ -532,12 +576,14 @@ private fun CalendarGrid(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun DayCell(
     cell: MonthCell,
     isToday: Boolean,
     entry: CalendarDayEntry?,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val pretendard = LocalPretendardFontFamily.current
@@ -553,7 +599,7 @@ private fun DayCell(
             // 셀 전체 (숫자·chip 있든 없든) 를 리플 영역으로 잡기 위해 높이도 부모 (한 주 Row) 를 꽉 채움.
             .fillMaxHeight()
             .clip(RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick)
             .padding(top = 10.dp)
             .padding(horizontal = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
