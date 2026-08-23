@@ -16,14 +16,17 @@ val localProperties = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }
 val holidayApiKey: String = localProperties.getProperty("holiday.api.key", "")
+val kakaoNativeAppKey: String = localProperties.getProperty("kakao.native.app.key", "")
 
 val generatedSecretsDir: Provider<Directory> =
     layout.buildDirectory.dir("generated/secrets/kotlin")
 
 val generateSecrets by tasks.registering {
     val outputDir = generatedSecretsDir
-    val keyValue = holidayApiKey
-    inputs.property("holidayApiKey", keyValue)
+    val holidayKey = holidayApiKey
+    val kakaoKey = kakaoNativeAppKey
+    inputs.property("holidayApiKey", holidayKey)
+    inputs.property("kakaoNativeAppKey", kakaoKey)
     outputs.dir(outputDir)
     doLast {
         val file = outputDir.get().asFile.resolve("com/hyunjine/linker/data/Secrets.kt")
@@ -35,7 +38,10 @@ val generateSecrets by tasks.registering {
 
             internal object Secrets {
                 /** data.go.kr 특일정보 API 서비스 키 (URL-encoded 원본). local.properties `holiday.api.key`. */
-                const val HolidayApiKey: String = "$keyValue"
+                const val HolidayApiKey: String = "$holidayKey"
+
+                /** 카카오 네이티브 앱 키. Android SDK 초기화 + kakao{key}://oauth 스킴. local.properties `kakao.native.app.key`. */
+                const val KakaoNativeAppKey: String = "$kakaoKey"
             }
             """.trimIndent() + "\n"
         )
@@ -81,6 +87,7 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.uiTooling)
             implementation(libs.ktor.client.okhttp)
+            implementation(libs.kakao.user)
         }
         commonMain.dependencies {
             api(project(":shared-api"))
