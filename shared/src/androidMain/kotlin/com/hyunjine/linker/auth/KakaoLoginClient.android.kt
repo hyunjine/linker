@@ -1,6 +1,7 @@
 package com.hyunjine.linker.auth
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
@@ -23,10 +24,14 @@ actual class KakaoLoginClient(private val context: Context) {
     actual suspend fun login(): KakaoLoginResult = suspendCancellableCoroutine { cont ->
         val callback: (OAuthToken?, Throwable?) -> Unit = { token, error ->
             val result = when {
-                token != null -> KakaoLoginResult.Success(
-                    accessToken = token.accessToken,
-                    refreshToken = token.refreshToken,
-                )
+                token != null -> {
+                    logToken(token)
+                    fetchAndLogUser()
+                    KakaoLoginResult.Success(
+                        accessToken = token.accessToken,
+                        refreshToken = token.refreshToken,
+                    )
+                }
                 error is ClientError && error.reason == ClientErrorCause.Cancelled ->
                     KakaoLoginResult.Cancelled
                 error != null -> KakaoLoginResult.Failure(error.message ?: error::class.simpleName ?: "unknown")
@@ -58,4 +63,48 @@ actual class KakaoLoginClient(private val context: Context) {
 actual fun rememberKakaoLoginClient(): KakaoLoginClient {
     val context = LocalContext.current
     return remember(context) { KakaoLoginClient(context) }
+}
+
+// ────────── 개발용 로그 ──────────
+// 실제 서버 교환 로직 붙기 전 로그인 응답 값을 눈으로 확인하기 위한 임시 로그.
+// `adb logcat -s KakaoLogin` 으로 필터해서 볼 것.
+
+private const val TAG = "KakaoLogin"
+
+private fun logToken(token: OAuthToken) {
+    Log.i(TAG, "===== OAuthToken =====")
+    Log.i(TAG, "accessToken        : ${token.accessToken}")
+    Log.i(TAG, "accessTokenExpires : ${token.accessTokenExpiresAt}")
+    Log.i(TAG, "refreshToken       : ${token.refreshToken}")
+    Log.i(TAG, "refreshTokenExpires: ${token.refreshTokenExpiresAt}")
+    Log.i(TAG, "idToken            : ${token.idToken}")
+    Log.i(TAG, "scopes             : ${token.scopes}")
+}
+
+/**
+ * 로그인 성공 후 카카오 유저 프로필을 별도로 조회해 로그만 남긴다.
+ * 결과 처리 없이 fire-and-forget — 로그인 자체는 이미 토큰만으로 성공 처리.
+ */
+private fun fetchAndLogUser() {
+    UserApiClient.instance.me { user, error ->
+        if (error != null) {
+            Log.w(TAG, "me() failed: $error")
+            return@me
+        }
+        if (user == null) {
+            Log.w(TAG, "me() returned null user")
+            return@me
+        }
+        val account = user.kakaoAccount
+        val profile = account?.profile
+        Log.i(TAG, "===== User =====")
+        Log.i(TAG, "id                 : ${user.id}")
+        Log.i(TAG, "connectedAt        : ${user.connectedAt}")
+        Log.i(TAG, "nickname           : ${profile?.nickname}")
+        Log.i(TAG, "profileImageUrl    : ${profile?.profileImageUrl}")
+        Log.i(TAG, "thumbnailImageUrl  : ${profile?.thumbnailImageUrl}")
+        Log.i(TAG, "email              : ${account?.email}")
+        Log.i(TAG, "emailNeedsAgreement: ${account?.emailNeedsAgreement}")
+        Log.i(TAG, "profileNeedsAgreement: ${account?.profileNeedsAgreement}")
+    }
 }

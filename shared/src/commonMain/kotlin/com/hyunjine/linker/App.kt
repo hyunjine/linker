@@ -79,12 +79,14 @@ fun App() {
                                     // is_profile_complete / couple 응답에 따라 라우팅 (§3.4 매트릭스).
                                     // 지금은 SDK 성공만 되면 프로필 셋업으로 진입.
                                     when (val r = kakao.login()) {
-                                        is KakaoLoginResult.Success -> backStack.add(ProfileSetupRoute)
-                                        KakaoLoginResult.Cancelled -> Unit
-                                        is KakaoLoginResult.Failure -> {
-                                            // TODO: 사용자에게 토스트/스낵바. 지금은 조용히 무시.
-                                            println("[Kakao] login failed: ${r.reason}")
+                                        is KakaoLoginResult.Success -> {
+                                            println("[KakaoLogin] SUCCESS accessToken=${r.accessToken.take(12)}… refresh=${r.refreshToken?.take(12)}…")
+                                            backStack.add(ProfileSetupRoute)
                                         }
+                                        KakaoLoginResult.Cancelled ->
+                                            println("[KakaoLogin] CANCELLED by user")
+                                        is KakaoLoginResult.Failure ->
+                                            println("[KakaoLogin] FAILURE: ${r.reason}")
                                     }
                                 }
                             },
