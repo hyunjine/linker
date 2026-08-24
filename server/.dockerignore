@@ -1,6 +1,0 @@
-.gradle
-build/tmp
-build/intermediates
-build/reports
-src/test
-*.md

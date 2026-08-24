@@ -1,11 +1,10 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 /**
- * shared-api — 서버와 클라이언트가 함께 쓰는 순수 DTO/enum 모듈.
- *  - Compose · Ktor · Exposed 등 무거운 의존은 절대 넣지 않는다 (이 모듈이 그걸 끌고 오면
- *    :server 도 UI 의존을 가져가게 됨).
+ * shared-api — Supabase (PostgREST · Realtime) 응답을 매핑하는 순수 DTO/enum 모듈.
+ *  - Compose 등 무거운 UI 의존은 절대 넣지 않는다 (계약만 담는 얇은 레이어 유지).
  *  - kotlinx.serialization + kotlinx.datetime 만 사용.
- *  - JVM (:server), Android (:shared → :androidApp), iOS (:shared → framework) 3 타겟.
+ *  - Android (:shared → :androidApp), iOS (:shared → framework), JVM (테스트/스크립트) 3 타겟.
  */
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
