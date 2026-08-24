@@ -16,6 +16,7 @@ import androidx.navigation3.ui.NavDisplay
 import androidx.savedstate.serialization.SavedStateConfiguration
 import com.hyunjine.linker.auth.sessionStatus
 import com.hyunjine.linker.auth.signInWithKakao
+import com.hyunjine.linker.data.remote.CouplesRepository
 import com.hyunjine.linker.data.remote.UsersRepository
 import com.hyunjine.linker.ui.couple.CoupleLinkScreen
 import com.hyunjine.linker.ui.login.LoginScreen
@@ -148,9 +149,38 @@ fun App() {
                         )
                     }
                     entry<CoupleLinkRoute> {
+                        var myCode by remember { mutableStateOf<String?>(null) }
+                        var linking by remember { mutableStateOf(false) }
+                        LaunchedEffect(Unit) {
+                            runCatching { CouplesRepository.createOrGetMyCouple() }
+                                .onSuccess {
+                                    println("[Couple] my couple id=${it.id} code=${it.inviteCode}")
+                                    myCode = it.inviteCode
+                                }
+                                .onFailure { println("[Couple] createOrGetMyCouple 실패: $it") }
+                        }
                         CoupleLinkScreen(
+                            myCode = myCode,
+                            linking = linking,
                             onBack = { backStack.removeLastOrNull() },
-                            onLink = { _ -> goHome() },
+                            onCopyMyCode = { println("[Couple] copy code: $myCode (clipboard TODO)") },
+                            onShareMyCode = { println("[Couple] share code: $myCode (share sheet TODO)") },
+                            onLink = { partnerCode ->
+                                if (linking) return@CoupleLinkScreen
+                                linking = true
+                                scope.launch {
+                                    runCatching { CouplesRepository.joinByInviteCode(partnerCode) }
+                                        .onSuccess {
+                                            println("[Couple] joined couple $it → 홈으로 이동")
+                                            linking = false
+                                            goHome()
+                                        }
+                                        .onFailure {
+                                            println("[Couple] join 실패: $it")
+                                            linking = false
+                                        }
+                                }
+                            },
                         )
                     }
                     entry<MainRoute> {
