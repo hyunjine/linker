@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.kotlinJvm)
     alias(libs.plugins.kotlinSerialization)
@@ -14,6 +16,19 @@ application {
     applicationDefaultJvmArgs = listOf(
         "-Dio.ktor.development=${findProperty("io.ktor.development") ?: "false"}",
     )
+}
+
+// 로컬 개발용 DB 접속 정보를 local.properties → 실행 시 env 로 자동 주입.
+// application.yaml 이 `$DB_URL:default` 형태로 env 를 읽는다. 배포 (Fly.io) 에서는
+// `fly secrets set DB_URL=...` 로 별도 주입되므로 이 블록은 로컬 실행에만 영향.
+private val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+tasks.named<JavaExec>("run") {
+    listOf("db.url" to "DB_URL", "db.user" to "DB_USER", "db.password" to "DB_PASSWORD").forEach { (k, envKey) ->
+        localProps.getProperty(k)?.takeIf { it.isNotBlank() }?.let { environment(envKey, it) }
+    }
 }
 
 ktor {
