@@ -2,6 +2,9 @@ package com.hyunjine.linker.auth
 
 import com.hyunjine.linker.data.remote.SupabaseProvider
 import io.github.jan.supabase.auth.handleDeeplinks
+import io.github.jan.supabase.auth.user.UserSession
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import platform.Foundation.NSURL
 
 /**
@@ -17,9 +20,7 @@ fun handleAuthDeeplinks(url: NSURL) {
     try {
         SupabaseProvider.client.handleDeeplinks(
             url = url,
-            onSessionSuccess = { session ->
-                println("[Auth] deeplink onSessionSuccess: user=${session.user?.id}")
-            },
+            onSessionSuccess = { session -> logSession(session) },
             onError = { t ->
                 println("[Auth] deeplink onError: ${t.message}")
                 t.printStackTrace()
@@ -30,4 +31,17 @@ fun handleAuthDeeplinks(url: NSURL) {
         println("[Auth] handleAuthDeeplinks threw ${t::class.simpleName}: ${t.message}")
         t.printStackTrace()
     }
+}
+
+private fun logSession(session: UserSession) {
+    val user = session.user
+    val meta = user?.userMetadata
+    val nickname = meta?.get("full_name")?.jsonPrimitive?.contentOrNull
+        ?: meta?.get("name")?.jsonPrimitive?.contentOrNull
+    val avatar = meta?.get("avatar_url")?.jsonPrimitive?.contentOrNull
+    println("[Auth] === 로그인 성공 ===")
+    println("[Auth]   userId    : ${user?.id}")
+    println("[Auth]   email     : ${user?.email}")
+    println("[Auth]   nickname  : $nickname")
+    println("[Auth]   avatarUrl : $avatar")
 }

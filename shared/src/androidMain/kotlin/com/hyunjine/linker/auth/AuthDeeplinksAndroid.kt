@@ -4,6 +4,9 @@ import android.content.Intent
 import android.util.Log
 import com.hyunjine.linker.data.remote.SupabaseProvider
 import io.github.jan.supabase.auth.handleDeeplinks
+import io.github.jan.supabase.auth.user.UserSession
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 
 /**
  * Supabase Auth OAuth 콜백 딥링크를 처리해 세션에 반영한다.
@@ -18,9 +21,7 @@ fun handleAuthDeeplinks(intent: Intent) {
     try {
         SupabaseProvider.client.handleDeeplinks(
             intent = intent,
-            onSessionSuccess = { session ->
-                Log.d("Auth", "deeplink onSessionSuccess: user=${session.user?.id}")
-            },
+            onSessionSuccess = { session -> logSession(session) },
             onError = { t ->
                 Log.e("Auth", "deeplink onError", t)
             },
@@ -29,4 +30,17 @@ fun handleAuthDeeplinks(intent: Intent) {
     } catch (t: Throwable) {
         Log.e("Auth", "handleAuthDeeplinks threw", t)
     }
+}
+
+private fun logSession(session: UserSession) {
+    val user = session.user
+    val meta = user?.userMetadata
+    val nickname = meta?.get("full_name")?.jsonPrimitive?.contentOrNull
+        ?: meta?.get("name")?.jsonPrimitive?.contentOrNull
+    val avatar = meta?.get("avatar_url")?.jsonPrimitive?.contentOrNull
+    Log.i("Auth", "=== 로그인 성공 ===")
+    Log.i("Auth", "  userId    : ${user?.id}")
+    Log.i("Auth", "  email     : ${user?.email}")
+    Log.i("Auth", "  nickname  : $nickname")
+    Log.i("Auth", "  avatarUrl : $avatar")
 }
