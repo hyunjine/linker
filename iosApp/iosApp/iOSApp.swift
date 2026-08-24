@@ -9,6 +9,7 @@ struct iOSApp: App {
     init() {
         // 카카오 SDK 초기화. 네이티브 앱 키는 Config.xcconfig → Info.plist (KAKAO_NATIVE_APP_KEY).
         let appKey = Bundle.main.object(forInfoDictionaryKey: "KAKAO_NATIVE_APP_KEY") as? String ?? ""
+        print("[KakaoLogin] init — appKey='\(appKey)' length=\(appKey.count)")
         KakaoSDK.initSDK(appKey: appKey)
 
         // Kotlin/Native ↔ Swift 브리지 세팅. shared 의 KakaoLoginClient 가 이 handler 를 호출한다.
@@ -27,7 +28,7 @@ struct iOSApp: App {
                     UserApi.shared.me { user, meErr in
                         if let user = user {
                             print("[KakaoLogin] ===== User =====")
-                            print("[KakaoLogin] id: \(String(describing: user.id))")
+                            print("[KakaoLogin] id: \(user.id?.description ?? "nil")")
                             print("[KakaoLogin] nickname: \(user.kakaoAccount?.profile?.nickname ?? "nil")")
                             print("[KakaoLogin] profileImageUrl: \(user.kakaoAccount?.profile?.profileImageUrl?.absoluteString ?? "nil")")
                             print("[KakaoLogin] email: \(user.kakaoAccount?.email ?? "nil")")
