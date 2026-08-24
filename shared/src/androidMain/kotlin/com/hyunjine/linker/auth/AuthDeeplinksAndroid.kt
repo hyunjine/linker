@@ -1,6 +1,7 @@
 package com.hyunjine.linker.auth
 
 import android.content.Intent
+import android.util.Log
 import com.hyunjine.linker.data.remote.SupabaseProvider
 import io.github.jan.supabase.auth.handleDeeplinks
 
@@ -10,5 +11,8 @@ import io.github.jan.supabase.auth.handleDeeplinks
  * shared 안에서 감싼다.
  */
 fun handleAuthDeeplinks(intent: Intent) {
-    SupabaseProvider.client.handleDeeplinks(intent)
+    Log.d("Auth", "handleAuthDeeplinks: action=${intent.action} data=${intent.data}")
+    SupabaseProvider.client.handleDeeplinks(intent) { session ->
+        Log.d("Auth", "deeplink onSessionSuccess: user=${session.user?.id}")
+    }
 }

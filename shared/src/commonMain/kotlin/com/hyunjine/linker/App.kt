@@ -75,7 +75,9 @@ fun App() {
             // 실제 프로필/커플 상태 조회 (#40 후속) 붙기 전엔 무조건 프로필 셋업으로 라우팅.
             val status by sessionStatus.collectAsState()
             LaunchedEffect(status) {
+                println("[Auth] sessionStatus = ${status::class.simpleName}")
                 if (status is SessionStatus.Authenticated && backStack.lastOrNull() == LoginRoute) {
+                    println("[Auth] Authenticated 감지 → ProfileSetup 으로 이동")
                     backStack.add(ProfileSetupRoute)
                 }
             }
@@ -87,9 +89,10 @@ fun App() {
                     entry<LoginRoute> {
                         LoginScreen(
                             onKakaoLoginClick = {
+                                println("[Auth] 카카오 버튼 click")
                                 scope.launch {
                                     runCatching { signInWithKakao() }
-                                        .onFailure { println("[Auth] signInWithKakao failed: $it") }
+                                        .onFailure { println("[Auth] signInWithKakao 실패: $it") }
                                 }
                             },
                         )

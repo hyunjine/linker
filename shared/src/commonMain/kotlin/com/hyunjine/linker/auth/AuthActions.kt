@@ -20,7 +20,9 @@ import kotlinx.coroutines.flow.StateFlow
  * 있어야 KOE205 를 피한다.
  */
 suspend fun signInWithKakao() {
+    println("[Auth] signInWithKakao: enter")
     SupabaseProvider.client.auth.signInWith(Kakao)
+    println("[Auth] signInWithKakao: signInWith returned (browser 세션 시작 요청 완료)")
 }
 
 /**
