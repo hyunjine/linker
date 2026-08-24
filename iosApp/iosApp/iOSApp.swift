@@ -12,6 +12,9 @@ struct iOSApp: App {
         print("[KakaoLogin] init — appKey='\(appKey)' length=\(appKey.count)")
         KakaoSDK.initSDK(appKey: appKey)
 
+        // Supabase 클라이언트 lazy 초기화 트리거. 링킹 · Secrets 주입 조기 검증.
+        print("[Supabase] project = \(SupabaseProvider.shared.warmUp())")
+
         // Kotlin/Native ↔ Swift 브리지 세팅. shared 의 KakaoLoginClient 가 이 handler 를 호출한다.
         // 톡 설치 시 톡 로그인, 없으면 카카오 계정 웹 로그인 폴백.
         KakaoLoginBridge.shared.handler = { callback in
