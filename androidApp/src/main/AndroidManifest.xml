@@ -1,10 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- 특일정보 API 호출용. -->
+    <!-- 특일정보 API · 카카오 로그인 · 서버 API 호출용. -->
     <uses-permission android:name="android.permission.INTERNET" />
 
+    <!--
+      Android 11+ 에서 카카오톡 앱 존재 여부를 조회하려면 명시적 queries 필요.
+      없으면 isKakaoTalkLoginAvailable() 이 항상 false 반환 → 매번 웹 로그인으로 폴백.
+    -->
+    <queries>
+        <package android:name="com.kakao.talk" />
+    </queries>
+
     <application
+        android:name=".LinkerApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
@@ -18,6 +27,23 @@
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+          카카오 로그인 콜백 액티비티. 카카오톡/카카오 계정에서 인증 후
+          kakao{NATIVE_APP_KEY}://oauth 스킴으로 우리 앱에 돌아온다.
+          scheme placeholder 는 androidApp/build.gradle.kts 의 manifestPlaceholders 로 주입.
+        -->
+        <activity
+            android:name="com.kakao.sdk.auth.AuthCodeHandlerActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:host="oauth"
+                    android:scheme="kakao${KAKAO_NATIVE_APP_KEY}" />
             </intent-filter>
         </activity>
     </application>

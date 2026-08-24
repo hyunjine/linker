@@ -2,17 +2,21 @@ package com.hyunjine.linker
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import androidx.savedstate.serialization.SavedStateConfiguration
+import com.hyunjine.linker.auth.KakaoLoginResult
+import com.hyunjine.linker.auth.rememberKakaoLoginClient
 import com.hyunjine.linker.ui.couple.CoupleLinkScreen
 import com.hyunjine.linker.ui.login.LoginScreen
 import com.hyunjine.linker.ui.main.MainScreen
 import com.hyunjine.linker.ui.profile.ProfileSetupScreen
 import com.hyunjine.linker.ui.schedule.CreateScheduleScreen
 import com.hyunjine.linker.ui.theme.ProvidePretendard
+import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
@@ -66,8 +70,26 @@ fun App() {
                 onBack = { backStack.removeLastOrNull() },
                 entryProvider = entryProvider {
                     entry<LoginRoute> {
+                        val kakao = rememberKakaoLoginClient()
+                        val scope = rememberCoroutineScope()
                         LoginScreen(
-                            onKakaoLoginClick = { backStack.add(ProfileSetupRoute) },
+                            onKakaoLoginClick = {
+                                scope.launch {
+                                    // TODO(#17 후속): 성공 시 서버 POST /auth/kakao 로 토큰 교환 →
+                                    // is_profile_complete / couple 응답에 따라 라우팅 (§3.4 매트릭스).
+                                    // 지금은 SDK 성공만 되면 프로필 셋업으로 진입.
+                                    when (val r = kakao.login()) {
+                                        is KakaoLoginResult.Success -> {
+                                            println("[KakaoLogin] SUCCESS accessToken=${r.accessToken.take(12)}… refresh=${r.refreshToken?.take(12)}…")
+                                            backStack.add(ProfileSetupRoute)
+                                        }
+                                        KakaoLoginResult.Cancelled ->
+                                            println("[KakaoLogin] CANCELLED by user")
+                                        is KakaoLoginResult.Failure ->
+                                            println("[KakaoLogin] FAILURE: ${r.reason}")
+                                    }
+                                }
+                            },
                         )
                     }
                     entry<ProfileSetupRoute> {
