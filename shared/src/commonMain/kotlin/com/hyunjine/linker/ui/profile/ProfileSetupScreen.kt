@@ -106,12 +106,13 @@ fun ProfileSetupScreen(
     birthDate: String = "1998. 05. 24.",
     selectedColorId: String = "blue",
     calendarColors: List<CalendarColorOption> = DefaultCalendarColors,
+    saving: Boolean = false,
     onBack: () -> Unit = {},
     onEditPhoto: () -> Unit = {},
     onNicknameChange: (String) -> Unit = {},
     onBirthDateChange: (String) -> Unit = {},
     onSelectColor: (String) -> Unit = {},
-    onNext: () -> Unit = {},
+    onNext: (nickname: String, birthDate: LocalDate?, colorId: String) -> Unit = { _, _, _ -> },
 ) {
     // 시트 표시 여부. 프로세스 재구성/구성 변경 상황에서도 유지.
     var showBirthDateSheet by rememberSaveable { mutableStateOf(false) }
@@ -177,7 +178,15 @@ fun ProfileSetupScreen(
             Spacer(Modifier.weight(1f).fillMaxHeight())
 
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-                PrimaryButton(text = "다음", onClick = onNext)
+                PrimaryButton(
+                    text = if (saving) "저장 중…" else "다음",
+                    onClick = {
+                        if (saving) return@PrimaryButton
+                        val parsed = parseBirthDate(currentBirthDate)
+                        val date = runCatching { LocalDate(parsed.year, parsed.month, parsed.day) }.getOrNull()
+                        onNext(currentNickname.trim(), date, currentColorId)
+                    },
+                )
             }
 
             Spacer(Modifier.height(24.dp))

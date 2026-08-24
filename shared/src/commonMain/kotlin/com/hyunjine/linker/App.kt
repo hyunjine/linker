@@ -5,7 +5,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
@@ -13,6 +16,7 @@ import androidx.navigation3.ui.NavDisplay
 import androidx.savedstate.serialization.SavedStateConfiguration
 import com.hyunjine.linker.auth.sessionStatus
 import com.hyunjine.linker.auth.signInWithKakao
+import com.hyunjine.linker.data.remote.UsersRepository
 import com.hyunjine.linker.ui.couple.CoupleLinkScreen
 import com.hyunjine.linker.ui.login.LoginScreen
 import com.hyunjine.linker.ui.main.MainScreen
@@ -20,8 +24,12 @@ import com.hyunjine.linker.ui.profile.ProfileSetupScreen
 import com.hyunjine.linker.ui.schedule.CreateScheduleScreen
 import com.hyunjine.linker.ui.theme.ProvidePretendard
 import io.github.jan.supabase.auth.status.SessionStatus
+import io.github.jan.supabase.auth.user.UserInfo
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 import kotlinx.serialization.modules.subclass
@@ -56,6 +64,18 @@ private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
             subclass(CreateScheduleRoute::class, CreateScheduleRoute.serializer())
         }
     }
+}
+
+/** Kakao provider 가 채워준 user_metadata 에서 프로필 셋업 초기값 뽑는다. 값이 없으면 화면 기본값 그대로. */
+private data class ProfileDefaults(val nickname: String, val avatarUrl: String?)
+
+private fun profileDefaults(user: UserInfo?): ProfileDefaults {
+    val meta: JsonObject? = user?.userMetadata
+    val nickname = meta?.get("full_name")?.jsonPrimitive?.contentOrNull
+        ?: meta?.get("name")?.jsonPrimitive?.contentOrNull
+        ?: "현진"
+    val avatar = meta?.get("avatar_url")?.jsonPrimitive?.contentOrNull
+    return ProfileDefaults(nickname = nickname, avatarUrl = avatar)
 }
 
 @Composable
@@ -98,9 +118,33 @@ fun App() {
                         )
                     }
                     entry<ProfileSetupRoute> {
+                        val currentUser = (status as? SessionStatus.Authenticated)?.session?.user
+                        val defaults = remember(currentUser) { profileDefaults(currentUser) }
+                        var saving by remember { mutableStateOf(false) }
                         ProfileSetupScreen(
+                            nickname = defaults.nickname,
+                            saving = saving,
                             onBack = { backStack.removeLastOrNull() },
-                            onNext = { backStack.add(CoupleLinkRoute) },
+                            onNext = { nickname, birthDate, colorId ->
+                                saving = true
+                                scope.launch {
+                                    runCatching {
+                                        UsersRepository.completeProfile(
+                                            nickname = nickname,
+                                            birthDate = birthDate,
+                                            profileImageUrl = defaults.avatarUrl,
+                                            calendarColor = colorId,
+                                        )
+                                    }.onSuccess {
+                                        println("[Profile] 저장 성공 → CoupleLink 로 이동")
+                                        saving = false
+                                        backStack.add(CoupleLinkRoute)
+                                    }.onFailure {
+                                        println("[Profile] 저장 실패: $it")
+                                        saving = false
+                                    }
+                                }
+                            },
                         )
                     }
                     entry<CoupleLinkRoute> {
