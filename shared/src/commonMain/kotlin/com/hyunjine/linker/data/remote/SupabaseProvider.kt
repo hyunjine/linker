@@ -20,12 +20,24 @@ import io.github.jan.supabase.postgrest.Postgrest
  * Swift 에서는 `SupabaseProvider.shared.client` 로 접근.
  */
 object SupabaseProvider {
+    /**
+     * Supabase Auth 의 OAuth 콜백 딥링크. 브라우저에서 카카오 로그인이 끝나면
+     * `AuthRedirectScheme://AuthRedirectHost` 로 우리 앱으로 돌아온다.
+     * Android intent-filter · iOS `CFBundleURLSchemes` · Supabase 대시보드
+     * "Redirect URLs" 세 곳이 모두 이 값과 일치해야 한다.
+     */
+    const val AuthRedirectScheme: String = "com.hyunjine.linker"
+    const val AuthRedirectHost: String = "auth-callback"
+
     val client: SupabaseClient by lazy {
         createSupabaseClient(
             supabaseUrl = Secrets.SupabaseUrl,
             supabaseKey = Secrets.SupabasePublishableKey,
         ) {
-            install(Auth)
+            install(Auth) {
+                scheme = AuthRedirectScheme
+                host = AuthRedirectHost
+            }
             install(Postgrest)
         }
     }

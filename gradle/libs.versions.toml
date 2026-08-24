@@ -12,14 +12,13 @@ androidx-testExt = "1.3.0"
 composeMultiplatform = "1.11.1"
 junit = "4.13.2"
 kotlin = "2.4.10"
-ktor = "3.0.3"
+ktor = "3.5.1"
 kotlinxCoroutines = "1.10.2"
-kotlinxDatetime = "0.7.1"
+kotlinxDatetime = "0.8.0"
 kotlinxSerialization = "1.9.0"
 material3 = "1.11.0-alpha07"
 navigation3 = "1.1.1"
-kakaoSdk = "2.20.6"
-supabase = "3.0.3"
+supabase = "3.7.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -50,11 +49,7 @@ ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx
 ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
 
-# Kakao SDK (Android only). v2-user 는 로그인/유저 API 만 담고, share 등은 필요 시 추가.
-kakao-user = { module = "com.kakao.sdk:v2-user", version.ref = "kakaoSdk" }
-
-# supabase-kt (KMP). BOM 대신 개별 라이브러리 + 공통 버전 참조.
-# auth-kt: Supabase Auth (카카오 provider 포함), postgrest-kt: 테이블 CRUD.
+# supabase-kt (KMP). auth-kt: Supabase Auth (카카오 provider), postgrest-kt: 테이블 CRUD.
 supabase-auth = { module = "io.github.jan-tennert.supabase:auth-kt", version.ref = "supabase" }
 supabase-postgrest = { module = "io.github.jan-tennert.supabase:postgrest-kt", version.ref = "supabase" }
 
