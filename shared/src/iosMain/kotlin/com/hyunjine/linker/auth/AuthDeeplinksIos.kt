@@ -10,13 +10,21 @@ import platform.Foundation.NSURL
  *
  * try-catch 는 Kotlin/Native → Swift 상호운용 필수: @Throws 없이 예외를 던지면
  * Kotlin_ObjCExport_trapOnUndeclaredException 이 프로세스를 즉시 종료시킨다.
+ * onSessionSuccess/onError 는 named 로 전달 (trailing lambda 는 onError 에 붙어버림).
  */
 fun handleAuthDeeplinks(url: NSURL) {
     println("[Auth] handleAuthDeeplinks: url=${url.absoluteString}")
     try {
-        SupabaseProvider.client.handleDeeplinks(url) { session ->
-            println("[Auth] deeplink onSessionSuccess: user=${session.user?.id}")
-        }
+        SupabaseProvider.client.handleDeeplinks(
+            url = url,
+            onSessionSuccess = { session ->
+                println("[Auth] deeplink onSessionSuccess: user=${session.user?.id}")
+            },
+            onError = { t ->
+                println("[Auth] deeplink onError: ${t.message}")
+                t.printStackTrace()
+            },
+        )
         println("[Auth] handleAuthDeeplinks: 정상 반환")
     } catch (t: Throwable) {
         println("[Auth] handleAuthDeeplinks threw ${t::class.simpleName}: ${t.message}")
