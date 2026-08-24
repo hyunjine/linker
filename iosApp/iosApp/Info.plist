@@ -4,5 +4,28 @@
 <dict>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
+
+	<!-- 카카오톡 앱 설치 여부 확인 · 앱 실행에 필요한 스킴 allowlist -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>kakaokompassauth</string>
+		<string>kakaolink</string>
+	</array>
+
+	<!-- 카카오 로그인 후 콜백을 우리 앱으로 돌려받기 위한 URL 스킴.
+	     kakao{네이티브 앱 키} 형태. Config.xcconfig 의 KAKAO_NATIVE_APP_KEY 참조. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.hyunjine.linker.kakao</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>kakao$(KAKAO_NATIVE_APP_KEY)</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

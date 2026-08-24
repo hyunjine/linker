@@ -2,20 +2,26 @@ package com.hyunjine.linker.auth
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import kotlin.coroutines.resume
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
- * iOS 카카오 로그인. KakaoOpenSDK (CocoaPods/SPM) 세팅은 별도 후속 이슈에서 진행.
- * 현재는 SDK 미연동 상태이므로 항상 [KakaoLoginResult.Failure] 반환.
- *
- * 붙이는 방향:
- *   1) iosApp Podfile 에 `KakaoSDKUser`, `KakaoSDKAuth`, `KakaoSDKCommon` 추가
- *   2) `iOSApp.swift` (or AppDelegate) 에서 `KakaoSDK.initSDK(appKey:)`
- *   3) `SceneDelegate.scene(_:openURLContexts:)` 또는 `App.onOpenURL` 에서 `AuthController.handleOpenUrl`
- *   4) KMP 쪽 actual 을 Objective-C interop 으로 `UserApi.shared.loginWithKakaoTalk` 호출
+ * iOS 카카오 로그인. 실제 SDK 호출은 Swift 쪽 [KakaoLoginBridge.handler] 가 담당한다.
+ * iOSApp.swift 에서 앱 시작 시 handler 를 세팅하지 않으면 로그인 시도가 [KakaoLoginResult.Failure] 반환.
  */
 actual class KakaoLoginClient {
-    actual suspend fun login(): KakaoLoginResult =
-        KakaoLoginResult.Failure("iOS Kakao SDK not integrated yet")
+    actual suspend fun login(): KakaoLoginResult = suspendCancellableCoroutine { cont ->
+        val handler = KakaoLoginBridge.handler
+        if (handler == null) {
+            if (cont.isActive) cont.resume(
+                KakaoLoginResult.Failure("KakaoLoginBridge.handler not configured (Swift 초기화 확인)"),
+            )
+            return@suspendCancellableCoroutine
+        }
+        handler { result ->
+            if (cont.isActive) cont.resume(result)
+        }
+    }
 }
 
 @Composable
