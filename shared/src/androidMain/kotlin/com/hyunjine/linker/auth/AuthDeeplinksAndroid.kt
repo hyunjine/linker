@@ -12,7 +12,12 @@ import io.github.jan.supabase.auth.handleDeeplinks
  */
 fun handleAuthDeeplinks(intent: Intent) {
     Log.d("Auth", "handleAuthDeeplinks: action=${intent.action} data=${intent.data}")
-    SupabaseProvider.client.handleDeeplinks(intent) { session ->
-        Log.d("Auth", "deeplink onSessionSuccess: user=${session.user?.id}")
+    try {
+        SupabaseProvider.client.handleDeeplinks(intent) { session ->
+            Log.d("Auth", "deeplink onSessionSuccess: user=${session.user?.id}")
+        }
+        Log.d("Auth", "handleAuthDeeplinks: 정상 반환")
+    } catch (t: Throwable) {
+        Log.e("Auth", "handleAuthDeeplinks threw", t)
     }
 }
