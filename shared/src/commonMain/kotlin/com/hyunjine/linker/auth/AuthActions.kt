@@ -14,14 +14,13 @@ import kotlinx.coroutines.flow.StateFlow
  * 취소는 supabase-kt 가 sessionStatus 를 그대로 [SessionStatus.NotAuthenticated] 로 유지하므로
  * 별도 처리 불필요. 실패는 예외로 던져지며 UI 계층에서 catch 해 로그만 남기면 된다.
  *
- * scope 는 카카오 콘솔에 등록된 두 개만 명시. 기본으로 두면 Supabase 가 account_email 도 요청해
- * KOE205 (미등록 동의항목 요청) 를 맞는다. 이메일이 필요해지면 Kakao Developers → 카카오 로그인
- * → 동의항목에서 `account_email` 선택 동의로 켠 뒤 여기 목록에 추가.
+ * **scope 노트**: Supabase gotrue 의 Kakao provider 가 `account_email profile_image profile_nickname`
+ * 을 소스에 하드코딩해 무조건 요청한다 (append 만 되지 override 불가). 클라이언트가 별도 scope 를
+ * 명시할 필요 · 여지 없음. Kakao Developers → 카카오 로그인 → 동의항목에서 이 세 개가 모두 등록돼
+ * 있어야 KOE205 를 피한다.
  */
 suspend fun signInWithKakao() {
-    SupabaseProvider.client.auth.signInWith(Kakao) {
-        scopes.addAll(listOf("profile_nickname", "profile_image"))
-    }
+    SupabaseProvider.client.auth.signInWith(Kakao)
 }
 
 /**
