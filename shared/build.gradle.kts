@@ -16,7 +16,6 @@ val localProperties = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }
 val holidayApiKey: String = localProperties.getProperty("holiday.api.key", "")
-val kakaoNativeAppKey: String = localProperties.getProperty("kakao.native.app.key", "")
 val supabaseUrl: String = localProperties.getProperty("supabase.url", "")
 val supabasePublishableKey: String = localProperties.getProperty("supabase.publishableKey", "")
 
@@ -26,11 +25,9 @@ val generatedSecretsDir: Provider<Directory> =
 val generateSecrets by tasks.registering {
     val outputDir = generatedSecretsDir
     val holidayKey = holidayApiKey
-    val kakaoKey = kakaoNativeAppKey
     val sbUrl = supabaseUrl
     val sbKey = supabasePublishableKey
     inputs.property("holidayApiKey", holidayKey)
-    inputs.property("kakaoNativeAppKey", kakaoKey)
     inputs.property("supabaseUrl", sbUrl)
     inputs.property("supabasePublishableKey", sbKey)
     outputs.dir(outputDir)
@@ -45,9 +42,6 @@ val generateSecrets by tasks.registering {
             internal object Secrets {
                 /** data.go.kr 특일정보 API 서비스 키 (URL-encoded 원본). local.properties `holiday.api.key`. */
                 const val HolidayApiKey: String = "$holidayKey"
-
-                /** 카카오 네이티브 앱 키. Android SDK 초기화 + kakao{key}://oauth 스킴. local.properties `kakao.native.app.key`. */
-                const val KakaoNativeAppKey: String = "$kakaoKey"
 
                 /** Supabase Project URL. `https://<ref>.supabase.co`. local.properties `supabase.url`. */
                 const val SupabaseUrl: String = "$sbUrl"
@@ -99,7 +93,6 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.uiTooling)
             implementation(libs.ktor.client.okhttp)
-            implementation(libs.kakao.user)
         }
         commonMain.dependencies {
             api(project(":shared-api"))

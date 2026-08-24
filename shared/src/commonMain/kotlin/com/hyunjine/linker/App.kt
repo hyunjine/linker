@@ -2,20 +2,24 @@ package com.hyunjine.linker
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import androidx.savedstate.serialization.SavedStateConfiguration
-import com.hyunjine.linker.auth.KakaoLoginResult
-import com.hyunjine.linker.auth.rememberKakaoLoginClient
+import com.hyunjine.linker.auth.sessionStatus
+import com.hyunjine.linker.auth.signInWithKakao
 import com.hyunjine.linker.ui.couple.CoupleLinkScreen
 import com.hyunjine.linker.ui.login.LoginScreen
 import com.hyunjine.linker.ui.main.MainScreen
 import com.hyunjine.linker.ui.profile.ProfileSetupScreen
 import com.hyunjine.linker.ui.schedule.CreateScheduleScreen
 import com.hyunjine.linker.ui.theme.ProvidePretendard
+import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.modules.SerializersModule
@@ -59,35 +63,33 @@ fun App() {
     MaterialTheme {
         ProvidePretendard {
             val backStack = rememberNavBackStack(NavConfig, LoginRoute)
+            val scope = rememberCoroutineScope()
             // 온보딩 완료(커플 연결) 시점에 로그인·프로필·연결 스택을 전부 비우고 Main 만 남긴다.
             // 홈에서 뒤로가기로 로그인 화면이 다시 뜨면 안 되므로 clear + push 조합.
             val goHome: () -> Unit = {
                 backStack.clear()
                 backStack.add(MainRoute)
             }
+
+            // Supabase Auth 세션 상태가 Authenticated 로 바뀌면 다음 온보딩 단계로 진입.
+            // 실제 프로필/커플 상태 조회 (#40 후속) 붙기 전엔 무조건 프로필 셋업으로 라우팅.
+            val status by sessionStatus.collectAsState()
+            LaunchedEffect(status) {
+                if (status is SessionStatus.Authenticated && backStack.lastOrNull() == LoginRoute) {
+                    backStack.add(ProfileSetupRoute)
+                }
+            }
+
             NavDisplay(
                 backStack = backStack,
                 onBack = { backStack.removeLastOrNull() },
                 entryProvider = entryProvider {
                     entry<LoginRoute> {
-                        val kakao = rememberKakaoLoginClient()
-                        val scope = rememberCoroutineScope()
                         LoginScreen(
                             onKakaoLoginClick = {
                                 scope.launch {
-                                    // TODO(#17 후속): 성공 시 서버 POST /auth/kakao 로 토큰 교환 →
-                                    // is_profile_complete / couple 응답에 따라 라우팅 (§3.4 매트릭스).
-                                    // 지금은 SDK 성공만 되면 프로필 셋업으로 진입.
-                                    when (val r = kakao.login()) {
-                                        is KakaoLoginResult.Success -> {
-                                            println("[KakaoLogin] SUCCESS accessToken=${r.accessToken.take(12)}… refresh=${r.refreshToken?.take(12)}…")
-                                            backStack.add(ProfileSetupRoute)
-                                        }
-                                        KakaoLoginResult.Cancelled ->
-                                            println("[KakaoLogin] CANCELLED by user")
-                                        is KakaoLoginResult.Failure ->
-                                            println("[KakaoLogin] FAILURE: ${r.reason}")
-                                    }
+                                    runCatching { signInWithKakao() }
+                                        .onFailure { println("[Auth] signInWithKakao failed: $it") }
                                 }
                             },
                         )

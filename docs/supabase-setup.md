@@ -57,6 +57,9 @@
 - **Authentication → Providers → Kakao** 활성화
 - Kakao Client ID: `f333f96e63c3ca850e82430d7f7f6344`
 - Kakao Client Secret: (Kakao 콘솔에서 발급한 값)
+- **Authentication → URL Configuration → Additional Redirect URLs** 에 아래 두 개 추가 (앱 딥링크):
+  - `com.hyunjine.linker://auth-callback`
+  - `com.hyunjine.linker://auth-callback/**` (와일드카드가 필요한 경우 대비)
 
 ## 5. 로컬 개발 세팅
 
@@ -71,8 +74,8 @@ supabase.publishableKey=sb_publishable_1O5ktPM0NZNlVg8lFWeA4w_Mae55UqH
 
 ## 6. 후속 이슈 (`#32` 하위)
 
-- **[다음]** supabase-kt 클라이언트 통합 — `shared` 모듈에 dependency + `SupabaseClient` 초기화
-- 카카오 로그인 → `signInWith(Kakao)` (A안) 로 재작성 · 네이티브 SDK 코드 폐기
+- ✅ `#37` supabase-kt 클라이언트 통합 완료 (`shared` 모듈)
+- ✅ `#39` 카카오 로그인 A안 재작성 완료 (`signInWith(Kakao)` · 네이티브 SDK 폐기)
 - 유저 프로필 CRUD, 커플 CRUD, 스케줄 CRUD, 기념일 CRUD (기존 #19~22 재정의)
 - (선택) Realtime 구독 — 파트너 편집 즉시 반영
 
