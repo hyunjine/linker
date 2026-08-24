@@ -1,6 +1,6 @@
 # schema/
 
-Supabase 로 pivot (#32) 하기 전 Ktor + Flyway 시절의 마지막 스키마 스냅샷을 보관한다.
+Ktor + Flyway 시절 스키마 스냅샷 (역사 보관용).
 
-- `V1__init.sql` — 원본 Flyway 마이그레이션. 다음 이슈에서 이 파일을 기반으로 Supabase SQL Editor 에 이관 (+ RLS 정책 추가) 예정.
-- 이관 완료 후에도 참고용으로 유지. Supabase 쪽 마이그레이션은 별도 위치 (예: `supabase/migrations/`) 에 관리.
+- `V1__init.sql` — 원본 Flyway 마이그레이션. **실행 대상 아님**. 현재 활성 스키마는 `supabase/schema.sql` 로 이관 완료 (#35).
+- 참고용으로만 유지. 실제 스키마 변경은 `supabase/schema.sql` · `supabase/migrations/` 에서 관리.
