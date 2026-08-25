@@ -78,6 +78,25 @@ private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
 private fun oneMonthAgo(): LocalDate = today().plus(-31, DateTimeUnit.DAY)
 private fun oneMonthAhead(): LocalDate = today().plus(93, DateTimeUnit.DAY)
 
+/**
+ * 로그인 완료 시 자동으로 진입할 화면을 결정한다.
+ * - 프로필 미완성 → ProfileSetup
+ * - 프로필 완성 · 커플 미가입 → CoupleLink
+ * - 둘 다 완료 → Main (홈)
+ *
+ * 조회 실패는 안전하게 ProfileSetup 으로 폴백 (사용자가 다시 시도할 수 있게 하는 게 최선).
+ */
+private suspend fun decideBootstrapTarget(): NavKey {
+    val profile = runCatching { UsersRepository.myProfile() }
+        .onFailure { println("[Boot] myProfile 실패: $it") }
+        .getOrNull()
+    if (profile?.isCompleted != true) return ProfileSetupRoute
+    val coupleId = runCatching { CouplesRepository.myCoupleIdOrNull() }
+        .onFailure { println("[Boot] myCoupleIdOrNull 실패: $it") }
+        .getOrNull()
+    return if (coupleId == null) CoupleLinkRoute else MainRoute
+}
+
 @kotlin.OptIn(kotlin.time.ExperimentalTime::class)
 private fun today(): LocalDate =
     kotlin.time.Clock.System.now()
@@ -128,14 +147,31 @@ fun App() {
                 backStack.add(MainRoute)
             }
 
-            // Supabase Auth 세션 상태가 Authenticated 로 바뀌면 다음 온보딩 단계로 진입.
-            // 실제 프로필/커플 상태 조회 (#40 후속) 붙기 전엔 무조건 프로필 셋업으로 라우팅.
+            // 세션 상태 기반 부트스트랩 라우팅.
+            //  - Authenticated: 프로필/커플 상태 조회 → 미완성 단계로 자동 진입 (재로그인 시 온보딩 스킵)
+            //  - NotAuthenticated / RefreshFailure: 로그인 화면으로 스택 초기화
+            //  - Initializing: 아무것도 안 함 (세션 storage 로드 중)
             val status by sessionStatus.collectAsState()
             LaunchedEffect(status) {
                 println("[Auth] sessionStatus = ${status::class.simpleName}")
-                if (status is SessionStatus.Authenticated && backStack.lastOrNull() == LoginRoute) {
-                    println("[Auth] Authenticated 감지 → ProfileSetup 으로 이동")
-                    backStack.add(ProfileSetupRoute)
+                when (val s = status) {
+                    is SessionStatus.Authenticated -> {
+                        val target = decideBootstrapTarget()
+                        println("[Auth] Authenticated → $target")
+                        if (backStack.lastOrNull() != target) {
+                            backStack.clear()
+                            backStack.add(target)
+                        }
+                    }
+                    is SessionStatus.NotAuthenticated,
+                    is SessionStatus.RefreshFailure -> {
+                        if (backStack.lastOrNull() != LoginRoute) {
+                            println("[Auth] 세션 없음 → LoginRoute 로 리셋")
+                            backStack.clear()
+                            backStack.add(LoginRoute)
+                        }
+                    }
+                    is SessionStatus.Initializing -> Unit
                 }
             }
 

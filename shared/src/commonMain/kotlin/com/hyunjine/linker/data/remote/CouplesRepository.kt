@@ -1,5 +1,7 @@
 package com.hyunjine.linker.data.remote
 
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -29,6 +31,22 @@ object CouplesRepository {
         val result = SupabaseProvider.client.postgrest.rpc("create_my_couple")
         return result.decodeList<MyCouple>().first()
     }
+
+    /**
+     * 현재 유저의 couple_id 만 조회. **생성하지 않음** — 부트스트랩 라우팅에서
+     * "커플이 있는지" 판단할 때 사용. 없거나 세션 없으면 null.
+     */
+    suspend fun myCoupleIdOrNull(): String? {
+        val uid = SupabaseProvider.client.auth.currentUserOrNull()?.id ?: return null
+        return SupabaseProvider.client.from("couple_members")
+            .select { filter { eq("user_id", uid) } }
+            .decodeList<CoupleMemberRow>()
+            .firstOrNull()
+            ?.coupleId
+    }
+
+    @Serializable
+    private data class CoupleMemberRow(@SerialName("couple_id") val coupleId: String)
 
     /**
      * 초대코드로 상대방 커플에 합류한다. 기존 소속 커플에서 자동 leave.
