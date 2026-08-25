@@ -156,7 +156,16 @@ private fun today(): LocalDate =
 fun MainScreen(
     initialYearMonth: YearMonth = YearMonth.current(),
     today: LocalDate = today(),
+    /**
+     * Preview · 테스트용 정적 override. 실제 앱에서는 [onLoadEntriesForMonth] 로 월별 로드된
+     * entries 와 병합된다.
+     */
     entries: Map<LocalDate, CalendarDayEntry> = emptyMap(),
+    /**
+     * 특정 [YearMonth] 의 스케줄 chip 을 불러오는 fetcher. 화면이 보이는 달이 바뀔 때마다 호출되며,
+     * 결과는 화면 내부 캐시에 담긴다 (같은 달은 재요청 안 함). 기본은 no-op 로 Preview 안전.
+     */
+    onLoadEntriesForMonth: suspend (YearMonth) -> Map<LocalDate, CalendarDayEntry> = { emptyMap() },
     onMenuClick: () -> Unit = {},
     onTitleClick: () -> Unit = {},
     onSearchClick: () -> Unit = {},
@@ -202,13 +211,29 @@ fun MainScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     var displayState by remember { mutableStateOf(DrawerDisplayState()) }
 
-    // 표시 토글 반영: 공휴일/절기 chip 을 옵션대로 걸러 낸 후 사용자 entries 와 병합.
-    val mergedEntries = remember(entries, specialDayEntries, displayState.showHolidays, displayState.showSolarTerms) {
-        val filtered = specialDayEntries.filterByToggles(
+    // 월별 스케줄 chip 캐시. currentYearMonth 가 바뀌면 아직 로드 안 된 달을 fetch.
+    var scheduleEntriesByMonth by remember {
+        mutableStateOf(mapOf<YearMonth, Map<LocalDate, CalendarDayEntry>>())
+    }
+    LaunchedEffect(currentYearMonth) {
+        if (scheduleEntriesByMonth.containsKey(currentYearMonth)) return@LaunchedEffect
+        val fetched = onLoadEntriesForMonth(currentYearMonth)
+        scheduleEntriesByMonth = scheduleEntriesByMonth + (currentYearMonth to fetched)
+    }
+    val scheduleEntries = remember(scheduleEntriesByMonth) {
+        scheduleEntriesByMonth.values.fold(emptyMap<LocalDate, CalendarDayEntry>()) { acc, next ->
+            mergeEntries(base = acc, override = next)
+        }
+    }
+
+    // 표시 토글 반영: 공휴일/절기 chip 을 옵션대로 걸러 낸 후 스케줄 chip · Preview entries 와 병합.
+    val mergedEntries = remember(entries, scheduleEntries, specialDayEntries, displayState.showHolidays, displayState.showSolarTerms) {
+        val filteredSpecial = specialDayEntries.filterByToggles(
             showHolidays = displayState.showHolidays,
             showSolarTerms = displayState.showSolarTerms,
         )
-        mergeEntries(base = filtered, override = entries)
+        val withSchedules = mergeEntries(base = filteredSpecial, override = scheduleEntries)
+        mergeEntries(base = withSchedules, override = entries)
     }
 
     AppDrawer(

@@ -297,16 +297,18 @@ fun App() {
                         )
                     }
                     entry<MainRoute> {
-                        var scheduleEntries by remember { mutableStateOf(emptyMap<LocalDate, CalendarDayEntry>()) }
-                        // MVP: 오늘 기준 ±3개월 스케줄을 한 번에 로드해 chip 으로 노출.
-                        // 월 이동 시 재조회 · 실시간 반영은 후속 이슈.
-                        LaunchedEffect(Unit) {
-                            runCatching { SchedulesRepository.listInRange(oneMonthAgo(), oneMonthAhead()) }
-                                .onSuccess { rows -> scheduleEntries = rows.toCalendarEntries() }
-                                .onFailure { println("[Schedule] listInRange 실패: $it") }
-                        }
                         MainScreen(
-                            entries = scheduleEntries,
+                            // 월 이동 시마다 호출됨. 캐시는 화면 내부 (MainScreen) 에서 관리.
+                            // 범위는 해당 달 ± 1주 (그리드가 인접 월 leading/trailing 셀도 표시).
+                            onLoadEntriesForMonth = { yearMonth ->
+                                val first = LocalDate(yearMonth.year, yearMonth.month, 1)
+                                val from = first.plus(-7, DateTimeUnit.DAY)
+                                val to = first.plus(1, DateTimeUnit.MONTH).plus(7, DateTimeUnit.DAY)
+                                runCatching { SchedulesRepository.listInRange(from, to) }
+                                    .onFailure { println("[Schedule] listInRange($yearMonth) 실패: $it") }
+                                    .getOrDefault(emptyList())
+                                    .toCalendarEntries()
+                            },
                             onAddSchedule = { backStack.add(CreateScheduleRoute()) },
                             onAnniversaryClick = { backStack.add(AnniversariesRoute) },
                         )
