@@ -41,7 +41,10 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
+import androidx.compose.ui.graphics.Color
+import com.hyunjine.linker.ui.theme.CalendarPurple
 import com.hyunjine.linker.ui.theme.ProvidePretendard
+import com.hyunjine.linker.ui.theme.calendarColorFor
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserInfo
 import kotlinx.coroutines.launch
@@ -193,19 +196,40 @@ private fun AnniversariesRepository.Row.toUi(): AnniversaryUi = AnniversaryUi(
     repeatYearly = repeatYearly,
 )
 
+/** owner_kind → chip 색상. 프로필 로드 전엔 [Default] 폴백. */
+private data class OwnerColors(val me: Color, val partner: Color, val us: Color) {
+    fun forOwner(ownerKind: String): Color = when (ownerKind) {
+        "me" -> me
+        "partner" -> partner
+        else -> us
+    }
+
+    companion object {
+        val Default = OwnerColors(
+            me = calendarColorFor("blue"),
+            partner = calendarColorFor("pink"),
+            us = CalendarPurple,
+        )
+    }
+}
+
 /**
  * 서버에서 받은 스케줄 rows 를 MainScreen 이 소비하는 `Map<LocalDate, CalendarDayEntry>` 로 변환.
  * 스케줄이 [start_date, end_date] 범위를 커버하면 각 날짜에 chip 을 추가한다.
+ * chip 색은 [ownerColors] 로 결정 (me/partner/us).
  */
-private fun List<SchedulesRepository.Row>.toCalendarEntries(): Map<LocalDate, CalendarDayEntry> {
+private fun List<SchedulesRepository.Row>.toCalendarEntries(
+    ownerColors: OwnerColors,
+): Map<LocalDate, CalendarDayEntry> {
     val out = mutableMapOf<LocalDate, MutableList<CalendarEvent>>()
     for (row in this) {
         val start = LocalDate.parse(row.startDate)
         val end = LocalDate.parse(row.endDate)
+        val tint = ownerColors.forOwner(row.ownerKind)
         var d = start
         while (d <= end) {
             out.getOrPut(d) { mutableListOf() }
-                .add(CalendarEvent(row.title, CalendarEventType.Personal))
+                .add(CalendarEvent(row.title, CalendarEventType.Personal, tintColor = tint))
             d = d.plus(1, DateTimeUnit.DAY)
         }
     }
@@ -359,6 +383,18 @@ fun App() {
                         )
                     }
                     entry<MainRoute> {
+                        // 내 · 파트너 프로필의 calendar_color 로 owner 별 chip 색을 정한다.
+                        // 로드 전엔 fallback 팔레트 (blue/pink) 사용.
+                        var ownerColors by remember { mutableStateOf(OwnerColors.Default) }
+                        LaunchedEffect(Unit) {
+                            val my = runCatching { UsersRepository.myProfile()?.calendarColor }.getOrNull()
+                            val partner = runCatching { UsersRepository.partnerProfile()?.calendarColor }.getOrNull()
+                            ownerColors = OwnerColors(
+                                me = calendarColorFor(my),
+                                partner = calendarColorFor(partner ?: "pink"),
+                                us = CalendarPurple,
+                            )
+                        }
                         MainScreen(
                             // 월 이동 시마다 호출됨. 캐시는 화면 내부 (MainScreen) 에서 관리.
                             // 범위는 해당 달 ± 1주 (그리드가 인접 월 leading/trailing 셀도 표시).
@@ -369,7 +405,7 @@ fun App() {
                                 runCatching { SchedulesRepository.listInRange(from, to) }
                                     .onFailure { println("[Schedule] listInRange($yearMonth) 실패: $it") }
                                     .getOrDefault(emptyList())
-                                    .toCalendarEntries()
+                                    .toCalendarEntries(ownerColors)
                             },
                             onLoadDayDetail = { date ->
                                 val rows = runCatching { SchedulesRepository.listInRange(date, date) }

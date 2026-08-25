@@ -47,6 +47,19 @@ val CalendarPink = Color(0xFFFF375F)
 val CalendarPurple = Color(0xFFAF52DE)
 val CalendarGray = Color(0xFF8E8E93)
 
+/** `public.users.calendar_color` 문자열 → 팔레트 Color 매핑. 알 수 없는 값은 [CalendarBlue]. */
+fun calendarColorFor(id: String?): Color = when (id) {
+    "blue" -> CalendarBlue
+    "mint" -> CalendarMint
+    "green" -> CalendarGreen
+    "yellow" -> CalendarYellow
+    "orange" -> CalendarOrange
+    "pink" -> CalendarPink
+    "purple" -> CalendarPurple
+    "gray" -> CalendarGray
+    else -> CalendarBlue
+}
+
 // 메인 캘린더 화면 (월 그리드)
 val CalendarWeekdayText = Color(0xFF1A1A1A) // 평일 숫자 (TextPrimary 와 동일하지만 시맨틱 구분)
 val CalendarSunday = Color(0xFFF0474D)      // 일요일/공휴일 숫자
