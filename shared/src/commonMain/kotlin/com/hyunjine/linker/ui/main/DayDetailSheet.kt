@@ -114,6 +114,8 @@ fun DayDetailSheet(
     onDismiss: () -> Unit,
     onToggleTask: (taskId: String) -> Unit = {},
     onAdd: (ScheduleType) -> Unit = {},
+    /** 스케줄 (timed / all-day) row 탭 시 편집 화면 진입 콜백. task 는 체크박스만 반응. */
+    onSelectSchedule: (scheduleId: String) -> Unit = {},
 ) {
     AppBottomSheet(
         visible = visible,
@@ -134,11 +136,11 @@ fun DayDetailSheet(
             TaskSection(tasks = detail.tasks, onToggle = onToggleTask)
             if (detail.timedSchedules.isNotEmpty()) {
                 Spacer(Modifier.height(16.dp))
-                TimedScheduleSection(schedules = detail.timedSchedules)
+                TimedScheduleSection(schedules = detail.timedSchedules, onSelect = onSelectSchedule)
             }
             if (detail.allDaySchedules.isNotEmpty()) {
                 Spacer(Modifier.height(16.dp))
-                AllDayScheduleSection(schedules = detail.allDaySchedules)
+                AllDayScheduleSection(schedules = detail.allDaySchedules, onSelect = onSelectSchedule)
             }
         }
     }
@@ -317,19 +319,22 @@ private fun TaskRow(task: DayTask, onToggle: () -> Unit) {
 // ────────── Timed ──────────
 
 @Composable
-private fun TimedScheduleSection(schedules: List<TimedSchedule>) {
+private fun TimedScheduleSection(schedules: List<TimedSchedule>, onSelect: (String) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(text = "하루 일정 ${schedules.size}")
         Spacer(Modifier.height(4.dp))
-        schedules.forEach { TimedRow(it) }
+        schedules.forEach { TimedRow(it, onSelect) }
     }
 }
 
 @Composable
-private fun TimedRow(schedule: TimedSchedule) {
+private fun TimedRow(schedule: TimedSchedule, onSelect: (String) -> Unit) {
     val pretendard = LocalPretendardFontFamily.current
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onSelect(schedule.id) }
+            .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
@@ -372,19 +377,22 @@ private fun TimedRow(schedule: TimedSchedule) {
 // ────────── AllDay ──────────
 
 @Composable
-private fun AllDayScheduleSection(schedules: List<AllDaySchedule>) {
+private fun AllDayScheduleSection(schedules: List<AllDaySchedule>, onSelect: (String) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(text = "종일 일정 ${schedules.size}")
         Spacer(Modifier.height(4.dp))
-        schedules.forEach { AllDayRow(it) }
+        schedules.forEach { AllDayRow(it, onSelect) }
     }
 }
 
 @Composable
-private fun AllDayRow(schedule: AllDaySchedule) {
+private fun AllDayRow(schedule: AllDaySchedule, onSelect: (String) -> Unit) {
     val pretendard = LocalPretendardFontFamily.current
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onSelect(schedule.id) }
+            .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {

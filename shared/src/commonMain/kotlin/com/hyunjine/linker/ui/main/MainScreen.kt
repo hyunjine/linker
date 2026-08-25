@@ -166,11 +166,16 @@ fun MainScreen(
      * 결과는 화면 내부 캐시에 담긴다 (같은 달은 재요청 안 함). 기본은 no-op 로 Preview 안전.
      */
     onLoadEntriesForMonth: suspend (YearMonth) -> Map<LocalDate, CalendarDayEntry> = { emptyMap() },
+    /** 선택 날짜의 상세 payload 를 조회. null 이면 sheet 를 안 띄운다. */
+    onLoadDayDetail: suspend (LocalDate) -> DayDetail? = { null },
+    /** Task 체크박스 토글 (id, 새 값). 실패는 상위에서 처리 · 상위 로직 없이 옵티미스틱 반영. */
+    onToggleTaskDone: suspend (id: String, done: Boolean) -> Unit = { _, _ -> },
     onMenuClick: () -> Unit = {},
     onTitleClick: () -> Unit = {},
     onSearchClick: () -> Unit = {},
     onDayClick: (LocalDate) -> Unit = {},
     onAddSchedule: (LocalDate) -> Unit = {},
+    onEditSchedule: (id: String) -> Unit = {},
     onAnniversaryClick: () -> Unit = {},
 ) {
     // Int.MAX_VALUE 크기의 pager 로 사실상 무한 좌우 스와이프. 중간에서 시작해 양쪽으로 무제한 이동.
@@ -202,10 +207,13 @@ fun MainScreen(
     //    LaunchedEffect 로 selectedDate 가 있으면 true 로 자동 복원.
     var selectedDateString by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedDate = remember(selectedDateString) { selectedDateString?.let { LocalDate.parse(it) } }
-    var dayDetail by remember(selectedDate) { mutableStateOf(selectedDate?.let { dummyDayDetail(it) }) }
+    var dayDetail by remember(selectedDate) { mutableStateOf<DayDetail?>(null) }
     var sheetVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
-        if (selectedDate != null) sheetVisible = true
+    LaunchedEffect(selectedDate) {
+        if (selectedDate != null) {
+            dayDetail = onLoadDayDetail(selectedDate)
+            sheetVisible = dayDetail != null
+        }
     }
     // 사이드 드로워 상태 + 표시 옵션 (MVP: 로컬 state, 저장·연동은 후속 이슈).
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -318,11 +326,14 @@ fun MainScreen(
             selectedDateString = null
         },
         onToggleTask = { taskId ->
-            // TODO(#9 후속): 실제 저장소 연결. 지금은 dummy 라 토글 반영 안 됨.
             val current = dayDetail ?: return@DayDetailSheet
+            val target = current.tasks.find { it.id == taskId } ?: return@DayDetailSheet
+            val newValue = !target.isDone
+            // 옵티미스틱: 즉시 UI 반영 후 서버 저장. 실패는 로그만 (재조회 시 서버 값으로 복원).
             dayDetail = current.copy(
-                tasks = current.tasks.map { if (it.id == taskId) it.copy(isDone = !it.isDone) else it },
+                tasks = current.tasks.map { if (it.id == taskId) it.copy(isDone = newValue) else it },
             )
+            scope.launch { runCatching { onToggleTaskDone(taskId, newValue) } }
         },
         onAdd = { _ ->
             // 시트 안 chip 탭 → 일정 생성 진입.
@@ -335,42 +346,13 @@ fun MainScreen(
             sheetVisible = false
             onAddSchedule(date)
         },
+        onSelectSchedule = { scheduleId ->
+            sheetVisible = false
+            onEditSchedule(scheduleId)
+        },
     )
     } // ← AppDrawer content lambda close
 }
-
-/**
- * MVP 용 dummy detail 생성기. Figma 2693:63255 스펙에 있는 예시 데이터를 그대로 씀.
- * 실제 데이터 소스 (로컬 DB / 커플 공유 상태) 는 후속 이슈에서 연결.
- */
-private fun dummyDayDetail(date: LocalDate): DayDetail = DayDetail(
-    date = date,
-    lunarLabel = "음력 6.22",
-    tasks = listOf(
-        DayTask("t1", "항공권 예약하기", isDone = false, owner = DayOwner.Me),
-        DayTask("t2", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
-        DayTask("t3", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
-        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
-        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
-        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
-        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
-        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
-        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
-        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
-        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
-        DayTask("t4", "호텔 예약하기", isDone = false, owner = DayOwner.Partner),
-        DayTask("t5", "선물·준비하기", isDone = true, owner = DayOwner.Me),
-    ),
-    timedSchedules = listOf(
-        TimedSchedule("s1", "오전 10:00", "오후 12:00", "브런치 데이트", DayOwner.Us),
-        TimedSchedule("s2", "오후 2:00", "오후 4:00", "카페 미팅", DayOwner.Me),
-        TimedSchedule("s3", "오후 7:00", "오후 9:00", "저녁 약속", DayOwner.Partner),
-    ),
-    allDaySchedules = listOf(
-        AllDaySchedule("a1", "부산 여행", DayOwner.Us),
-        AllDaySchedule("a2", "결혼기념일", DayOwner.Us),
-    ),
-)
 
 /** [other] 로부터 이 [YearMonth] 까지 몇 개월 뒤인지. `other.plusMonths(this.monthsSince(other)) == this`. */
 private fun YearMonth.monthsSince(other: YearMonth): Int =
