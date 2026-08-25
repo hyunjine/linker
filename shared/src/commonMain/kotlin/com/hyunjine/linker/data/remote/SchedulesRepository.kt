@@ -131,6 +131,15 @@ object SchedulesRepository {
         }
     }
 
+    /** 할 일 (`type='task'`) 의 `is_done` 만 단일 컬럼 갱신. DayDetailSheet 체크박스 토글에서 사용. */
+    suspend fun setTaskDone(id: String, done: Boolean) {
+        SupabaseProvider.client.from("schedules").update({
+            set("is_done", done)
+        }) {
+            filter { eq("id", id) }
+        }
+    }
+
     /**
      * `rule` 이 [RepeatRule.None] 이면 기존 규칙 삭제, 그 외에는 upsert.
      * schedule_repeat_rules 는 schedule_id 가 PK 라 upsert 로 idempotent.
