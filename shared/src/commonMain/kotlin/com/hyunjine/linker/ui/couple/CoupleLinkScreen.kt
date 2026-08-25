@@ -59,7 +59,8 @@ private val TOP_BAR_HEIGHT = 54.dp
 /**
  * 커플 연결 화면. 내 초대코드를 상대에게 공유하거나 상대 초대코드를 입력해 두 계정을 잇는다.
  *
- * @param myCode 서버가 발급한 내 초대코드. 표시만.
+ * @param myCode 서버가 발급한 내 초대코드. null 이면 아직 로딩 중.
+ * @param linking 연결 요청 진행 중 여부. true 면 CTA 비활성 · 문구 변경.
  * @param onBack 좌측 상단 원형 back 탭 콜백.
  * @param onCopyMyCode "내 초대코드" 행 탭 시 호출 (보통 클립보드 복사).
  * @param onShareMyCode "공유하기" 행 탭 시 호출 (시스템 공유 시트 오픈에 위임).
@@ -67,14 +68,15 @@ private val TOP_BAR_HEIGHT = 54.dp
  */
 @Composable
 fun CoupleLinkScreen(
-    myCode: String = "ABC123",
+    myCode: String? = "ABC123",
+    linking: Boolean = false,
     onBack: () -> Unit = {},
     onCopyMyCode: () -> Unit = {},
     onShareMyCode: () -> Unit = {},
     onLink: (partnerCode: String) -> Unit = {},
 ) {
     var partnerCode by rememberSaveable { mutableStateOf("") }
-    val canLink by remember { derivedStateOf { partnerCode.isNotBlank() } }
+    val canLink by remember(linking) { derivedStateOf { !linking && partnerCode.isNotBlank() } }
 
     Box(
         modifier = Modifier
@@ -98,7 +100,7 @@ fun CoupleLinkScreen(
             SectionLabel(text = "내 초대코드", horizontalPadding = 20.dp)
             Spacer(Modifier.height(8.dp))
             MyCodeCard(
-                code = myCode,
+                code = myCode ?: "…",
                 onCopy = onCopyMyCode,
                 onShare = onShareMyCode,
                 modifier = Modifier.padding(horizontal = 16.dp),
@@ -117,7 +119,7 @@ fun CoupleLinkScreen(
             Spacer(Modifier.weight(1f))
 
             PrimaryButton(
-                text = "연결하기",
+                text = if (linking) "연결 중…" else "연결하기",
                 onClick = { if (canLink) onLink(partnerCode.trim()) },
                 modifier = Modifier
                     .padding(horizontal = 16.dp)

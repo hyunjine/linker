@@ -16,12 +16,21 @@ import androidx.navigation3.ui.NavDisplay
 import androidx.savedstate.serialization.SavedStateConfiguration
 import com.hyunjine.linker.auth.sessionStatus
 import com.hyunjine.linker.auth.signInWithKakao
+import com.hyunjine.linker.data.remote.CouplesRepository
+import com.hyunjine.linker.data.remote.SchedulesRepository
 import com.hyunjine.linker.data.remote.UsersRepository
 import com.hyunjine.linker.ui.couple.CoupleLinkScreen
 import com.hyunjine.linker.ui.login.LoginScreen
+import com.hyunjine.linker.ui.main.CalendarDayEntry
+import com.hyunjine.linker.ui.main.CalendarEvent
+import com.hyunjine.linker.ui.main.CalendarEventType
 import com.hyunjine.linker.ui.main.MainScreen
 import com.hyunjine.linker.ui.profile.ProfileSetupScreen
 import com.hyunjine.linker.ui.schedule.CreateScheduleScreen
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
 import com.hyunjine.linker.ui.theme.ProvidePretendard
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserInfo
@@ -64,6 +73,34 @@ private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
             subclass(CreateScheduleRoute::class, CreateScheduleRoute.serializer())
         }
     }
+}
+
+private fun oneMonthAgo(): LocalDate = today().plus(-31, DateTimeUnit.DAY)
+private fun oneMonthAhead(): LocalDate = today().plus(93, DateTimeUnit.DAY)
+
+@kotlin.OptIn(kotlin.time.ExperimentalTime::class)
+private fun today(): LocalDate =
+    kotlin.time.Clock.System.now()
+        .toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
+        .date
+
+/**
+ * 서버에서 받은 스케줄 rows 를 MainScreen 이 소비하는 `Map<LocalDate, CalendarDayEntry>` 로 변환.
+ * 스케줄이 [start_date, end_date] 범위를 커버하면 각 날짜에 chip 을 추가한다.
+ */
+private fun List<SchedulesRepository.Row>.toCalendarEntries(): Map<LocalDate, CalendarDayEntry> {
+    val out = mutableMapOf<LocalDate, MutableList<CalendarEvent>>()
+    for (row in this) {
+        val start = LocalDate.parse(row.startDate)
+        val end = LocalDate.parse(row.endDate)
+        var d = start
+        while (d <= end) {
+            out.getOrPut(d) { mutableListOf() }
+                .add(CalendarEvent(row.title, CalendarEventType.Personal))
+            d = d.plus(1, DateTimeUnit.DAY)
+        }
+    }
+    return out.mapValues { CalendarDayEntry(events = it.value.toList()) }
 }
 
 /** Kakao provider 가 채워준 user_metadata 에서 프로필 셋업 초기값 뽑는다. 값이 없으면 화면 기본값 그대로. */
@@ -148,20 +185,74 @@ fun App() {
                         )
                     }
                     entry<CoupleLinkRoute> {
+                        var myCode by remember { mutableStateOf<String?>(null) }
+                        var linking by remember { mutableStateOf(false) }
+                        LaunchedEffect(Unit) {
+                            runCatching { CouplesRepository.createOrGetMyCouple() }
+                                .onSuccess {
+                                    println("[Couple] my couple id=${it.id} code=${it.inviteCode}")
+                                    myCode = it.inviteCode
+                                }
+                                .onFailure { println("[Couple] createOrGetMyCouple 실패: $it") }
+                        }
                         CoupleLinkScreen(
+                            myCode = myCode,
+                            linking = linking,
                             onBack = { backStack.removeLastOrNull() },
-                            onLink = { _ -> goHome() },
+                            onCopyMyCode = { println("[Couple] copy code: $myCode (clipboard TODO)") },
+                            onShareMyCode = { println("[Couple] share code: $myCode (share sheet TODO)") },
+                            onLink = { partnerCode ->
+                                if (linking) return@CoupleLinkScreen
+                                linking = true
+                                scope.launch {
+                                    runCatching { CouplesRepository.joinByInviteCode(partnerCode) }
+                                        .onSuccess {
+                                            println("[Couple] joined couple $it → 홈으로 이동")
+                                            linking = false
+                                            goHome()
+                                        }
+                                        .onFailure {
+                                            println("[Couple] join 실패: $it")
+                                            linking = false
+                                        }
+                                }
+                            },
                         )
                     }
                     entry<MainRoute> {
+                        var scheduleEntries by remember { mutableStateOf(emptyMap<LocalDate, CalendarDayEntry>()) }
+                        // MVP: 오늘 기준 ±3개월 스케줄을 한 번에 로드해 chip 으로 노출.
+                        // 월 이동 시 재조회 · 실시간 반영은 후속 이슈.
+                        LaunchedEffect(Unit) {
+                            runCatching { SchedulesRepository.listInRange(oneMonthAgo(), oneMonthAhead()) }
+                                .onSuccess { rows -> scheduleEntries = rows.toCalendarEntries() }
+                                .onFailure { println("[Schedule] listInRange 실패: $it") }
+                        }
                         MainScreen(
+                            entries = scheduleEntries,
                             onAddSchedule = { backStack.add(CreateScheduleRoute) },
                         )
                     }
                     entry<CreateScheduleRoute> {
+                        var saving by remember { mutableStateOf(false) }
                         CreateScheduleScreen(
                             onBack = { backStack.removeLastOrNull() },
-                            onSave = { /* TODO(#15 후속): repository 저장 */ backStack.removeLastOrNull() },
+                            onSave = { draft ->
+                                if (saving) return@CreateScheduleScreen
+                                saving = true
+                                scope.launch {
+                                    runCatching { SchedulesRepository.create(draft) }
+                                        .onSuccess {
+                                            println("[Schedule] 저장 성공: $it")
+                                            saving = false
+                                            backStack.removeLastOrNull()
+                                        }
+                                        .onFailure {
+                                            println("[Schedule] 저장 실패: $it")
+                                            saving = false
+                                        }
+                                }
+                            },
                         )
                     }
                 },
