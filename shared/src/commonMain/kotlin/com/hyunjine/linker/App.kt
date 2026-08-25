@@ -19,6 +19,8 @@ import com.hyunjine.linker.auth.signInWithKakao
 import com.hyunjine.linker.data.remote.CouplesRepository
 import com.hyunjine.linker.data.remote.SchedulesRepository
 import com.hyunjine.linker.data.remote.UsersRepository
+import com.hyunjine.linker.ui.couple.CoupleInviteCodeScreen
+import com.hyunjine.linker.ui.couple.CoupleJoinScreen
 import com.hyunjine.linker.ui.couple.CoupleLinkScreen
 import com.hyunjine.linker.ui.login.LoginScreen
 import com.hyunjine.linker.ui.main.CalendarDayEntry
@@ -61,6 +63,12 @@ private data object ProfileSetupRoute : NavKey
 private data object CoupleLinkRoute : NavKey
 
 @Serializable
+private data object CoupleInviteCodeRoute : NavKey
+
+@Serializable
+private data object CoupleJoinRoute : NavKey
+
+@Serializable
 private data object CreateScheduleRoute : NavKey
 
 private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
@@ -70,6 +78,8 @@ private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
             subclass(MainRoute::class, MainRoute.serializer())
             subclass(ProfileSetupRoute::class, ProfileSetupRoute.serializer())
             subclass(CoupleLinkRoute::class, CoupleLinkRoute.serializer())
+            subclass(CoupleInviteCodeRoute::class, CoupleInviteCodeRoute.serializer())
+            subclass(CoupleJoinRoute::class, CoupleJoinRoute.serializer())
             subclass(CreateScheduleRoute::class, CreateScheduleRoute.serializer())
         }
     }
@@ -222,8 +232,14 @@ fun App() {
                         )
                     }
                     entry<CoupleLinkRoute> {
+                        CoupleLinkScreen(
+                            onBack = { backStack.removeLastOrNull() },
+                            onCreateInvite = { backStack.add(CoupleInviteCodeRoute) },
+                            onEnterPartnerCode = { backStack.add(CoupleJoinRoute) },
+                        )
+                    }
+                    entry<CoupleInviteCodeRoute> {
                         var myCode by remember { mutableStateOf<String?>(null) }
-                        var linking by remember { mutableStateOf(false) }
                         LaunchedEffect(Unit) {
                             runCatching { CouplesRepository.createOrGetMyCouple() }
                                 .onSuccess {
@@ -232,14 +248,20 @@ fun App() {
                                 }
                                 .onFailure { println("[Couple] createOrGetMyCouple 실패: $it") }
                         }
-                        CoupleLinkScreen(
+                        CoupleInviteCodeScreen(
                             myCode = myCode,
+                            onBack = { backStack.removeLastOrNull() },
+                            onCopy = { println("[Couple] copy code: $myCode (#58 clipboard)") },
+                            onShare = { println("[Couple] share code: $myCode (#58 share)") },
+                        )
+                    }
+                    entry<CoupleJoinRoute> {
+                        var linking by remember { mutableStateOf(false) }
+                        CoupleJoinScreen(
                             linking = linking,
                             onBack = { backStack.removeLastOrNull() },
-                            onCopyMyCode = { println("[Couple] copy code: $myCode (clipboard TODO)") },
-                            onShareMyCode = { println("[Couple] share code: $myCode (share sheet TODO)") },
                             onLink = { partnerCode ->
-                                if (linking) return@CoupleLinkScreen
+                                if (linking) return@CoupleJoinScreen
                                 linking = true
                                 scope.launch {
                                     runCatching { CouplesRepository.joinByInviteCode(partnerCode) }
