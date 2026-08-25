@@ -44,15 +44,8 @@ object SchedulesRepository {
     /** 현재 유저의 couple_id. 없으면 null (아직 커플 미가입). 첫 호출 시 조회 후 캐시. */
     suspend fun myCoupleId(): String? {
         cachedCoupleId?.let { return it }
-        val uid = SupabaseProvider.client.auth.currentUserOrNull()?.id ?: return null
-        val rows = SupabaseProvider.client.from("couple_members")
-            .select { filter { eq("user_id", uid) } }
-            .decodeList<CoupleMemberRow>()
-        return rows.firstOrNull()?.coupleId?.also { cachedCoupleId = it }
+        return CouplesRepository.myCoupleIdOrNull()?.also { cachedCoupleId = it }
     }
-
-    @Serializable
-    private data class CoupleMemberRow(@SerialName("couple_id") val coupleId: String)
 
     /** `[from, to]` 범위와 겹치는 스케줄 조회. 반씩 겹치는 것도 포함. */
     suspend fun listInRange(from: LocalDate, to: LocalDate): List<Row> {
