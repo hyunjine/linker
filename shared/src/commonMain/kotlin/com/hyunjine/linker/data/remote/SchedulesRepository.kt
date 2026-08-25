@@ -1,5 +1,6 @@
 package com.hyunjine.linker.data.remote
 
+import com.hyunjine.linker.ui.schedule.RepeatRule
 import com.hyunjine.linker.ui.schedule.ScheduleDraft
 import com.hyunjine.linker.ui.schedule.ScheduleOwner
 import com.hyunjine.linker.ui.schedule.ScheduleType
@@ -45,6 +46,17 @@ object SchedulesRepository {
     suspend fun myCoupleId(): String? {
         cachedCoupleId?.let { return it }
         return CouplesRepository.myCoupleIdOrNull()?.also { cachedCoupleId = it }
+    }
+
+    /**
+     * 단일 스케줄 조회 후 UI draft 로 변환. 없거나 조회 실패 시 null.
+     * 반복 규칙 (`schedule_repeat_rules`) 은 #52 후속 — 현재는 항상 [RepeatRule.None].
+     */
+    suspend fun getDraftById(id: String): ScheduleDraft? {
+        val row = SupabaseProvider.client.from("schedules")
+            .select { filter { eq("id", id) } }
+            .decodeSingleOrNull<Row>() ?: return null
+        return row.toDraft()
     }
 
     /** `[from, to]` 범위와 겹치는 스케줄 조회. 반씩 겹치는 것도 포함. */
@@ -134,3 +146,20 @@ private fun ScheduleDraft.startTimeForDb(): String? =
 
 private fun ScheduleDraft.endTimeForDb(): String? =
     if (showsTimeRows) endTime?.let { "$it:00" } else null
+
+/** 서버 row → UI draft. 반복 규칙은 아직 저장 · 조회 안 하므로 [RepeatRule.None]. */
+private fun SchedulesRepository.Row.toDraft(): ScheduleDraft = ScheduleDraft(
+    title = title,
+    startDate = LocalDate.parse(startDate),
+    endDate = LocalDate.parse(endDate),
+    type = if (type == "task") ScheduleType.Task else ScheduleType.Schedule,
+    allDay = allDay,
+    startTime = startTime?.take(5),   // "HH:MM:SS" → "HH:MM"
+    endTime = endTime?.take(5),
+    repeat = RepeatRule.None,
+    owner = when (ownerKind) {
+        "me" -> ScheduleOwner.Me
+        "partner" -> ScheduleOwner.Partner
+        else -> ScheduleOwner.Us
+    },
+)

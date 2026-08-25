@@ -68,8 +68,11 @@ private data object CoupleInviteCodeRoute : NavKey
 @Serializable
 private data object CoupleJoinRoute : NavKey
 
+/**
+ * 스케줄 등록/수정 화면. [scheduleId] 가 null 이면 신규, 값이 있으면 그 id 의 스케줄을 로드해 편집.
+ */
 @Serializable
-private data object CreateScheduleRoute : NavKey
+private data class CreateScheduleRoute(val scheduleId: String? = null) : NavKey
 
 private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
     serializersModule = SerializersModule {
@@ -289,25 +292,64 @@ fun App() {
                         }
                         MainScreen(
                             entries = scheduleEntries,
-                            onAddSchedule = { backStack.add(CreateScheduleRoute) },
+                            onAddSchedule = { backStack.add(CreateScheduleRoute()) },
                         )
                     }
-                    entry<CreateScheduleRoute> {
+                    entry<CreateScheduleRoute> { route ->
+                        val editing = route.scheduleId != null
                         var saving by remember { mutableStateOf(false) }
+                        var initial by remember { mutableStateOf<com.hyunjine.linker.ui.schedule.ScheduleDraft?>(null) }
+                        var loaded by remember { mutableStateOf(!editing) }
+                        LaunchedEffect(route.scheduleId) {
+                            if (route.scheduleId == null) return@LaunchedEffect
+                            runCatching { SchedulesRepository.getDraftById(route.scheduleId) }
+                                .onSuccess {
+                                    initial = it
+                                    loaded = true
+                                }
+                                .onFailure {
+                                    println("[Schedule] getDraftById 실패: $it")
+                                    loaded = true
+                                }
+                        }
+                        // 로드 완료 전에는 화면을 안 그린다 (편집 대상 draft 확정 후 한 번만 mount).
+                        if (!loaded) return@entry
                         CreateScheduleScreen(
+                            initial = initial,
+                            editing = editing,
                             onBack = { backStack.removeLastOrNull() },
                             onSave = { draft ->
                                 if (saving) return@CreateScheduleScreen
                                 saving = true
                                 scope.launch {
-                                    runCatching { SchedulesRepository.create(draft) }
+                                    val op = if (route.scheduleId != null) {
+                                        runCatching { SchedulesRepository.update(route.scheduleId, draft) }
+                                    } else {
+                                        runCatching { SchedulesRepository.create(draft) }
+                                    }
+                                    op.onSuccess {
+                                        println("[Schedule] ${if (editing) "수정" else "저장"} 성공")
+                                        saving = false
+                                        backStack.removeLastOrNull()
+                                    }.onFailure {
+                                        println("[Schedule] ${if (editing) "수정" else "저장"} 실패: $it")
+                                        saving = false
+                                    }
+                                }
+                            },
+                            onDelete = {
+                                val id = route.scheduleId ?: return@CreateScheduleScreen
+                                if (saving) return@CreateScheduleScreen
+                                saving = true
+                                scope.launch {
+                                    runCatching { SchedulesRepository.delete(id) }
                                         .onSuccess {
-                                            println("[Schedule] 저장 성공: $it")
+                                            println("[Schedule] 삭제 성공: $id")
                                             saving = false
                                             backStack.removeLastOrNull()
                                         }
                                         .onFailure {
-                                            println("[Schedule] 저장 실패: $it")
+                                            println("[Schedule] 삭제 실패: $it")
                                             saving = false
                                         }
                                 }
