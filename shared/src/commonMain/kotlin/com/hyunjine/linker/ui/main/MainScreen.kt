@@ -109,6 +109,11 @@ private val CalendarEventType.priority: Int
 data class CalendarEvent(
     val label: String,
     val type: CalendarEventType,
+    /**
+     * 스케줄 chip 의 커스텀 색상 (owner 별로 다름). null 이면 [type] 의 기본 팔레트 사용.
+     * bg 는 이 색의 옅은 tint (alpha 0.2), fg 는 이 색 자체.
+     */
+    val tintColor: Color? = null,
 )
 
 /** 하루 셀에 붙는 부가 정보. `date` 를 키로 [MainScreen.entries] 에 담아 전달. */
@@ -684,10 +689,11 @@ private fun dayNumberColor(cell: MonthCell): Color {
 
 @Composable
 private fun EventChip(event: CalendarEvent) {
-    val (bg, fg) = when (event.type) {
-        CalendarEventType.Holiday -> ChipHolidayBg to ChipHolidayText
-        CalendarEventType.Season -> ChipSeasonBg to ChipSeasonText
-        CalendarEventType.Personal -> ChipPersonalBg to ChipPersonalText
+    val (bg, fg) = when {
+        event.tintColor != null -> event.tintColor.copy(alpha = 0.18f) to event.tintColor
+        event.type == CalendarEventType.Holiday -> ChipHolidayBg to ChipHolidayText
+        event.type == CalendarEventType.Season -> ChipSeasonBg to ChipSeasonText
+        else -> ChipPersonalBg to ChipPersonalText
     }
     // API 가 "대체공휴일(광복절)" 처럼 괄호로 원출처를 덧붙여 보내는 케이스 → 셀 폭이 좁으니 chip 에는
     // 괄호 앞까지만 노출. 원본은 [CalendarEvent.label] 에 그대로 유지 (나중에 상세 화면용).

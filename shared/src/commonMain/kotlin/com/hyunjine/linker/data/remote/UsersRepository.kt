@@ -41,6 +41,32 @@ object UsersRepository {
     }
 
     /**
+     * 파트너 (같은 커플의 다른 멤버) 프로필. 커플 없거나 아직 혼자면 null.
+     * RLS `users_select_self_or_partner` 로 같은 커플 멤버 SELECT 가능.
+     */
+    suspend fun partnerProfile(): Profile? {
+        val myId = SupabaseProvider.client.auth.currentUserOrNull()?.id ?: return null
+        val coupleId = CouplesRepository.myCoupleIdOrNull() ?: return null
+        val partnerRow = SupabaseProvider.client.from("couple_members")
+            .select {
+                filter {
+                    eq("couple_id", coupleId)
+                    neq("user_id", myId)
+                }
+            }
+            .decodeList<PartnerRef>()
+            .firstOrNull() ?: return null
+        return SupabaseProvider.client.from("users")
+            .select { filter { eq("id", partnerRow.userId) } }
+            .decodeSingleOrNull<Profile>()
+    }
+
+    @kotlinx.serialization.Serializable
+    private data class PartnerRef(
+        @kotlinx.serialization.SerialName("user_id") val userId: String,
+    )
+
+    /**
      * 온보딩 프로필 셋업 완료 저장. `profile_completed_at` 을 now() 로 세팅해
      * 이후 라우팅에서 이 화면을 스킵할 수 있는 신호로 사용한다.
      *
