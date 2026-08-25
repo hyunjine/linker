@@ -42,6 +42,8 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import androidx.compose.ui.graphics.Color
+import com.hyunjine.linker.platform.rememberCopyToClipboard
+import com.hyunjine.linker.platform.rememberShareText
 import com.hyunjine.linker.ui.theme.CalendarPurple
 import com.hyunjine.linker.ui.theme.ProvidePretendard
 import com.hyunjine.linker.ui.theme.calendarColorFor
@@ -352,11 +354,21 @@ fun App() {
                                 }
                                 .onFailure { println("[Couple] createOrGetMyCouple 실패: $it") }
                         }
+                        val copyToClipboard = rememberCopyToClipboard()
+                        val shareText = rememberShareText()
                         CoupleInviteCodeScreen(
                             myCode = myCode,
                             onBack = { backStack.removeLastOrNull() },
-                            onCopy = { println("[Couple] copy code: $myCode (#58 clipboard)") },
-                            onShare = { println("[Couple] share code: $myCode (#58 share)") },
+                            onCopy = {
+                                val code = myCode ?: return@CoupleInviteCodeScreen
+                                copyToClipboard(code)
+                                println("[Couple] 클립보드 복사: $code")
+                            },
+                            onShare = {
+                                val code = myCode ?: return@CoupleInviteCodeScreen
+                                shareText("링커 초대코드: $code")
+                                println("[Couple] 공유 시트 오픈: $code")
+                            },
                         )
                     }
                     entry<CoupleJoinRoute> {
