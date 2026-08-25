@@ -50,6 +50,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil3.compose.AsyncImage
 import com.hyunjine.linker.platform.rememberImagePicker
 import com.hyunjine.linker.ui.common.AppBottomSheet
 import com.hyunjine.linker.ui.common.AppTopBar
@@ -107,6 +108,8 @@ fun ProfileSetupScreen(
     selectedColorId: String = "blue",
     calendarColors: List<CalendarColorOption> = DefaultCalendarColors,
     saving: Boolean = false,
+    /** 카카오 provider `avatar_url` 등 외부에서 넘어온 기본 아바타 URL. 사용자가 직접 사진을 고르면 그게 우선. */
+    defaultAvatarUrl: String? = null,
     onBack: () -> Unit = {},
     onEditPhoto: () -> Unit = {},
     onNicknameChange: (String) -> Unit = {},
@@ -142,6 +145,7 @@ fun ProfileSetupScreen(
 
             ProfilePhotoSection(
                 image = avatarImage,
+                defaultAvatarUrl = defaultAvatarUrl,
                 onEditPhoto = {
                     launchPhotoPicker()
                     onEditPhoto()
@@ -258,6 +262,7 @@ private fun parseBirthDate(raw: String): BirthDate {
 @Composable
 private fun ProfilePhotoSection(
     image: ImageBitmap?,
+    defaultAvatarUrl: String?,
     onEditPhoto: () -> Unit,
 ) {
     val font = LocalPretendardFontFamily.current
@@ -276,16 +281,21 @@ private fun ProfilePhotoSection(
                 .clickable(onClick = onEditPhoto),
             contentAlignment = Alignment.Center,
         ) {
-            if (image != null) {
-                Image(
+            // 표시 우선순위: 사용자가 방금 고른 로컬 이미지 > 카카오 avatar_url > 👤 placeholder.
+            when {
+                image != null -> Image(
                     bitmap = image,
                     contentDescription = null,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.size(100.dp).clip(CircleShape),
                 )
-            } else {
-                // 아직 사진 없음 → 이모지 placeholder.
-                Text(
+                defaultAvatarUrl != null -> AsyncImage(
+                    model = defaultAvatarUrl,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(100.dp).clip(CircleShape),
+                )
+                else -> Text(
                     text = "👤",
                     style = TextStyle(
                         color = AvatarPlaceholderFg,

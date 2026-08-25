@@ -196,6 +196,7 @@ fun App() {
                         var saving by remember { mutableStateOf(false) }
                         ProfileSetupScreen(
                             nickname = defaults.nickname,
+                            defaultAvatarUrl = defaults.avatarUrl,
                             saving = saving,
                             onBack = { backStack.removeLastOrNull() },
                             onNext = { nickname, birthDate, colorId ->
