@@ -114,6 +114,8 @@ kotlin {
             implementation(libs.ktor.serialization.kotlinx.json)
             implementation(libs.supabase.auth)
             implementation(libs.supabase.postgrest)
+            implementation(libs.coil.compose)
+            implementation(libs.coil.network.ktor)
         }
         commonMain {
             kotlin.srcDir(generateSecrets.map { generatedSecretsDir })

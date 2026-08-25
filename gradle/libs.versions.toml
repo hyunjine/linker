@@ -19,6 +19,7 @@ kotlinxSerialization = "1.9.0"
 material3 = "1.11.0-alpha07"
 navigation3 = "1.1.1"
 supabase = "3.7.0"
+coil = "3.5.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -52,6 +53,10 @@ ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "kto
 # supabase-kt (KMP). auth-kt: Supabase Auth (카카오 provider), postgrest-kt: 테이블 CRUD.
 supabase-auth = { module = "io.github.jan-tennert.supabase:auth-kt", version.ref = "supabase" }
 supabase-postgrest = { module = "io.github.jan-tennert.supabase:postgrest-kt", version.ref = "supabase" }
+
+# Coil3 (KMP). AsyncImage 로 URL 로부터 아바타 로딩. 네트워크는 ktor engine 재사용.
+coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+coil-network-ktor = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
