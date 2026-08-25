@@ -16,9 +16,12 @@ import androidx.navigation3.ui.NavDisplay
 import androidx.savedstate.serialization.SavedStateConfiguration
 import com.hyunjine.linker.auth.sessionStatus
 import com.hyunjine.linker.auth.signInWithKakao
+import com.hyunjine.linker.data.remote.AnniversariesRepository
 import com.hyunjine.linker.data.remote.CouplesRepository
 import com.hyunjine.linker.data.remote.SchedulesRepository
 import com.hyunjine.linker.data.remote.UsersRepository
+import com.hyunjine.linker.ui.anniversary.AnniversariesScreen
+import com.hyunjine.linker.ui.anniversary.AnniversaryUi
 import com.hyunjine.linker.ui.couple.CoupleInviteCodeScreen
 import com.hyunjine.linker.ui.couple.CoupleJoinScreen
 import com.hyunjine.linker.ui.couple.CoupleLinkScreen
@@ -74,6 +77,9 @@ private data object CoupleJoinRoute : NavKey
 @Serializable
 private data class CreateScheduleRoute(val scheduleId: String? = null) : NavKey
 
+@Serializable
+private data object AnniversariesRoute : NavKey
+
 private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
     serializersModule = SerializersModule {
         polymorphic(NavKey::class) {
@@ -84,6 +90,7 @@ private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
             subclass(CoupleInviteCodeRoute::class, CoupleInviteCodeRoute.serializer())
             subclass(CoupleJoinRoute::class, CoupleJoinRoute.serializer())
             subclass(CreateScheduleRoute::class, CreateScheduleRoute.serializer())
+            subclass(AnniversariesRoute::class, AnniversariesRoute.serializer())
         }
     }
 }
@@ -115,6 +122,14 @@ private fun today(): LocalDate =
     kotlin.time.Clock.System.now()
         .toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
         .date
+
+/** 기념일 서버 row → UI 데이터. */
+private fun AnniversariesRepository.Row.toUi(): AnniversaryUi = AnniversaryUi(
+    id = id,
+    title = title,
+    date = LocalDate.parse(date),
+    repeatYearly = repeatYearly,
+)
 
 /**
  * 서버에서 받은 스케줄 rows 를 MainScreen 이 소비하는 `Map<LocalDate, CalendarDayEntry>` 로 변환.
@@ -293,6 +308,54 @@ fun App() {
                         MainScreen(
                             entries = scheduleEntries,
                             onAddSchedule = { backStack.add(CreateScheduleRoute()) },
+                            onAnniversaryClick = { backStack.add(AnniversariesRoute) },
+                        )
+                    }
+                    entry<AnniversariesRoute> {
+                        var items by remember { mutableStateOf(emptyList<AnniversaryUi>()) }
+                        var busy by remember { mutableStateOf(false) }
+                        var reloadTick by remember { mutableStateOf(0) }
+                        LaunchedEffect(reloadTick) {
+                            runCatching { AnniversariesRepository.list() }
+                                .onSuccess { rows -> items = rows.map { it.toUi() } }
+                                .onFailure { println("[Anniv] list 실패: $it") }
+                        }
+                        AnniversariesScreen(
+                            items = items,
+                            busy = busy,
+                            onBack = { backStack.removeLastOrNull() },
+                            onAdd = { title, date, repeatYearly ->
+                                if (busy) return@AnniversariesScreen
+                                busy = true
+                                scope.launch {
+                                    runCatching { AnniversariesRepository.create(title, date, repeatYearly) }
+                                        .onSuccess {
+                                            println("[Anniv] 저장 성공: $it")
+                                            busy = false
+                                            reloadTick++
+                                        }
+                                        .onFailure {
+                                            println("[Anniv] 저장 실패: $it")
+                                            busy = false
+                                        }
+                                }
+                            },
+                            onDelete = { id ->
+                                if (busy) return@AnniversariesScreen
+                                busy = true
+                                scope.launch {
+                                    runCatching { AnniversariesRepository.delete(id) }
+                                        .onSuccess {
+                                            println("[Anniv] 삭제 성공: $id")
+                                            busy = false
+                                            reloadTick++
+                                        }
+                                        .onFailure {
+                                            println("[Anniv] 삭제 실패: $it")
+                                            busy = false
+                                        }
+                                }
+                            },
                         )
                     }
                     entry<CreateScheduleRoute> { route ->
