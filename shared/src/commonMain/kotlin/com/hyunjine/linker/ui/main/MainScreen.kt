@@ -182,6 +182,7 @@ fun MainScreen(
     onAddSchedule: (LocalDate) -> Unit = {},
     onEditSchedule: (id: String) -> Unit = {},
     onAnniversaryClick: () -> Unit = {},
+    onProfileEditClick: () -> Unit = {},
     onLogout: () -> Unit = {},
 ) {
     // Int.MAX_VALUE 크기의 pager 로 사실상 무한 좌우 스와이프. 중간에서 시작해 양쪽으로 무제한 이동.
@@ -257,6 +258,10 @@ fun MainScreen(
                 profileName = "양현진",
                 profileHandle = "thevlakk1",
                 displayState = displayState,
+                onSettingsClick = {
+                    scope.launch { drawerState.close() }
+                    onProfileEditClick()
+                },
                 onAnniversaryClick = {
                     scope.launch { drawerState.close() }
                     onAnniversaryClick()
