@@ -114,6 +114,12 @@ data class CalendarEvent(
      * bg 는 이 색의 옅은 tint (alpha 0.2), fg 는 이 색 자체.
      */
     val tintColor: Color? = null,
+    /**
+     * 원본 데이터 식별자. 스케줄 row 는 UUID, Holiday/Season 처럼 외부 API 산 chip 은 null.
+     * 월별 캐시 (fetch 범위 ±7일 padding) 가 겹치면 같은 스케줄이 여러 달 버킷에 담기는데,
+     * 병합 시 이 id 로 dedupe 해서 하나만 남긴다.
+     */
+    val id: String? = null,
 )
 
 /** 하루 셀에 붙는 부가 정보. `date` 를 키로 [MainScreen.entries] 에 담아 전달. */
@@ -407,6 +413,10 @@ private fun Map<LocalDate, CalendarDayEntry>.filterByToggles(
 /**
  * 두 entry 맵을 병합. 같은 날짜면 events 를 이어 붙이고 (base + override 순), lunarLabel 은
  * override 우선. 사용자 지정 entries (override) 가 API 공휴일 (base) 위에 얹히는 방향.
+ *
+ * 월별 캐시 병합 시 fetch 범위 ±7일 padding 때문에 같은 스케줄이 인접 두 달 버킷에 모두 담기는
+ * 경우가 있어, [CalendarEvent.id] 로 dedupe (id 있는 것만) — Holiday/Season 처럼 id 가 null 인
+ * chip 은 원래 겹칠 소스가 아니라 그대로 통과.
  */
 private fun mergeEntries(
     base: Map<LocalDate, CalendarDayEntry>,
@@ -418,11 +428,21 @@ private fun mergeEntries(
     for ((date, ov) in override) {
         val b = out[date]
         out[date] = if (b == null) ov else CalendarDayEntry(
-            events = b.events + ov.events,
+            events = (b.events + ov.events).distinctById(),
             lunarLabel = ov.lunarLabel ?: b.lunarLabel,
         )
     }
     return out
+}
+
+/** id 있는 chip 은 유일하게, id 없는 chip 은 순서 유지하며 그대로 통과. */
+private fun List<CalendarEvent>.distinctById(): List<CalendarEvent> {
+    val seen = mutableSetOf<String>()
+    return buildList {
+        for (event in this@distinctById) {
+            if (event.id == null || seen.add(event.id)) add(event)
+        }
+    }
 }
 
 // ────────── Toolbar ──────────
