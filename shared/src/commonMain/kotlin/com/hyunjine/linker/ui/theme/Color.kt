@@ -79,6 +79,9 @@ val ChipPersonalText = Color(0xFFBF404D) // 개인 일정 글자
 // 드로워 강조 버튼 배경 (기념일 설정 등)
 val DrawerButtonBg = Color(0xFFF5F5F7)
 
+// 드로워 표시 옵션 체크박스 (Figma #599CFF)
+val DrawerCheckBlue = Color(0xFF599CFF)
+
 // 소유자 태그 pill (날짜 상세 시트)
 val OwnerMeBg = Color(0xFFFFF3D6)       // 나 배경 (옅은 노랑)
 val OwnerMeText = Color(0xFFB08800)     // 나 글자
