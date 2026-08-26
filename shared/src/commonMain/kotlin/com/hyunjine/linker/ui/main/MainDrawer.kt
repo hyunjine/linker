@@ -198,13 +198,12 @@ private fun ProfileHeader(name: String, handle: String, imageUrl: String?, onCli
                 ),
             )
             if (handle.isNotBlank()) {
-                Spacer(Modifier.height(2.dp))
                 Text(
                     text = handle,
                     style = TextStyle(
                         fontFamily = pretendard,
                         fontWeight = FontWeight.Normal,
-                        fontSize = 12.sp,
+                        fontSize = 13.sp,
                         color = TextSecondary,
                     ),
                 )
@@ -259,7 +258,6 @@ private fun AllScheduleButton(
     }
 }
 
-/** Figma section header — Regular 13sp, TextSecondary. pt-16 pb-8 로 아래 row 와 붙는 느낌. */
 @Composable
 private fun SectionLabel(text: String) {
     val pretendard = LocalPretendardFontFamily.current
@@ -268,8 +266,8 @@ private fun SectionLabel(text: String) {
         modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 8.dp),
         style = TextStyle(
             fontFamily = pretendard,
-            fontWeight = FontWeight.Normal,
-            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 12.sp,
             color = TextSecondary,
         ),
     )
@@ -297,7 +295,7 @@ private fun ToggleRow(text: String, checked: Boolean, onCheckedChange: (Boolean)
             modifier = Modifier.weight(1f),
             style = TextStyle(
                 fontFamily = pretendard,
-                fontWeight = FontWeight.Normal,
+                fontWeight = FontWeight.SemiBold,
                 fontSize = 15.sp,
                 color = TextPrimary,
             ),
