@@ -37,6 +37,7 @@ import com.hyunjine.linker.ui.main.MainScreen
 import com.hyunjine.linker.ui.main.TimedSchedule
 import com.hyunjine.linker.ui.profile.ProfileSetupScreen
 import com.hyunjine.linker.ui.schedule.CreateScheduleScreen
+import com.hyunjine.linker.ui.splash.SplashScreen
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
@@ -63,6 +64,9 @@ import kotlinx.serialization.modules.subclass
  * 각 목적지 [NavKey] 는 `@Serializable` 이고, [NavConfig] 의 polymorphic 서브클래스로 등록해야
  * saved state 복원이 가능하다 (KMP 는 리플렉션이 없어 명시 등록 필수).
  */
+@Serializable
+private data object SplashRoute : NavKey
+
 @Serializable
 private data object LoginRoute : NavKey
 
@@ -93,6 +97,7 @@ private data object AnniversariesRoute : NavKey
 private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
     serializersModule = SerializersModule {
         polymorphic(NavKey::class) {
+            subclass(SplashRoute::class, SplashRoute.serializer())
             subclass(LoginRoute::class, LoginRoute.serializer())
             subclass(MainRoute::class, MainRoute.serializer())
             subclass(ProfileSetupRoute::class, ProfileSetupRoute.serializer())
@@ -254,7 +259,7 @@ private fun profileDefaults(user: UserInfo?): ProfileDefaults {
 fun App() {
     MaterialTheme {
         ProvidePretendard {
-            val backStack = rememberNavBackStack(NavConfig, LoginRoute)
+            val backStack = rememberNavBackStack(NavConfig, SplashRoute)
             val scope = rememberCoroutineScope()
             // 온보딩 완료(커플 연결) 시점에 로그인·프로필·연결 스택을 전부 비우고 Main 만 남긴다.
             // 홈에서 뒤로가기로 로그인 화면이 다시 뜨면 안 되므로 clear + push 조합.
@@ -264,9 +269,9 @@ fun App() {
             }
 
             // 세션 상태 기반 부트스트랩 라우팅.
+            //  - Initializing: SplashRoute 유지 (세션 storage 로드 중)
             //  - Authenticated: 프로필/커플 상태 조회 → 미완성 단계로 자동 진입 (재로그인 시 온보딩 스킵)
             //  - NotAuthenticated / RefreshFailure: 로그인 화면으로 스택 초기화
-            //  - Initializing: 아무것도 안 함 (세션 storage 로드 중)
             val status by sessionStatus.collectAsState()
             LaunchedEffect(status) {
                 println("[Auth] sessionStatus = ${status::class.simpleName}")
@@ -287,7 +292,7 @@ fun App() {
                             backStack.add(LoginRoute)
                         }
                     }
-                    is SessionStatus.Initializing -> Unit
+                    is SessionStatus.Initializing -> Unit  // SplashRoute 그대로 유지
                 }
             }
 
@@ -295,6 +300,7 @@ fun App() {
                 backStack = backStack,
                 onBack = { backStack.removeLastOrNull() },
                 entryProvider = entryProvider {
+                    entry<SplashRoute> { SplashScreen() }
                     entry<LoginRoute> {
                         LoginScreen(
                             onKakaoLoginClick = {
