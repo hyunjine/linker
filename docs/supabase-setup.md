@@ -79,7 +79,33 @@ supabase.publishableKey=sb_publishable_1O5ktPM0NZNlVg8lFWeA4w_Mae55UqH
 - 유저 프로필 CRUD, 커플 CRUD, 스케줄 CRUD, 기념일 CRUD (기존 #19~22 재정의)
 - (선택) Realtime 구독 — 파트너 편집 즉시 반영
 
-## 7. 트러블슈팅
+## 7. Keep-alive — 슬립 방지 크론 (`#72`)
+
+Free tier 는 **7일간 요청이 없으면 프로젝트가 자동 pause**. 로그인·데이터 API 가 갑자기 죽는 걸 방지하려고 [cron-job.org](https://cron-job.org) 로 3일마다 REST 엔드포인트에 GET 을 날린다.
+
+**왜 GitHub Actions 아닌 cron-job.org?**
+공개 저장소의 스케줄 워크플로는 **60일간 커밋 없으면 자동 비활성화**. 유지보수 모드로 넘어가면 슬립 방지 자체가 슬립됨. cron-job.org 는 리포 활동과 무관.
+
+### 세팅 절차
+
+1. https://cron-job.org 가입 (구글/깃허브 OAuth)
+2. **Create cronjob** →
+   - **Title**: `Linker Supabase keep-alive`
+   - **URL**: `https://<project>.supabase.co/rest/v1/` (프로젝트 URL 뒤에 `/rest/v1/`)
+   - **Schedule**: Every 3 days (Custom → 매 3일 0시)
+   - **Request method**: GET
+   - **Advanced → Headers**:
+     - `apikey: <local.properties 의 supabase.publishableKey>`
+   - **Notifications**: 실패 시 이메일 알림 ON
+3. Save → **Test run** 으로 200 응답 확인
+4. 결과 로그를 `#72` 이슈에 코멘트로 남겨 팀 공유
+
+### 왜 3일 · 왜 `/rest/v1/`
+
+- 3일 = 7일 pause 임계값 아래 안전 마진. 하나 걸러도 죽지 않음
+- `/rest/v1/` 는 PostgREST 루트 — apikey 헤더만 있으면 200 반환하는 가장 가벼운 엔드포인트. RLS 검증도 안 걸림
+
+## 8. 트러블슈팅
 
 | 증상 | 원인 · 해결 |
 |---|---|
@@ -88,7 +114,7 @@ supabase.publishableKey=sb_publishable_1O5ktPM0NZNlVg8lFWeA4w_Mae55UqH
 | 클라이언트에서 `permission denied` | 정책이 너무 타이트하거나 auth 세션 없음. supabase-kt 세션 상태 로그 확인 |
 | 7일 pause 후 첫 요청 지연 | 정상. Supabase 콘솔 방문해서 unpause 하거나 첫 요청 시 자동 wake (~1분) |
 
-## 8. 참고 링크
+## 9. 참고 링크
 
 - [Supabase Auth Kakao provider](https://supabase.com/docs/guides/auth/social-login/auth-kakao)
 - [supabase-kt (Kotlin Multiplatform)](https://github.com/supabase-community/supabase-kt)
