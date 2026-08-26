@@ -542,6 +542,11 @@ fun App() {
                             profileName = myProfile?.nickname.orEmpty(),
                             profileHandle = isoToHandleBirthDate(myProfile?.birthDate),
                             profileImageUrl = myProfile?.profileImageUrl.toSecureImageUrl(),
+                            // ownerColors 자체를 invalidation key 로 사용. profileRefreshTick 을
+                            // 넘기면 App 의 profile fetch 와 MainScreen 의 chip fetch 가 race 해서
+                            // 옛 색으로 tint 된 결과가 캐시에 굳어버림. ownerColors 는 App fetch
+                            // 완료 뒤에 갱신되므로, 이걸 key 로 쓰면 새 색이 확정된 이후에만 재fetch.
+                            refreshTick = ownerColors.hashCode(),
                             onLogout = {
                                 scope.launch {
                                     runCatching { signOut(kakao) }

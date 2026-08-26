@@ -194,6 +194,11 @@ fun MainScreen(
     profileName: String = "",
     profileHandle: String = "",
     profileImageUrl: String? = null,
+    /**
+     * 상위에서 프로필/색상 등이 갱신됐음을 알리는 카운터. 값이 바뀌면 월별 스케줄 캐시를
+     * 비워 다음 컴포지션에서 owner color 를 새 값으로 다시 tint 해 재fetch 한다.
+     */
+    refreshTick: Int = 0,
 ) {
     // Int.MAX_VALUE 크기의 pager 로 사실상 무한 좌우 스와이프. 중간에서 시작해 양쪽으로 무제한 이동.
     val anchorPage = remember { Int.MAX_VALUE / 2 }
@@ -240,7 +245,13 @@ fun MainScreen(
     var scheduleEntriesByMonth by remember {
         mutableStateOf(mapOf<YearMonth, Map<LocalDate, CalendarDayEntry>>())
     }
-    LaunchedEffect(currentYearMonth) {
+    // refreshTick 이 바뀌면 캐시를 비워 owner color 를 새 값으로 다시 tint.
+    // (fetcher 가 이미 tint 된 결과를 반환하므로, 캐시된 값은 옛 색으로 굳어있음.)
+    // 아래 fetch LaunchedEffect 도 refreshTick 을 key 로 잡아 곧바로 재조회 트리거.
+    LaunchedEffect(refreshTick) {
+        scheduleEntriesByMonth = emptyMap()
+    }
+    LaunchedEffect(currentYearMonth, refreshTick) {
         if (scheduleEntriesByMonth.containsKey(currentYearMonth)) return@LaunchedEffect
         val fetched = onLoadEntriesForMonth(currentYearMonth)
         scheduleEntriesByMonth = scheduleEntriesByMonth + (currentYearMonth to fetched)
