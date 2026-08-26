@@ -106,7 +106,10 @@ fun CreateScheduleScreen(
                 title = if (editing) "일정 수정" else "일정 추가",
                 onBack = onBack,
                 trailing = {
-                    SaveAction(enabled = canEdit) { onSave(draft) }
+                    SaveAction(enabled = canEdit) {
+                        println("[Schedule] save clicked: startDate=${draft.startDate} endDate=${draft.endDate} title='${draft.title}'")
+                        onSave(draft)
+                    }
                 },
             )
 
@@ -196,6 +199,7 @@ fun CreateScheduleScreen(
         minDate = LocalDate(1900, 1, 1),
         maxDate = LocalDate(today.year + 100, 12, 31),
         onConfirm = { picked ->
+            println("[Schedule] startDate picker confirmed: $picked (was ${draft.startDate})")
             startDateSheet = false
             val newEnd = if (draft.endDate < picked) picked else draft.endDate
             draft = draft.copy(startDate = picked, endDate = newEnd)
@@ -208,6 +212,7 @@ fun CreateScheduleScreen(
         minDate = draft.startDate,
         maxDate = LocalDate(today.year + 100, 12, 31),
         onConfirm = { picked ->
+            println("[Schedule] endDate picker confirmed: $picked (was ${draft.endDate})")
             endDateSheet = false
             draft = draft.copy(endDate = picked)
         },

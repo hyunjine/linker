@@ -137,11 +137,12 @@ object SchedulesRepository {
         val coupleId = myCoupleId() ?: error("커플에 속하지 않은 유저가 스케줄 저장 시도")
         val uid = SupabaseProvider.client.auth.currentUserOrNull()?.id
             ?: error("세션 없이 스케줄 저장 시도")
+        val payload = draft.toInsertPayload(coupleId = coupleId, createdBy = uid)
+        println("[Schedule] INSERT payload: start_date=${payload.startDate} end_date=${payload.endDate} title='${payload.title}'")
         val inserted = SupabaseProvider.client.from("schedules")
-            .insert(draft.toInsertPayload(coupleId = coupleId, createdBy = uid)) {
-                select()
-            }
+            .insert(payload) { select() }
             .decodeSingle<Row>()
+        println("[Schedule] INSERT response: id=${inserted.id} start_date=${inserted.startDate}")
         applyRepeatRule(inserted.id, draft.repeat)
         return inserted.id
     }
