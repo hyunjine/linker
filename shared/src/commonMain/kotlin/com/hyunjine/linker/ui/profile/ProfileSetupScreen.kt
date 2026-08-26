@@ -110,6 +110,8 @@ fun ProfileSetupScreen(
     saving: Boolean = false,
     /** 카카오 provider `avatar_url` 등 외부에서 넘어온 기본 아바타 URL. 사용자가 직접 사진을 고르면 그게 우선. */
     defaultAvatarUrl: String? = null,
+    /** CTA 라벨. 온보딩은 "다음", 편집은 "저장" 등 상위에서 결정. */
+    submitText: String = "다음",
     onBack: () -> Unit = {},
     onEditPhoto: () -> Unit = {},
     onNicknameChange: (String) -> Unit = {},
@@ -183,7 +185,7 @@ fun ProfileSetupScreen(
 
             Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
                 PrimaryButton(
-                    text = if (saving) "저장 중…" else "다음",
+                    text = if (saving) "저장 중…" else submitText,
                     onClick = {
                         if (saving) return@PrimaryButton
                         val parsed = parseBirthDate(currentBirthDate)

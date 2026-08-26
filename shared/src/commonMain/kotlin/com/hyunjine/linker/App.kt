@@ -83,6 +83,9 @@ private data object MainRoute : NavKey
 private data object ProfileSetupRoute : NavKey
 
 @Serializable
+private data object ProfileEditRoute : NavKey
+
+@Serializable
 private data object CoupleLinkRoute : NavKey
 
 @Serializable
@@ -110,6 +113,7 @@ private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
             subclass(LoginRoute::class, LoginRoute.serializer())
             subclass(MainRoute::class, MainRoute.serializer())
             subclass(ProfileSetupRoute::class, ProfileSetupRoute.serializer())
+            subclass(ProfileEditRoute::class, ProfileEditRoute.serializer())
             subclass(CoupleLinkRoute::class, CoupleLinkRoute.serializer())
             subclass(CoupleInviteCodeRoute::class, CoupleInviteCodeRoute.serializer())
             subclass(CoupleJoinRoute::class, CoupleJoinRoute.serializer())
@@ -253,6 +257,14 @@ private fun List<SchedulesRepository.Row>.toCalendarEntries(
     return out.mapValues { CalendarDayEntry(events = it.value.toList()) }
 }
 
+/** ISO date (yyyy-MM-dd) → ProfileSetupScreen 이 파싱하는 "yyyy. MM. dd." 포맷. */
+private fun isoToDisplayBirthDate(iso: String): String {
+    val date = runCatching { LocalDate.parse(iso) }.getOrNull() ?: return "2000. 01. 01."
+    val m = date.monthNumber.toString().padStart(2, '0')
+    val d = date.dayOfMonth.toString().padStart(2, '0')
+    return "${date.year}. $m. $d."
+}
+
 /** Kakao provider 가 채워준 user_metadata 에서 프로필 셋업 초기값 뽑는다. 값이 없으면 화면 기본값 그대로. */
 private data class ProfileDefaults(val nickname: String, val avatarUrl: String?)
 
@@ -356,6 +368,54 @@ fun App() {
                             },
                         )
                     }
+                    entry<ProfileEditRoute> {
+                        // 프리필 로드 전에는 화면을 mount 하지 않는다 (ProfileSetupScreen 이 초기값을
+                        // rememberSaveable 로 잡아버려 나중에 nickname 파라미터가 바뀌어도 반영 안 됨).
+                        var profile by remember { mutableStateOf<UsersRepository.Profile?>(null) }
+                        var loaded by remember { mutableStateOf(false) }
+                        LaunchedEffect(Unit) {
+                            profile = runCatching { UsersRepository.myProfile() }
+                                .onFailure { println("[ProfileEdit] 프로필 로드 실패: $it") }
+                                .getOrNull()
+                            loaded = true
+                        }
+                        if (!loaded) return@entry
+                        val p = profile ?: run {
+                            println("[ProfileEdit] 프로필 없음 — 편집 화면 진입 취소")
+                            backStack.removeLastOrNull()
+                            return@entry
+                        }
+                        var saving by remember { mutableStateOf(false) }
+                        ProfileSetupScreen(
+                            nickname = p.nickname ?: "",
+                            birthDate = p.birthDate?.let(::isoToDisplayBirthDate) ?: "2000. 01. 01.",
+                            selectedColorId = p.calendarColor,
+                            defaultAvatarUrl = p.profileImageUrl,
+                            submitText = "저장",
+                            saving = saving,
+                            onBack = { backStack.removeLastOrNull() },
+                            onNext = { nickname, birthDate, colorId ->
+                                if (saving) return@ProfileSetupScreen
+                                saving = true
+                                scope.launch {
+                                    runCatching {
+                                        UsersRepository.updateProfile(
+                                            nickname = nickname,
+                                            birthDate = birthDate,
+                                            calendarColor = colorId,
+                                        )
+                                    }.onSuccess {
+                                        println("[ProfileEdit] 저장 성공")
+                                        saving = false
+                                        backStack.removeLastOrNull()
+                                    }.onFailure {
+                                        println("[ProfileEdit] 저장 실패: $it")
+                                        saving = false
+                                    }
+                                }
+                            },
+                        )
+                    }
                     entry<CoupleLinkRoute> {
                         CoupleLinkScreen(
                             onBack = { backStack.removeLastOrNull() },
@@ -453,6 +513,7 @@ fun App() {
                             onEditSchedule = { id -> backStack.add(CreateScheduleRoute(id)) },
                             onAnniversaryClick = { backStack.add(AnniversariesRoute) },
                             onSearchClick = { backStack.add(SearchRoute) },
+                            onProfileEditClick = { backStack.add(ProfileEditRoute) },
                             onLogout = {
                                 scope.launch {
                                     runCatching { signOut(kakao) }
