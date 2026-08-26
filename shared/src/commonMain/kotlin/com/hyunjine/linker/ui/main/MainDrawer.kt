@@ -2,6 +2,8 @@ package com.hyunjine.linker.ui.main
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.ui.layout.ContentScale
+import coil3.compose.AsyncImage
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -61,6 +63,7 @@ fun MainDrawerContent(
     profileName: String,
     profileHandle: String,
     displayState: DrawerDisplayState,
+    profileImageUrl: String? = null,
     onSettingsClick: () -> Unit = {},
     onAnniversaryClick: () -> Unit = {},
     onToggleMyCalendar: (Boolean) -> Unit = {},
@@ -78,6 +81,7 @@ fun MainDrawerContent(
         ProfileHeader(
             name = profileName,
             handle = profileHandle,
+            imageUrl = profileImageUrl,
             onSettingsClick = onSettingsClick,
         )
         Spacer(Modifier.height(20.dp))
@@ -140,13 +144,12 @@ private fun LogoutRow(onClick: () -> Unit) {
 }
 
 @Composable
-private fun ProfileHeader(name: String, handle: String, onSettingsClick: () -> Unit) {
+private fun ProfileHeader(name: String, handle: String, imageUrl: String?, onSettingsClick: () -> Unit) {
     val pretendard = LocalPretendardFontFamily.current
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 아바타 placeholder (사진 붙일 때 이미지로 교체)
         Box(
             modifier = Modifier
                 .size(44.dp)
@@ -154,15 +157,24 @@ private fun ProfileHeader(name: String, handle: String, onSettingsClick: () -> U
                 .background(AvatarPlaceholderBg),
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = name.take(1),
-                style = TextStyle(
-                    fontFamily = pretendard,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 18.sp,
-                    color = AvatarPlaceholderFg,
-                ),
-            )
+            if (!imageUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = "프로필 사진",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(44.dp).clip(CircleShape),
+                )
+            } else {
+                Text(
+                    text = name.take(1),
+                    style = TextStyle(
+                        fontFamily = pretendard,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 18.sp,
+                        color = AvatarPlaceholderFg,
+                    ),
+                )
+            }
         }
         Spacer(Modifier.size(12.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -175,15 +187,17 @@ private fun ProfileHeader(name: String, handle: String, onSettingsClick: () -> U
                     color = TextPrimary,
                 ),
             )
-            Text(
-                text = handle,
-                style = TextStyle(
-                    fontFamily = pretendard,
-                    fontWeight = FontWeight.Normal,
-                    fontSize = 13.sp,
-                    color = TextSecondary,
-                ),
-            )
+            if (handle.isNotBlank()) {
+                Text(
+                    text = handle,
+                    style = TextStyle(
+                        fontFamily = pretendard,
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 13.sp,
+                        color = TextSecondary,
+                    ),
+                )
+            }
         }
         // 설정 아이콘 — 40dp 원형 탭 타겟 안에 22dp ant-design filled gear. ripple 은 원형.
         Box(
