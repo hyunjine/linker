@@ -39,6 +39,10 @@ import com.hyunjine.linker.ui.main.MainScreen
 import com.hyunjine.linker.ui.main.TimedSchedule
 import com.hyunjine.linker.ui.profile.ProfileSetupScreen
 import com.hyunjine.linker.ui.schedule.CreateScheduleScreen
+import com.hyunjine.linker.ui.search.SearchAnniversaryItem
+import com.hyunjine.linker.ui.search.SearchResults
+import com.hyunjine.linker.ui.search.SearchScheduleItem
+import com.hyunjine.linker.ui.search.SearchScreen
 import com.hyunjine.linker.ui.splash.SplashScreen
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -96,6 +100,9 @@ private data class CreateScheduleRoute(val scheduleId: String? = null) : NavKey
 @Serializable
 private data object AnniversariesRoute : NavKey
 
+@Serializable
+private data object SearchRoute : NavKey
+
 private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
     serializersModule = SerializersModule {
         polymorphic(NavKey::class) {
@@ -108,6 +115,7 @@ private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
             subclass(CoupleJoinRoute::class, CoupleJoinRoute.serializer())
             subclass(CreateScheduleRoute::class, CreateScheduleRoute.serializer())
             subclass(AnniversariesRoute::class, AnniversariesRoute.serializer())
+            subclass(SearchRoute::class, SearchRoute.serializer())
         }
     }
 }
@@ -444,12 +452,56 @@ fun App() {
                             onAddSchedule = { backStack.add(CreateScheduleRoute()) },
                             onEditSchedule = { id -> backStack.add(CreateScheduleRoute(id)) },
                             onAnniversaryClick = { backStack.add(AnniversariesRoute) },
+                            onSearchClick = { backStack.add(SearchRoute) },
                             onLogout = {
                                 scope.launch {
                                     runCatching { signOut(kakao) }
                                         .onFailure { println("[Auth] signOut 실패: $it") }
                                 }
                             },
+                        )
+                    }
+                    entry<SearchRoute> {
+                        // 결과 chip 색 계산용 — MainRoute 와 동일 규칙, 화면 진입마다 재조회.
+                        var ownerColors by remember { mutableStateOf(OwnerColors.Default) }
+                        LaunchedEffect(Unit) {
+                            val my = runCatching { UsersRepository.myProfile()?.calendarColor }.getOrNull()
+                            val partner = runCatching { UsersRepository.partnerProfile()?.calendarColor }.getOrNull()
+                            ownerColors = OwnerColors(
+                                me = calendarColorFor(my),
+                                partner = calendarColorFor(partner ?: "pink"),
+                                us = CalendarPurple,
+                            )
+                        }
+                        SearchScreen(
+                            onBack = { backStack.removeLastOrNull() },
+                            onSearch = { query ->
+                                val schedules = runCatching { SchedulesRepository.search(query) }
+                                    .onFailure { println("[Search] schedules 실패: $it") }
+                                    .getOrDefault(emptyList())
+                                    .map { row ->
+                                        SearchScheduleItem(
+                                            id = row.id,
+                                            title = row.title,
+                                            date = LocalDate.parse(row.startDate),
+                                            ownerColor = ownerColors.forOwner(row.ownerKind),
+                                        )
+                                    }
+                                val anniversaries = runCatching { AnniversariesRepository.search(query) }
+                                    .onFailure { println("[Search] anniversaries 실패: $it") }
+                                    .getOrDefault(emptyList())
+                                    .map { row ->
+                                        SearchAnniversaryItem(
+                                            id = row.id,
+                                            title = row.title,
+                                            date = LocalDate.parse(row.date),
+                                            repeatYearly = row.repeatYearly,
+                                        )
+                                    }
+                                SearchResults(schedules = schedules, anniversaries = anniversaries)
+                            },
+                            onScheduleClick = { id -> backStack.add(CreateScheduleRoute(id)) },
+                            onAnniversaryClick = { _ -> backStack.add(AnniversariesRoute) },
                         )
                     }
                     entry<AnniversariesRoute> {

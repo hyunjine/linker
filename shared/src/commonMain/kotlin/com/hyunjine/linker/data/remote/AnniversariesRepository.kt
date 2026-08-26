@@ -31,6 +31,22 @@ object AnniversariesRepository {
             .decodeList<Row>()
     }
 
+    /** 제목 부분일치 (대소문자 무시) 검색. 빈 문자열은 빈 결과. */
+    suspend fun search(query: String): List<Row> {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) return emptyList()
+        val coupleId = SchedulesRepository.myCoupleId() ?: return emptyList()
+        return SupabaseProvider.client.from("couple_anniversaries")
+            .select {
+                filter {
+                    eq("couple_id", coupleId)
+                    ilike("title", "%$trimmed%")
+                }
+                order("date", io.github.jan.supabase.postgrest.query.Order.ASCENDING)
+            }
+            .decodeList<Row>()
+    }
+
     /** 기념일 추가. 반환값은 새 row id. */
     suspend fun create(title: String, date: LocalDate, repeatYearly: Boolean = true): String {
         val coupleId = SchedulesRepository.myCoupleId()

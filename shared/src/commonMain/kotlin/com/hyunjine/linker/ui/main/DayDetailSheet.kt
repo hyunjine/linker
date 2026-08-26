@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -123,9 +124,12 @@ fun DayDetailSheet(
         fullyExpanded = true,
     ) {
         if (detail == null) return@AppBottomSheet
+        // fillMaxSize 를 안 주면 ModalBottomSheet 이 콘텐츠 높이만큼만 표시됨. skipPartiallyExpanded
+        // 만으로는 partial-expand 스텝만 건너뛸 뿐, 실제 시트 높이가 화면을 채우려면 콘텐츠가 세로를
+        // 다 요구해야 함.
         Column(
             modifier = Modifier
-                .fillMaxWidth()
+                .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(bottom = 24.dp),
         ) {
