@@ -257,12 +257,28 @@ private fun List<SchedulesRepository.Row>.toCalendarEntries(
     return out.mapValues { CalendarDayEntry(events = it.value.toList()) }
 }
 
+/**
+ * 카카오 프로필 URL 은 http 로 내려와 Android 9+ · iOS ATS 가 cleartext 로 차단.
+ * 렌더 직전에 https 로 강제. Kakao CDN 은 https 도 동일 경로로 서빙.
+ */
+private fun String?.toSecureImageUrl(): String? =
+    this?.replace(Regex("^http://"), "https://")
+
 /** ISO date (yyyy-MM-dd) → ProfileSetupScreen 이 파싱하는 "yyyy. MM. dd." 포맷. */
 private fun isoToDisplayBirthDate(iso: String): String {
     val date = runCatching { LocalDate.parse(iso) }.getOrNull() ?: return "2000. 01. 01."
     val m = date.monthNumber.toString().padStart(2, '0')
     val d = date.dayOfMonth.toString().padStart(2, '0')
     return "${date.year}. $m. $d."
+}
+
+/** ISO date (yyyy-MM-dd) → 드로워 핸들 자리에 표시할 "yyyy.MM.dd" (점 사이 공백 없음). */
+private fun isoToHandleBirthDate(iso: String?): String {
+    if (iso.isNullOrBlank()) return ""
+    val date = runCatching { LocalDate.parse(iso) }.getOrNull() ?: return ""
+    val m = date.monthNumber.toString().padStart(2, '0')
+    val d = date.dayOfMonth.toString().padStart(2, '0')
+    return "${date.year}.$m.$d"
 }
 
 /** Kakao provider 가 채워준 user_metadata 에서 프로필 셋업 초기값 뽑는다. 값이 없으면 화면 기본값 그대로. */
@@ -289,6 +305,9 @@ fun App() {
                 backStack.clear()
                 backStack.add(MainRoute)
             }
+            // 프로필 편집 후 홈 드로워가 최신 값으로 다시 로드되게끔 하는 신호.
+            // ProfileEditRoute 저장 성공 시 bump → MainRoute LaunchedEffect 가 재실행.
+            var profileRefreshTick by remember { mutableStateOf(0) }
 
             // 세션 상태 기반 부트스트랩 라우팅.
             //  - Initializing: SplashRoute 유지 (세션 storage 로드 중)
@@ -343,7 +362,7 @@ fun App() {
                         var saving by remember { mutableStateOf(false) }
                         ProfileSetupScreen(
                             nickname = defaults.nickname,
-                            defaultAvatarUrl = defaults.avatarUrl,
+                            defaultAvatarUrl = defaults.avatarUrl.toSecureImageUrl(),
                             saving = saving,
                             onBack = { backStack.removeLastOrNull() },
                             onNext = { nickname, birthDate, colorId ->
@@ -353,7 +372,7 @@ fun App() {
                                         UsersRepository.completeProfile(
                                             nickname = nickname,
                                             birthDate = birthDate,
-                                            profileImageUrl = defaults.avatarUrl,
+                                            profileImageUrl = defaults.avatarUrl.toSecureImageUrl(),
                                             calendarColor = colorId,
                                         )
                                     }.onSuccess {
@@ -390,7 +409,7 @@ fun App() {
                             nickname = p.nickname ?: "",
                             birthDate = p.birthDate?.let(::isoToDisplayBirthDate) ?: "2000. 01. 01.",
                             selectedColorId = p.calendarColor,
-                            defaultAvatarUrl = p.profileImageUrl,
+                            defaultAvatarUrl = p.profileImageUrl.toSecureImageUrl(),
                             submitText = "저장",
                             saving = saving,
                             onBack = { backStack.removeLastOrNull() },
@@ -407,6 +426,7 @@ fun App() {
                                     }.onSuccess {
                                         println("[ProfileEdit] 저장 성공")
                                         saving = false
+                                        profileRefreshTick++
                                         backStack.removeLastOrNull()
                                     }.onFailure {
                                         println("[ProfileEdit] 저장 실패: $it")
@@ -478,11 +498,16 @@ fun App() {
                         // 내 · 파트너 프로필의 calendar_color 로 owner 별 chip 색을 정한다.
                         // 로드 전엔 fallback 팔레트 (blue/pink) 사용.
                         var ownerColors by remember { mutableStateOf(OwnerColors.Default) }
-                        LaunchedEffect(Unit) {
-                            val my = runCatching { UsersRepository.myProfile()?.calendarColor }.getOrNull()
+                        var myProfile by remember { mutableStateOf<UsersRepository.Profile?>(null) }
+                        // profileRefreshTick 이 바뀌면 재조회 (프로필 편집 후 최신 값 반영).
+                        LaunchedEffect(profileRefreshTick) {
+                            val mine = runCatching { UsersRepository.myProfile() }
+                                .onFailure { println("[Main] myProfile 실패: $it") }
+                                .getOrNull()
                             val partner = runCatching { UsersRepository.partnerProfile()?.calendarColor }.getOrNull()
+                            myProfile = mine
                             ownerColors = OwnerColors(
-                                me = calendarColorFor(my),
+                                me = calendarColorFor(mine?.calendarColor),
                                 partner = calendarColorFor(partner ?: "pink"),
                                 us = CalendarPurple,
                             )
@@ -514,6 +539,9 @@ fun App() {
                             onAnniversaryClick = { backStack.add(AnniversariesRoute) },
                             onSearchClick = { backStack.add(SearchRoute) },
                             onProfileEditClick = { backStack.add(ProfileEditRoute) },
+                            profileName = myProfile?.nickname.orEmpty(),
+                            profileHandle = isoToHandleBirthDate(myProfile?.birthDate),
+                            profileImageUrl = myProfile?.profileImageUrl.toSecureImageUrl(),
                             onLogout = {
                                 scope.launch {
                                     runCatching { signOut(kakao) }

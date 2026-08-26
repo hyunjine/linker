@@ -184,6 +184,10 @@ fun MainScreen(
     onAnniversaryClick: () -> Unit = {},
     onProfileEditClick: () -> Unit = {},
     onLogout: () -> Unit = {},
+    /** 드로워 프로필 헤더에 표시할 값들. 로드 전에는 기본값 표시. */
+    profileName: String = "",
+    profileHandle: String = "",
+    profileImageUrl: String? = null,
 ) {
     // Int.MAX_VALUE 크기의 pager 로 사실상 무한 좌우 스와이프. 중간에서 시작해 양쪽으로 무제한 이동.
     val anchorPage = remember { Int.MAX_VALUE / 2 }
@@ -255,8 +259,9 @@ fun MainScreen(
         drawerState = drawerState,
         drawerContent = {
             MainDrawerContent(
-                profileName = "양현진",
-                profileHandle = "thevlakk1",
+                profileName = profileName,
+                profileHandle = profileHandle,
+                profileImageUrl = profileImageUrl,
                 displayState = displayState,
                 onSettingsClick = {
                     scope.launch { drawerState.close() }
