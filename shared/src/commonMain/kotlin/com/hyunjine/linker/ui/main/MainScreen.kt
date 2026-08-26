@@ -281,7 +281,9 @@ fun MainScreen(
                 profileImageUrl = profileImageUrl,
                 displayState = displayState,
                 onSettingsClick = {
-                    scope.launch { drawerState.close() }
+                    // 여기서 drawerState.close() 를 부르면 App-scope 저장 상태가 Closed 로
+                    // 굳어져서, 프로필 편집 후 돌아왔을 때 드로워가 다시 열리지 않는다.
+                    // 편집 화면이 full-screen 이라 드로워는 자연스럽게 가려지므로 닫을 필요 X.
                     onProfileEditClick()
                 },
                 onAnniversaryClick = {
