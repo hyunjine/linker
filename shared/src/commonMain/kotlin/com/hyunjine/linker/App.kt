@@ -14,6 +14,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import androidx.savedstate.serialization.SavedStateConfiguration
+import com.hyunjine.linker.auth.rememberKakaoLoginClient
 import com.hyunjine.linker.auth.sessionStatus
 import com.hyunjine.linker.auth.signInWithKakao
 import com.hyunjine.linker.data.remote.AnniversariesRepository
@@ -302,11 +303,14 @@ fun App() {
                 entryProvider = entryProvider {
                     entry<SplashRoute> { SplashScreen() }
                     entry<LoginRoute> {
+                        // rememberKakaoLoginClient 는 LocalContext (Android) / LocalUIViewController (iOS)
+                        // 를 참조하므로 Composable 스코프 안에서 얻어야 한다.
+                        val kakao = rememberKakaoLoginClient()
                         LoginScreen(
                             onKakaoLoginClick = {
                                 println("[Auth] 카카오 버튼 click")
                                 scope.launch {
-                                    runCatching { signInWithKakao() }
+                                    runCatching { signInWithKakao(kakao) }
                                         .onFailure { println("[Auth] signInWithKakao 실패: $it") }
                                 }
                             },

@@ -18,6 +18,7 @@ val localProperties = Properties().apply {
 val holidayApiKey: String = localProperties.getProperty("holiday.api.key", "")
 val supabaseUrl: String = localProperties.getProperty("supabase.url", "")
 val supabasePublishableKey: String = localProperties.getProperty("supabase.publishableKey", "")
+val kakaoNativeAppKey: String = localProperties.getProperty("kakao.native.app.key", "")
 
 val generatedSecretsDir: Provider<Directory> =
     layout.buildDirectory.dir("generated/secrets/kotlin")
@@ -27,9 +28,11 @@ val generateSecrets by tasks.registering {
     val holidayKey = holidayApiKey
     val sbUrl = supabaseUrl
     val sbKey = supabasePublishableKey
+    val kakaoKey = kakaoNativeAppKey
     inputs.property("holidayApiKey", holidayKey)
     inputs.property("supabaseUrl", sbUrl)
     inputs.property("supabasePublishableKey", sbKey)
+    inputs.property("kakaoNativeAppKey", kakaoKey)
     outputs.dir(outputDir)
     doLast {
         val file = outputDir.get().asFile.resolve("com/hyunjine/linker/data/Secrets.kt")
@@ -48,6 +51,9 @@ val generateSecrets by tasks.registering {
 
                 /** Supabase Publishable key (`sb_publishable_...`). 클라이언트에 안전하게 임베드. local.properties `supabase.publishableKey`. */
                 const val SupabasePublishableKey: String = "$sbKey"
+
+                /** 카카오 네이티브 앱 키. Android SDK 초기화 + kakao{key}://oauth 스킴. local.properties `kakao.native.app.key`. */
+                const val KakaoNativeAppKey: String = "$kakaoKey"
             }
             """.trimIndent() + "\n"
         )
@@ -93,6 +99,7 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.uiTooling)
             implementation(libs.ktor.client.okhttp)
+            implementation(libs.kakao.user)
         }
         commonMain.dependencies {
             api(project(":shared-api"))

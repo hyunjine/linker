@@ -2,27 +2,41 @@ package com.hyunjine.linker.auth
 
 import com.hyunjine.linker.data.remote.SupabaseProvider
 import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.providers.Kakao
+import io.github.jan.supabase.auth.providers.builtin.IDToken
+import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Supabase Auth Kakao provider 로 로그인 흐름을 시작한다. 실제 성공/실패는 딥링크 콜백을 통해
- * [SupabaseProvider.client] 의 세션 상태로 전달되므로 여기서는 브라우저(Chrome Custom Tab /
- * ASWebAuthenticationSession) 를 띄우는 것까지가 책임이다.
+ * 카카오 SDK 로그인 → Supabase `signInWith(IDToken)` 흐름.
  *
- * 취소는 supabase-kt 가 sessionStatus 를 그대로 [SessionStatus.NotAuthenticated] 로 유지하므로
- * 별도 처리 불필요. 실패는 예외로 던져지며 UI 계층에서 catch 해 로그만 남기면 된다.
+ * 1. [client]. login() → 네이티브 SDK 로 로그인 (카톡 앱 · 계정 웹 로그인 자동 폴백)
+ * 2. 성공 시 [KakaoLoginResult.Success.idToken] 을 Supabase Auth 로 전달
+ * 3. Supabase 서버가 JWKS 로 서명 · 만료 · aud 검증 → 세션 발급
  *
- * **scope 노트**: Supabase gotrue 의 Kakao provider 가 `account_email profile_image profile_nickname`
- * 을 소스에 하드코딩해 무조건 요청한다 (append 만 되지 override 불가). 클라이언트가 별도 scope 를
- * 명시할 필요 · 여지 없음. Kakao Developers → 카카오 로그인 → 동의항목에서 이 세 개가 모두 등록돼
- * 있어야 KOE205 를 피한다.
+ * 취소는 조용히 무시. 실패/예외는 UI 층에서 catch 해 처리.
+ *
+ * @throws IllegalStateException Kakao 결과가 Failure 인 경우 (reason 을 메시지로).
  */
-suspend fun signInWithKakao() {
+suspend fun signInWithKakao(client: KakaoLoginClient) {
     println("[Auth] signInWithKakao: enter")
-    SupabaseProvider.client.auth.signInWith(Kakao)
-    println("[Auth] signInWithKakao: signInWith returned (browser 세션 시작 요청 완료)")
+    when (val result = client.login()) {
+        is KakaoLoginResult.Success -> {
+            println("[Auth] Kakao 로그인 성공 → Supabase signInWithIdToken")
+            SupabaseProvider.client.auth.signInWith(IDToken) {
+                idToken = result.idToken
+                provider = Kakao
+            }
+            println("[Auth] Supabase 세션 발급 완료")
+        }
+        KakaoLoginResult.Cancelled -> {
+            println("[Auth] Kakao 로그인 사용자 취소")
+        }
+        is KakaoLoginResult.Failure -> {
+            println("[Auth] Kakao 로그인 실패: ${result.reason}")
+            error(result.reason)
+        }
+    }
 }
 
 /**
