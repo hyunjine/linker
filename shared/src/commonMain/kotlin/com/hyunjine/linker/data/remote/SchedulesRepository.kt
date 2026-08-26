@@ -77,6 +77,25 @@ object SchedulesRepository {
         return row.toDraft(repeat)
     }
 
+    /**
+     * 제목 부분일치 (대소문자 무시) 검색. 검색어에 `%` `_` 는 이스케이프하지 않아 사용자가 넣으면
+     * PostgreSQL wildcard 로 동작 — 초기 스코프에서는 문제로 안 보고 그대로 통과. 빈 문자열은 빈 결과.
+     */
+    suspend fun search(query: String): List<Row> {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty()) return emptyList()
+        val coupleId = myCoupleId() ?: return emptyList()
+        return SupabaseProvider.client.from("schedules")
+            .select {
+                filter {
+                    eq("couple_id", coupleId)
+                    ilike("title", "%$trimmed%")
+                }
+                order("start_date", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
+            }
+            .decodeList<Row>()
+    }
+
     /** `[from, to]` 범위와 겹치는 스케줄 조회. 반씩 겹치는 것도 포함. */
     suspend fun listInRange(from: LocalDate, to: LocalDate): List<Row> {
         val coupleId = myCoupleId() ?: return emptyList()
