@@ -542,6 +542,7 @@ fun App() {
                             profileName = myProfile?.nickname.orEmpty(),
                             profileHandle = isoToHandleBirthDate(myProfile?.birthDate),
                             profileImageUrl = myProfile?.profileImageUrl.toSecureImageUrl(),
+                            refreshTick = profileRefreshTick,
                             onLogout = {
                                 scope.launch {
                                     runCatching { signOut(kakao) }
