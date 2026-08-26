@@ -250,7 +250,7 @@ private fun List<SchedulesRepository.Row>.toCalendarEntries(
         var d = start
         while (d <= end) {
             out.getOrPut(d) { mutableListOf() }
-                .add(CalendarEvent(row.title, CalendarEventType.Personal, tintColor = tint))
+                .add(CalendarEvent(row.title, CalendarEventType.Personal, tintColor = tint, id = row.id))
             d = d.plus(1, DateTimeUnit.DAY)
         }
     }
