@@ -24,6 +24,13 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  * (콘솔 · 앱 설정 · 카카오 로그인 · OpenID Connect 활성화 ON 필요)
  */
 actual class KakaoLoginClient(private val context: Context) {
+    actual suspend fun logout() = suspendCancellableCoroutine { cont ->
+        UserApiClient.instance.logout { error ->
+            if (error != null) Log.w(TAG, "logout error: $error") else Log.i(TAG, "logout ok")
+            if (cont.isActive) cont.resume(Unit)
+        }
+    }
+
     actual suspend fun login(): KakaoLoginResult = suspendCancellableCoroutine { cont ->
         val callback: (OAuthToken?, Throwable?) -> Unit = { token, error ->
             val result = when {

@@ -182,6 +182,7 @@ fun MainScreen(
     onAddSchedule: (LocalDate) -> Unit = {},
     onEditSchedule: (id: String) -> Unit = {},
     onAnniversaryClick: () -> Unit = {},
+    onLogout: () -> Unit = {},
 ) {
     // Int.MAX_VALUE 크기의 pager 로 사실상 무한 좌우 스와이프. 중간에서 시작해 양쪽으로 무제한 이동.
     val anchorPage = remember { Int.MAX_VALUE / 2 }
@@ -264,6 +265,10 @@ fun MainScreen(
                 onTogglePartnerCalendar = { displayState = displayState.copy(showPartnerCalendar = it) },
                 onToggleHolidays = { displayState = displayState.copy(showHolidays = it) },
                 onToggleSolarTerms = { displayState = displayState.copy(showSolarTerms = it) },
+                onLogout = {
+                    scope.launch { drawerState.close() }
+                    onLogout()
+                },
             )
         },
     ) {

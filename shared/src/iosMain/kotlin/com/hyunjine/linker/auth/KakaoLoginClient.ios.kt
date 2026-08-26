@@ -22,6 +22,17 @@ actual class KakaoLoginClient {
             if (cont.isActive) cont.resume(result)
         }
     }
+
+    actual suspend fun logout() = suspendCancellableCoroutine { cont ->
+        val handler = KakaoLoginBridge.logoutHandler
+        if (handler == null) {
+            if (cont.isActive) cont.resume(Unit)
+            return@suspendCancellableCoroutine
+        }
+        handler {
+            if (cont.isActive) cont.resume(Unit)
+        }
+    }
 }
 
 @Composable

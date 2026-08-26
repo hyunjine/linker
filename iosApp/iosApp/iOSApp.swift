@@ -16,10 +16,10 @@ struct iOSApp: App {
         print("[Supabase] project = \(SupabaseProvider.shared.warmUp())")
 
         // Kotlin/Native ↔ Swift 브리지 세팅. shared 의 KakaoLoginClient 가 이 handler 를 호출.
-        // openid scope 명시 → OIDC 활성화된 앱에서만 token.idToken 반환됨.
+        // OIDC 활성화는 카카오 콘솔 · 앱 설정 · 카카오 로그인 · OpenID Connect 활성화 ON 으로
+        // 결정됨 (SDK 파라미터로 요청하는 게 아님). 활성화되면 token.idToken 자동 포함.
         // 톡 설치 시 톡 로그인, 없으면 카카오 계정 웹 로그인 폴백.
         KakaoLoginBridge.shared.handler = { callback in
-            let scopes = ["openid"]
             let onComplete: (OAuthToken?, Error?) -> Void = { token, error in
                 let result: KakaoLoginResult
                 if let token = token {
@@ -50,16 +50,29 @@ struct iOSApp: App {
             }
 
             if UserApi.isKakaoTalkLoginAvailable() {
-                UserApi.shared.loginWithKakaoTalk(scopes: scopes) { token, error in
+                UserApi.shared.loginWithKakaoTalk { token, error in
                     if let error = error {
                         print("[KakaoLogin] talk login failed, falling back to account: \(error)")
-                        UserApi.shared.loginWithKakaoAccount(scopes: scopes, completion: onComplete)
+                        UserApi.shared.loginWithKakaoAccount(completion: onComplete)
                     } else {
                         onComplete(token, nil)
                     }
                 }
             } else {
-                UserApi.shared.loginWithKakaoAccount(scopes: scopes, completion: onComplete)
+                UserApi.shared.loginWithKakaoAccount(completion: onComplete)
+            }
+        }
+
+        // Kakao SDK 세션 폐기. Supabase signOut 만으로는 부족 — 안 하면 다음 로그인 시 계정
+        // 선택 없이 자동 재로그인됨. 에러가 나도 done() 은 반드시 호출.
+        KakaoLoginBridge.shared.logoutHandler = { done in
+            UserApi.shared.logout { error in
+                if let error = error {
+                    print("[KakaoLogin] logout error: \(error)")
+                } else {
+                    print("[KakaoLogin] logout ok")
+                }
+                done()
             }
         }
     }

@@ -21,4 +21,10 @@ object KakaoLoginBridge {
      * Kotlin 은 [callback] 을 통해 [KakaoLoginResult] 를 받아 suspend 재개.
      */
     var handler: ((callback: (KakaoLoginResult) -> Unit) -> Unit)? = null
+
+    /**
+     * Swift 에서 세팅. Kakao SDK 세션을 폐기하고 완료 시 [done] 호출.
+     * 에러가 나도 [done] 은 반드시 호출해야 UI 가 멈추지 않음.
+     */
+    var logoutHandler: ((done: () -> Unit) -> Unit)? = null
 }

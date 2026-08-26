@@ -17,6 +17,7 @@ import androidx.savedstate.serialization.SavedStateConfiguration
 import com.hyunjine.linker.auth.rememberKakaoLoginClient
 import com.hyunjine.linker.auth.sessionStatus
 import com.hyunjine.linker.auth.signInWithKakao
+import com.hyunjine.linker.auth.signOut
 import com.hyunjine.linker.data.remote.AnniversariesRepository
 import com.hyunjine.linker.data.remote.CouplesRepository
 import com.hyunjine.linker.data.remote.SchedulesRepository
@@ -405,6 +406,7 @@ fun App() {
                         )
                     }
                     entry<MainRoute> {
+                        val kakao = rememberKakaoLoginClient()
                         // 내 · 파트너 프로필의 calendar_color 로 owner 별 chip 색을 정한다.
                         // 로드 전엔 fallback 팔레트 (blue/pink) 사용.
                         var ownerColors by remember { mutableStateOf(OwnerColors.Default) }
@@ -442,6 +444,12 @@ fun App() {
                             onAddSchedule = { backStack.add(CreateScheduleRoute()) },
                             onEditSchedule = { id -> backStack.add(CreateScheduleRoute(id)) },
                             onAnniversaryClick = { backStack.add(AnniversariesRoute) },
+                            onLogout = {
+                                scope.launch {
+                                    runCatching { signOut(kakao) }
+                                        .onFailure { println("[Auth] signOut 실패: $it") }
+                                }
+                            },
                         )
                     }
                     entry<AnniversariesRoute> {

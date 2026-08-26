@@ -31,6 +31,13 @@ sealed interface KakaoLoginResult {
  */
 expect class KakaoLoginClient {
     suspend fun login(): KakaoLoginResult
+
+    /**
+     * 카카오 SDK 세션 폐기. Supabase signOut 과 별개로 호출해야 다음 로그인 시 계정 선택
+     * 화면이 다시 뜬다 (호출 안 하면 캐시된 카카오 세션으로 조용히 재로그인됨).
+     * 실패해도 예외를 던지지 않음 — 로그아웃 UX 를 막지 않기 위해.
+     */
+    suspend fun logout()
 }
 
 /** Compose 트리에서 플랫폼 컨텍스트 (LocalContext / LocalUIViewController) 를 주입해 [KakaoLoginClient] 생성. */

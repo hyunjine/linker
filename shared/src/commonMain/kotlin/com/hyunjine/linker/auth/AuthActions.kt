@@ -45,3 +45,18 @@ suspend fun signInWithKakao(client: KakaoLoginClient) {
  */
 val sessionStatus: StateFlow<SessionStatus>
     get() = SupabaseProvider.client.auth.sessionStatus
+
+/**
+ * 로그아웃. Kakao SDK 세션 → Supabase 세션 순서로 폐기.
+ *
+ * Kakao 를 먼저 폐기해야 다음 로그인 시 계정 선택 화면이 다시 뜬다 (안 그러면 캐시된 카카오
+ * 세션으로 조용히 재로그인). Supabase signOut 은 sessionStatus 를 NotAuthenticated 로
+ * 바꿔 App 레벨 LaunchedEffect 가 LoginRoute 로 리라우팅한다.
+ */
+suspend fun signOut(client: KakaoLoginClient) {
+    println("[Auth] signOut: enter")
+    runCatching { client.logout() }
+        .onFailure { println("[Auth] Kakao logout 실패 (무시): $it") }
+    SupabaseProvider.client.auth.signOut()
+    println("[Auth] Supabase signOut 완료")
+}
