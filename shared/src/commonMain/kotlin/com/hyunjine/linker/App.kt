@@ -257,6 +257,13 @@ private fun List<SchedulesRepository.Row>.toCalendarEntries(
     return out.mapValues { CalendarDayEntry(events = it.value.toList()) }
 }
 
+/**
+ * 카카오 프로필 URL 은 http 로 내려와 Android 9+ · iOS ATS 가 cleartext 로 차단.
+ * 렌더 직전에 https 로 강제. Kakao CDN 은 https 도 동일 경로로 서빙.
+ */
+private fun String?.toSecureImageUrl(): String? =
+    this?.replace(Regex("^http://"), "https://")
+
 /** ISO date (yyyy-MM-dd) → ProfileSetupScreen 이 파싱하는 "yyyy. MM. dd." 포맷. */
 private fun isoToDisplayBirthDate(iso: String): String {
     val date = runCatching { LocalDate.parse(iso) }.getOrNull() ?: return "2000. 01. 01."
@@ -355,7 +362,7 @@ fun App() {
                         var saving by remember { mutableStateOf(false) }
                         ProfileSetupScreen(
                             nickname = defaults.nickname,
-                            defaultAvatarUrl = defaults.avatarUrl,
+                            defaultAvatarUrl = defaults.avatarUrl.toSecureImageUrl(),
                             saving = saving,
                             onBack = { backStack.removeLastOrNull() },
                             onNext = { nickname, birthDate, colorId ->
@@ -365,7 +372,7 @@ fun App() {
                                         UsersRepository.completeProfile(
                                             nickname = nickname,
                                             birthDate = birthDate,
-                                            profileImageUrl = defaults.avatarUrl,
+                                            profileImageUrl = defaults.avatarUrl.toSecureImageUrl(),
                                             calendarColor = colorId,
                                         )
                                     }.onSuccess {
@@ -402,7 +409,7 @@ fun App() {
                             nickname = p.nickname ?: "",
                             birthDate = p.birthDate?.let(::isoToDisplayBirthDate) ?: "2000. 01. 01.",
                             selectedColorId = p.calendarColor,
-                            defaultAvatarUrl = p.profileImageUrl,
+                            defaultAvatarUrl = p.profileImageUrl.toSecureImageUrl(),
                             submitText = "저장",
                             saving = saving,
                             onBack = { backStack.removeLastOrNull() },
@@ -534,7 +541,7 @@ fun App() {
                             onProfileEditClick = { backStack.add(ProfileEditRoute) },
                             profileName = myProfile?.nickname.orEmpty(),
                             profileHandle = isoToHandleBirthDate(myProfile?.birthDate),
-                            profileImageUrl = myProfile?.profileImageUrl,
+                            profileImageUrl = myProfile?.profileImageUrl.toSecureImageUrl(),
                             onLogout = {
                                 scope.launch {
                                     runCatching { signOut(kakao) }
