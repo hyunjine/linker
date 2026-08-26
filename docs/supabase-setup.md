@@ -91,19 +91,20 @@ Free tier 는 **7일간 요청이 없으면 프로젝트가 자동 pause**. 로�
 1. https://cron-job.org 가입 (구글/깃허브 OAuth)
 2. **Create cronjob** →
    - **Title**: `Linker Supabase keep-alive`
-   - **URL**: `https://<project>.supabase.co/rest/v1/` (프로젝트 URL 뒤에 `/rest/v1/`)
+   - **URL**: `https://<project>.supabase.co/auth/v1/settings`
    - **Schedule**: Every 3 days (Custom → 매 3일 0시)
    - **Request method**: GET
    - **Advanced → Headers**:
      - `apikey: <local.properties 의 supabase.publishableKey>`
    - **Notifications**: 실패 시 이메일 알림 ON
-3. Save → **Test run** 으로 200 응답 확인
+3. Save → **Test run** 으로 200 응답 확인 (활성 auth provider 목록 JSON 이 나오면 정상)
 4. 결과 로그를 `#72` 이슈에 코멘트로 남겨 팀 공유
 
-### 왜 3일 · 왜 `/rest/v1/`
+### 왜 3일 · 왜 `/auth/v1/settings`
 
 - 3일 = 7일 pause 임계값 아래 안전 마진. 하나 걸러도 죽지 않음
-- `/rest/v1/` 는 PostgREST 루트 — apikey 헤더만 있으면 200 반환하는 가장 가벼운 엔드포인트. RLS 검증도 안 걸림
+- `/auth/v1/settings` 는 publishable key 만으로 200 나오는 가장 가벼운 엔드포인트
+  - `/rest/v1/` 루트는 secret API key 를 요구해서 publishable 로는 401 — 크론에 secret 을 주는 건 위험하니 피함
 
 ## 8. 트러블슈팅
 
