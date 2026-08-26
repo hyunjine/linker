@@ -20,6 +20,19 @@ object AnniversariesRepository {
         @SerialName("repeat_yearly") val repeatYearly: Boolean,
     )
 
+    /**
+     * INSERT 전용 payload. `Row` 를 그대로 쓰면 `id = "00000000-..."` placeholder 가 서버에 그대로
+     * 기록되어 (Postgres DEFAULT 는 컬럼 명시 시 발동하지 않음) PK 위반. id 필드를 빼서 서버
+     * `gen_random_uuid()` default 가 발동하도록 한다.
+     */
+    @Serializable
+    data class InsertPayload(
+        @SerialName("couple_id") val coupleId: String,
+        val title: String,
+        val date: String,
+        @SerialName("repeat_yearly") val repeatYearly: Boolean,
+    )
+
     /** 내 커플의 기념일 목록 (date 오름차순). 커플 없으면 빈 리스트. */
     suspend fun list(): List<Row> {
         val coupleId = SchedulesRepository.myCoupleId() ?: return emptyList()
@@ -53,8 +66,7 @@ object AnniversariesRepository {
             ?: error("커플에 속하지 않은 유저가 기념일 저장 시도")
         val inserted = SupabaseProvider.client.from("couple_anniversaries")
             .insert(
-                Row(
-                    id = "00000000-0000-0000-0000-000000000000",
+                InsertPayload(
                     coupleId = coupleId,
                     title = title,
                     date = date.toString(),

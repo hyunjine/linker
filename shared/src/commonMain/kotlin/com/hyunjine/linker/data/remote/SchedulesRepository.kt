@@ -42,6 +42,26 @@ object SchedulesRepository {
         @SerialName("is_done") val isDone: Boolean,
     )
 
+    /**
+     * INSERT 전용 payload. `Row` 를 그대로 쓰면 `id = "00000000-..."` placeholder 가 실제 값으로
+     * 서버에 기록되어 (Postgres DEFAULT 는 컬럼 명시 시 발동하지 않음) PK 유니크 위반 · 캘린더에
+     * placeholder UUID 저장이 발생. id · is_done · created_at · updated_at 은 서버 DEFAULT 로 채워지므로
+     * 여기서 아예 필드를 뺀다.
+     */
+    @Serializable
+    data class InsertPayload(
+        @SerialName("couple_id") val coupleId: String,
+        @SerialName("created_by") val createdBy: String,
+        val type: String,
+        @SerialName("owner_kind") val ownerKind: String,
+        val title: String,
+        @SerialName("start_date") val startDate: String,
+        @SerialName("end_date") val endDate: String,
+        @SerialName("all_day") val allDay: Boolean,
+        @SerialName("start_time") val startTime: String? = null,
+        @SerialName("end_time") val endTime: String? = null,
+    )
+
     /** `schedule_repeat_rules` row. 필요한 필드만 nullable — CHECK 제약은 서버가 검증. */
     @Serializable
     data class RepeatRow(
@@ -118,7 +138,7 @@ object SchedulesRepository {
         val uid = SupabaseProvider.client.auth.currentUserOrNull()?.id
             ?: error("세션 없이 스케줄 저장 시도")
         val inserted = SupabaseProvider.client.from("schedules")
-            .insert(draft.toInsertRow(coupleId = coupleId, createdBy = uid)) {
+            .insert(draft.toInsertPayload(coupleId = coupleId, createdBy = uid)) {
                 select()
             }
             .decodeSingle<Row>()
@@ -176,9 +196,8 @@ object SchedulesRepository {
 }
 
 /** draft → INSERT payload. RLS `schedules_all_in_my_couple` 이 `created_by = auth.uid()` 를 요구하므로 명시 포함. */
-private fun ScheduleDraft.toInsertRow(coupleId: String, createdBy: String): SchedulesRepository.Row =
-    SchedulesRepository.Row(
-        id = "00000000-0000-0000-0000-000000000000", // 서버 default 로 덮어써짐. Serializable 요구 필드
+private fun ScheduleDraft.toInsertPayload(coupleId: String, createdBy: String) =
+    SchedulesRepository.InsertPayload(
         coupleId = coupleId,
         createdBy = createdBy,
         type = type.toDbValue(),
@@ -189,7 +208,6 @@ private fun ScheduleDraft.toInsertRow(coupleId: String, createdBy: String): Sche
         allDay = allDay,
         startTime = startTimeForDb(),
         endTime = endTimeForDb(),
-        isDone = false,
     )
 
 private fun ScheduleType.toDbValue(): String = when (this) {
