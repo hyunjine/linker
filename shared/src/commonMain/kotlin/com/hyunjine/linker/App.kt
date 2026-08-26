@@ -14,8 +14,10 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import androidx.savedstate.serialization.SavedStateConfiguration
+import com.hyunjine.linker.auth.rememberKakaoLoginClient
 import com.hyunjine.linker.auth.sessionStatus
 import com.hyunjine.linker.auth.signInWithKakao
+import com.hyunjine.linker.auth.signOut
 import com.hyunjine.linker.data.remote.AnniversariesRepository
 import com.hyunjine.linker.data.remote.CouplesRepository
 import com.hyunjine.linker.data.remote.SchedulesRepository
@@ -302,11 +304,14 @@ fun App() {
                 entryProvider = entryProvider {
                     entry<SplashRoute> { SplashScreen() }
                     entry<LoginRoute> {
+                        // rememberKakaoLoginClient 는 LocalContext (Android) / LocalUIViewController (iOS)
+                        // 를 참조하므로 Composable 스코프 안에서 얻어야 한다.
+                        val kakao = rememberKakaoLoginClient()
                         LoginScreen(
                             onKakaoLoginClick = {
                                 println("[Auth] 카카오 버튼 click")
                                 scope.launch {
-                                    runCatching { signInWithKakao() }
+                                    runCatching { signInWithKakao(kakao) }
                                         .onFailure { println("[Auth] signInWithKakao 실패: $it") }
                                 }
                             },
@@ -401,6 +406,7 @@ fun App() {
                         )
                     }
                     entry<MainRoute> {
+                        val kakao = rememberKakaoLoginClient()
                         // 내 · 파트너 프로필의 calendar_color 로 owner 별 chip 색을 정한다.
                         // 로드 전엔 fallback 팔레트 (blue/pink) 사용.
                         var ownerColors by remember { mutableStateOf(OwnerColors.Default) }
@@ -438,6 +444,12 @@ fun App() {
                             onAddSchedule = { backStack.add(CreateScheduleRoute()) },
                             onEditSchedule = { id -> backStack.add(CreateScheduleRoute(id)) },
                             onAnniversaryClick = { backStack.add(AnniversariesRoute) },
+                            onLogout = {
+                                scope.launch {
+                                    runCatching { signOut(kakao) }
+                                        .onFailure { println("[Auth] signOut 실패: $it") }
+                                }
+                            },
                         )
                     }
                     entry<AnniversariesRoute> {

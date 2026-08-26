@@ -67,6 +67,7 @@ fun MainDrawerContent(
     onTogglePartnerCalendar: (Boolean) -> Unit = {},
     onToggleHolidays: (Boolean) -> Unit = {},
     onToggleSolarTerms: (Boolean) -> Unit = {},
+    onLogout: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -108,6 +109,32 @@ fun MainDrawerContent(
             text = "절기",
             checked = displayState.showSolarTerms,
             onCheckedChange = onToggleSolarTerms,
+        )
+        Spacer(Modifier.height(16.dp))
+        LogoutRow(onClick = onLogout)
+        Spacer(Modifier.height(16.dp))
+    }
+}
+
+/** 드로워 하단 로그아웃 버튼. 강조 색 없이 텍스트만 (좌측 정렬). */
+@Composable
+private fun LogoutRow(onClick: () -> Unit) {
+    val pretendard = LocalPretendardFontFamily.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "로그아웃",
+            style = TextStyle(
+                fontFamily = pretendard,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp,
+                color = TextSecondary,
+            ),
         )
     }
 }
