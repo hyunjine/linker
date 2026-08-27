@@ -419,3 +419,40 @@ private fun LocalDate.monthNumber(): Int = month.ordinal + 1
 @OptIn(ExperimentalTime::class)
 private fun today(): LocalDate =
     Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+
+// ────────── Previews ──────────
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun AnniversariesScreenPreview_Empty() {
+    com.hyunjine.linker.ui.theme.ProvidePretendard {
+        AnniversariesScreen(items = emptyList())
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun AnniversariesScreenPreview_Filled() {
+    com.hyunjine.linker.ui.theme.ProvidePretendard {
+        AnniversariesScreen(
+            items = listOf(
+                AnniversaryUi("1", "처음 만난 날", LocalDate(2024, 3, 14), repeatYearly = true),
+                AnniversaryUi("2", "100일", LocalDate(2024, 6, 22), repeatYearly = false),
+                AnniversaryUi("3", "1주년", LocalDate(2025, 3, 14), repeatYearly = true),
+            ),
+        )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun AnniversariesScreenPreview_Busy() {
+    com.hyunjine.linker.ui.theme.ProvidePretendard {
+        AnniversariesScreen(
+            items = listOf(
+                AnniversaryUi("1", "처음 만난 날", LocalDate(2024, 3, 14), repeatYearly = true),
+            ),
+            busy = true,
+        )
+    }
+}

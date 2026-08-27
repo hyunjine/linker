@@ -24,8 +24,10 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.tooling.preview.Preview
 import com.hyunjine.linker.ui.common.AppTopBar
 import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
+import com.hyunjine.linker.ui.theme.ProvidePretendard
 import com.hyunjine.linker.ui.theme.SurfaceCard
 import com.hyunjine.linker.ui.theme.SurfaceGray
 import com.hyunjine.linker.ui.theme.TextPrimary
@@ -151,4 +153,10 @@ private fun ChoiceCard(
             ),
         )
     }
+}
+
+@Preview
+@Composable
+private fun CoupleLinkScreenPreview() {
+    ProvidePretendard { CoupleLinkScreen() }
 }

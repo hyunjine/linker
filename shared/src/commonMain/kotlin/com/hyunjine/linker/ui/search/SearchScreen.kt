@@ -370,3 +370,65 @@ private fun formatDate(date: LocalDate): String {
     val d = date.dayOfMonth.toString().padStart(2, '0')
     return "${date.year}. $m. $d"
 }
+
+// ────────── Previews ──────────
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun SearchScreenPreview_InitialHint() {
+    com.hyunjine.linker.ui.theme.ProvidePretendard {
+        SearchScreen(
+            onBack = {},
+            onSearch = { SearchResults() },
+            onScheduleClick = {},
+            onAnniversaryClick = {},
+        )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun SearchScreenPreview_ResultsList() {
+    com.hyunjine.linker.ui.theme.ProvidePretendard {
+        ResultsList(
+            results = SearchResults(
+                schedules = listOf(
+                    SearchScheduleItem(
+                        id = "s1",
+                        title = "병원 예약",
+                        date = LocalDate(2026, 8, 20),
+                        ownerColor = androidx.compose.ui.graphics.Color(0xFF008AFF),
+                    ),
+                    SearchScheduleItem(
+                        id = "s2",
+                        title = "저녁 약속",
+                        date = LocalDate(2026, 8, 25),
+                        ownerColor = androidx.compose.ui.graphics.Color(0xFFFF375F),
+                    ),
+                ),
+                anniversaries = listOf(
+                    SearchAnniversaryItem(
+                        id = "a1",
+                        title = "처음 만난 날",
+                        date = LocalDate(2024, 3, 14),
+                        repeatYearly = true,
+                    ),
+                ),
+            ),
+            onScheduleClick = {},
+            onAnniversaryClick = {},
+        )
+    }
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun SearchScreenPreview_LoadingState() {
+    com.hyunjine.linker.ui.theme.ProvidePretendard { LoadingState() }
+}
+
+@androidx.compose.ui.tooling.preview.Preview
+@Composable
+private fun SearchScreenPreview_NoResults() {
+    com.hyunjine.linker.ui.theme.ProvidePretendard { NoResultsState("여행") }
+}

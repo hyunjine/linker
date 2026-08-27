@@ -34,11 +34,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.tooling.preview.Preview
 import com.hyunjine.linker.ui.common.AppTopBar
 import com.hyunjine.linker.ui.common.PrimaryButton
 import com.hyunjine.linker.ui.common.SectionLabel
 import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.ui.theme.PrimaryBlue
+import com.hyunjine.linker.ui.theme.ProvidePretendard
 import com.hyunjine.linker.ui.theme.SurfaceCard
 import com.hyunjine.linker.ui.theme.SurfaceGray
 import com.hyunjine.linker.ui.theme.TextPrimary
@@ -167,4 +169,16 @@ private fun PartnerCodeInputCard(
             )
         }
     }
+}
+
+@Preview
+@Composable
+private fun CoupleJoinScreenPreview_Idle() {
+    ProvidePretendard { CoupleJoinScreen(linking = false) }
+}
+
+@Preview
+@Composable
+private fun CoupleJoinScreenPreview_Linking() {
+    ProvidePretendard { CoupleJoinScreen(linking = true) }
 }
