@@ -96,9 +96,14 @@ private data object CoupleJoinRoute : NavKey
 
 /**
  * 스케줄 등록/수정 화면. [scheduleId] 가 null 이면 신규, 값이 있으면 그 id 의 스케줄을 로드해 편집.
+ * [initialDate] 는 신규 저장 시 seed 할 시작·종료일 (ISO). 캘린더 셀 롱프레스 · DayDetailSheet "+"
+ * 진입 경로에서 탭한 날짜를 전달. null 이면 오늘 날짜로 기본.
  */
 @Serializable
-private data class CreateScheduleRoute(val scheduleId: String? = null) : NavKey
+private data class CreateScheduleRoute(
+    val scheduleId: String? = null,
+    val initialDate: String? = null,
+) : NavKey
 
 @Serializable
 private data object AnniversariesRoute : NavKey
@@ -534,7 +539,9 @@ fun App() {
                                 runCatching { SchedulesRepository.setTaskDone(id, done) }
                                     .onFailure { println("[Schedule] setTaskDone 실패: $it") }
                             },
-                            onAddSchedule = { backStack.add(CreateScheduleRoute()) },
+                            onAddSchedule = { tappedDate ->
+                                backStack.add(CreateScheduleRoute(initialDate = tappedDate.toString()))
+                            },
                             onEditSchedule = { id -> backStack.add(CreateScheduleRoute(id)) },
                             onAnniversaryClick = { backStack.add(AnniversariesRoute) },
                             onSearchClick = { backStack.add(SearchRoute) },
@@ -649,9 +656,22 @@ fun App() {
                         val editing = route.scheduleId != null
                         var saving by remember { mutableStateOf(false) }
                         var initial by remember { mutableStateOf<com.hyunjine.linker.ui.schedule.ScheduleDraft?>(null) }
-                        var loaded by remember { mutableStateOf(!editing) }
-                        LaunchedEffect(route.scheduleId) {
-                            if (route.scheduleId == null) return@LaunchedEffect
+                        // CreateScheduleScreen 내부의 rememberSaveable 은 첫 컴포지션에서 draft 를
+                        // 확정하므로, initial 이 세팅된 뒤에만 mount 해야 initialDate seed 가 반영된다.
+                        var loaded by remember { mutableStateOf(false) }
+                        LaunchedEffect(route.scheduleId, route.initialDate) {
+                            if (route.scheduleId == null) {
+                                initial = route.initialDate
+                                    ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+                                    ?.let { seed ->
+                                        com.hyunjine.linker.ui.schedule.ScheduleDraft(
+                                            startDate = seed,
+                                            endDate = seed,
+                                        )
+                                    }
+                                loaded = true
+                                return@LaunchedEffect
+                            }
                             runCatching { SchedulesRepository.getDraftById(route.scheduleId) }
                                 .onSuccess {
                                     initial = it
@@ -662,7 +682,7 @@ fun App() {
                                     loaded = true
                                 }
                         }
-                        // 로드 완료 전에는 화면을 안 그린다 (편집 대상 draft 확정 후 한 번만 mount).
+                        // 로드 완료 전에는 화면을 안 그린다 (draft 확정 후 한 번만 mount).
                         if (!loaded) return@entry
                         CreateScheduleScreen(
                             initial = initial,
