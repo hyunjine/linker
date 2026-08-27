@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.exclude
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -309,7 +311,13 @@ fun MainScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(SurfaceGray)
-            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Vertical)),
+            // IME 는 제외 — 검색 화면에서 키보드 올라온 채로 백버튼 눌러 메인 복귀 시 캘린더가
+            // 줄었다 늘어나는 튐 방지. 상태바/내비게이션바 padding 만 유지.
+            .windowInsetsPadding(
+                WindowInsets.safeDrawing
+                    .exclude(WindowInsets.ime)
+                    .only(WindowInsetsSides.Vertical),
+            ),
     ) {
         MainToolbar(
             yearMonth = currentYearMonth,
