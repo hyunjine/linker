@@ -675,35 +675,22 @@ private fun DayCell(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
-        if (isToday) {
-            // 28dp 원 가운데 정렬은 폰트 ascent 만큼 시각 중심이 아래로 밀리기 때문에,
-            // 옆 셀 평문 숫자와 line 이 맞도록 원을 살짝 위로 올린다.
-            Box(
-                modifier = Modifier
-                    .offset(y = (-4).dp)
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(CalendarTodayCircle),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = cell.date.day.toString(),
-                    style = TextStyle(
-                        fontFamily = pretendard,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = CalendarTodayText,
-                    ),
-                )
-            }
-        } else {
+        // 모든 셀의 숫자 컨테이너를 28dp Box 로 통일 → 아래 chip 의 y 시작 위치가 오늘/평일 모두 동일.
+        // 오늘 셀만 원 배경을 그리고, 폰트 ascent 로 시각 중심이 아래로 밀리는 걸 offset(-4) 로 보정.
+        Box(
+            modifier = Modifier.size(28.dp).let {
+                if (isToday) it.offset(y = (-4).dp).clip(CircleShape).background(CalendarTodayCircle)
+                else it
+            },
+            contentAlignment = Alignment.Center,
+        ) {
             Text(
                 text = cell.date.day.toString(),
                 style = TextStyle(
                     fontFamily = pretendard,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp,
-                    color = dayColor,
+                    fontSize = if (isToday) 16.sp else 17.sp,
+                    color = if (isToday) CalendarTodayText else dayColor,
                 ),
             )
         }
