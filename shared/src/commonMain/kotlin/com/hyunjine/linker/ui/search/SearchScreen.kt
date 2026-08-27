@@ -100,6 +100,13 @@ fun SearchScreen(
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf(SearchResults()) }
     var busy by remember { mutableStateOf(false) }
+    // 뒤로가기 전에 키보드를 명시적으로 내려서, 메인 복귀 시 IME 인셋 애니메이션이
+    // MainScreen 컴포지션 도중에 겹치지 않게 한다.
+    val keyboard = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    val dismissAndBack: () -> Unit = {
+        keyboard?.hide()
+        onBack()
+    }
     // 사용자 입력 이력. debounce 대상은 query state — snapshotFlow 로 Flow 화.
     LaunchedEffect(Unit) {
         snapshotFlow { query }
@@ -129,7 +136,7 @@ fun SearchScreen(
             SearchTopBar(
                 query = query,
                 onQueryChange = { query = it },
-                onBack = onBack,
+                onBack = dismissAndBack,
                 onClear = { query = "" },
             )
             when {
