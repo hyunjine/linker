@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hyunjine.linker.ui.common.AppSearchField
 import com.hyunjine.linker.ui.common.BackCircleButton
 import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.ui.theme.SurfaceCard
@@ -152,10 +153,6 @@ private fun SearchTopBar(
     onBack: () -> Unit,
     onClear: () -> Unit,
 ) {
-    val font = LocalPretendardFontFamily.current
-    val focusRequester = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focusRequester.requestFocus() }
-
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -165,59 +162,12 @@ private fun SearchTopBar(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         BackCircleButton(onClick = onBack)
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .height(40.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(SurfaceCard)
-                .padding(horizontal = 14.dp),
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            if (query.isEmpty()) {
-                Text(
-                    text = "제목 검색",
-                    style = TextStyle(
-                        color = TextSecondary,
-                        fontSize = 15.sp,
-                        fontFamily = font,
-                    ),
-                )
-            }
-            BasicTextField(
-                value = query,
-                onValueChange = onQueryChange,
-                singleLine = true,
-                cursorBrush = SolidColor(TextPrimary),
-                textStyle = TextStyle(
-                    color = TextPrimary,
-                    fontSize = 15.sp,
-                    fontFamily = font,
-                ),
-                keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Search),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(focusRequester),
-            )
-        }
-        if (query.isNotEmpty()) {
-            Box(
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .clickable(onClick = onClear),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "✕",
-                    style = TextStyle(
-                        color = TextSecondary,
-                        fontSize = 18.sp,
-                        fontFamily = font,
-                    ),
-                )
-            }
-        }
+        AppSearchField(
+            value = query,
+            onValueChange = onQueryChange,
+            onClear = onClear,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 

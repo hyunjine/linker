@@ -473,9 +473,7 @@ private fun NicknameEditSheet(
     onConfirm: (String) -> Unit,
 ) {
     val font = LocalPretendardFontFamily.current
-    var value by remember {
-        mutableStateOf(TextFieldValue(initial, selection = TextRange(initial.length)))
-    }
+    var value by remember { mutableStateOf(initial) }
     val focusRequester = remember { FocusRequester() }
     // 시트가 열리면 즉시 필드에 포커스 → iOS/Android 모두 시스템 키보드 자동 표시.
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
@@ -514,48 +512,18 @@ private fun NicknameEditSheet(
                 iconColor = OnPrimary,
                 iconWeight = FontWeight.Bold,
                 iconSize = 22.sp,
-                onClick = { onConfirm(value.text.trim()) },
+                onClick = { onConfirm(value.trim()) },
                 modifier = Modifier.align(Alignment.CenterEnd),
             )
         }
 
-        // 입력 카드: 좌측 "닉네임" 라벨 + 우측 텍스트 필드
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(18.dp))
-                .background(SurfaceCard)
-                .padding(horizontal = 20.dp, vertical = 17.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "닉네임",
-                modifier = Modifier.width(96.dp),
-                style = TextStyle(
-                    color = TextPrimary,
-                    fontSize = 17.sp,
-                    fontFamily = font,
-                ),
-            )
-            BasicTextField(
-                value = value,
-                onValueChange = { value = it },
-                modifier = Modifier
-                    .weight(1f)
-                    .focusRequester(focusRequester),
-                textStyle = TextStyle(
-                    color = TextPrimary,
-                    fontSize = 17.sp,
-                    fontFamily = font,
-                ),
-                singleLine = true,
-                cursorBrush = SolidColor(PrimaryBlue),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(
-                    onDone = { onConfirm(value.text.trim()) },
-                ),
-            )
-        }
+        com.hyunjine.linker.ui.common.AppInputCard(
+            label = "닉네임",
+            value = value,
+            onValueChange = { value = it },
+            focusRequester = focusRequester,
+            onImeAction = { onConfirm(value.trim()) },
+        )
     }
 }
 
