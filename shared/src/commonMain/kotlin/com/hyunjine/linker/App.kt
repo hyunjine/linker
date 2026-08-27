@@ -103,6 +103,8 @@ private data object CoupleJoinRoute : NavKey
 private data class CreateScheduleRoute(
     val scheduleId: String? = null,
     val initialDate: String? = null,
+    /** 신규 진입 시 draft.type 을 seed 할 값 ("task"|"schedule"). null 이면 기본 (Schedule). */
+    val initialType: String? = null,
 ) : NavKey
 
 @Serializable
@@ -539,8 +541,16 @@ fun App() {
                                 runCatching { SchedulesRepository.setTaskDone(id, done) }
                                     .onFailure { println("[Schedule] setTaskDone 실패: $it") }
                             },
-                            onAddSchedule = { tappedDate ->
-                                backStack.add(CreateScheduleRoute(initialDate = tappedDate.toString()))
+                            onAddSchedule = { tappedDate, type ->
+                                backStack.add(
+                                    CreateScheduleRoute(
+                                        initialDate = tappedDate.toString(),
+                                        initialType = when (type) {
+                                            com.hyunjine.linker.ui.schedule.ScheduleType.Task -> "task"
+                                            com.hyunjine.linker.ui.schedule.ScheduleType.Schedule -> "schedule"
+                                        },
+                                    ),
+                                )
                             },
                             onEditSchedule = { id -> backStack.add(CreateScheduleRoute(id)) },
                             onAnniversaryClick = { backStack.add(AnniversariesRoute) },
@@ -659,16 +669,23 @@ fun App() {
                         // CreateScheduleScreen 내부의 rememberSaveable 은 첫 컴포지션에서 draft 를
                         // 확정하므로, initial 이 세팅된 뒤에만 mount 해야 initialDate seed 가 반영된다.
                         var loaded by remember { mutableStateOf(false) }
-                        LaunchedEffect(route.scheduleId, route.initialDate) {
+                        LaunchedEffect(route.scheduleId, route.initialDate, route.initialType) {
                             if (route.scheduleId == null) {
-                                initial = route.initialDate
+                                val seededDate = route.initialDate
                                     ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-                                    ?.let { seed ->
-                                        com.hyunjine.linker.ui.schedule.ScheduleDraft(
-                                            startDate = seed,
-                                            endDate = seed,
-                                        )
-                                    }
+                                val seededType = when (route.initialType) {
+                                    "task" -> com.hyunjine.linker.ui.schedule.ScheduleType.Task
+                                    "schedule" -> com.hyunjine.linker.ui.schedule.ScheduleType.Schedule
+                                    else -> null
+                                }
+                                initial = if (seededDate != null || seededType != null) {
+                                    val fallbackDate = seededDate ?: today()
+                                    com.hyunjine.linker.ui.schedule.ScheduleDraft(
+                                        startDate = fallbackDate,
+                                        endDate = fallbackDate,
+                                        type = seededType ?: com.hyunjine.linker.ui.schedule.ScheduleType.Schedule,
+                                    )
+                                } else null
                                 loaded = true
                                 return@LaunchedEffect
                             }
