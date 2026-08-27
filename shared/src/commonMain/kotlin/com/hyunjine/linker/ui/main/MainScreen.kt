@@ -185,7 +185,11 @@ fun MainScreen(
     onTitleClick: () -> Unit = {},
     onSearchClick: () -> Unit = {},
     onDayClick: (LocalDate) -> Unit = {},
-    onAddSchedule: (LocalDate) -> Unit = {},
+    /**
+     * 일정 생성 진입. 롱프레스 · DayDetailSheet "+" 두 경로가 공유. [type] 은 어느 pill/롱프레스인지에
+     * 따라 다름 — 롱프레스는 [ScheduleType.Schedule] 기본, "+" pill 은 사용자가 고른 것.
+     */
+    onAddSchedule: (LocalDate, com.hyunjine.linker.ui.schedule.ScheduleType) -> Unit = { _, _ -> },
     onEditSchedule: (id: String) -> Unit = {},
     onAnniversaryClick: () -> Unit = {},
     onProfileEditClick: () -> Unit = {},
@@ -335,7 +339,9 @@ fun MainScreen(
                     selectedDateString = date.toString()
                     sheetVisible = true
                 },
-                onDayLongClick = onAddSchedule,
+                onDayLongClick = { date ->
+                    onAddSchedule(date, com.hyunjine.linker.ui.schedule.ScheduleType.Schedule)
+                },
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -374,16 +380,15 @@ fun MainScreen(
             )
             scope.launch { runCatching { onToggleTaskDone(taskId, newValue) } }
         },
-        onAdd = { _ ->
-            // 시트 안 chip 탭 → 일정 생성 진입.
+        onAdd = { type ->
+            // 시트 안 pill (할 일 / 일정) 탭 → 일정 생성 진입. type 은 어느 pill 을 눌렀는지.
             //  - `sheetVisible = false` 로 시트를 즉시 composition 에서 빼 CreateSchedule 이
             //    slide-down 애니메이션 지연 없이 곧바로 포그라운드에 올라오게 한다.
             //  - `selectedDateString` 은 유지해서 pop 으로 돌아오면 위 LaunchedEffect 가
             //    같은 날짜 시트를 다시 열어 준다.
-            //    초기 타입 전달은 후속 (CreateScheduleRoute param 도입 필요).
             val date = selectedDate ?: return@DayDetailSheet
             sheetVisible = false
-            onAddSchedule(date)
+            onAddSchedule(date, type)
         },
         onSelectSchedule = { scheduleId ->
             sheetVisible = false
