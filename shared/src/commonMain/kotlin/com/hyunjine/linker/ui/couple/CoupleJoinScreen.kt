@@ -132,43 +132,14 @@ private fun PartnerCodeInputCard(
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val font = LocalPretendardFontFamily.current
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(SurfaceCard)
-            .height(56.dp)
-            .padding(horizontal = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = "초대코드",
-            modifier = Modifier.width(100.dp),
-            style = TextStyle(color = TextPrimary, fontSize = 17.sp, fontFamily = font),
-        )
-        Box(Modifier.weight(1f)) {
-            if (value.isEmpty()) {
-                Text(
-                    text = "ABC123",
-                    style = TextStyle(color = TextSecondary, fontSize = 17.sp, fontFamily = font),
-                )
-            }
-            BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
-                modifier = Modifier.fillMaxWidth(),
-                textStyle = TextStyle(color = TextPrimary, fontSize = 17.sp, fontFamily = font),
-                singleLine = true,
-                cursorBrush = SolidColor(PrimaryBlue),
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Characters,
-                    imeAction = ImeAction.Done,
-                ),
-                keyboardActions = KeyboardActions(),
-            )
-        }
-    }
+    com.hyunjine.linker.ui.common.AppInputCard(
+        label = "초대코드",
+        value = value,
+        onValueChange = onValueChange,
+        modifier = modifier,
+        placeholder = "ABC123",
+        capitalization = KeyboardCapitalization.Characters,
+    )
 }
 
 @Preview
