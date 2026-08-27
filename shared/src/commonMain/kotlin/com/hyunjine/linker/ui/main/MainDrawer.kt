@@ -4,6 +4,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -130,7 +132,7 @@ private fun LogoutRow(onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .noRippleClickable(onClick)
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -156,7 +158,7 @@ private fun ProfileHeader(name: String, handle: String, imageUrl: String?, onCli
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .noRippleClickable(onClick)
             .padding(horizontal = 20.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -236,7 +238,7 @@ private fun AllScheduleButton(
             .padding(horizontal = 16.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(DrawerButtonBg)
-            .clickable(onClick = onClick)
+            .noRippleClickable(onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -284,7 +286,7 @@ private fun ToggleRow(text: String, checked: Boolean, onCheckedChange: (Boolean)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onCheckedChange(!checked) }
+            .noRippleClickable { onCheckedChange(!checked) }
             .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -325,4 +327,11 @@ private fun CheckboxSquare(checked: Boolean) {
             )
         }
     }
+}
+
+/** 리플 없는 clickable. 드로워/시트처럼 자체 시각 피드백 (체크박스 색 변화 등) 이 있는 곳용. */
+@Composable
+private fun Modifier.noRippleClickable(onClick: () -> Unit): Modifier {
+    val interaction = remember { MutableInteractionSource() }
+    return this.clickable(interactionSource = interaction, indication = null, onClick = onClick)
 }
