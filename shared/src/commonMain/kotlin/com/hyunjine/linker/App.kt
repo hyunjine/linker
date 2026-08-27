@@ -656,18 +656,20 @@ fun App() {
                         val editing = route.scheduleId != null
                         var saving by remember { mutableStateOf(false) }
                         var initial by remember { mutableStateOf<com.hyunjine.linker.ui.schedule.ScheduleDraft?>(null) }
-                        var loaded by remember { mutableStateOf(!editing) }
-                        LaunchedEffect(route.scheduleId) {
+                        // CreateScheduleScreen 내부의 rememberSaveable 은 첫 컴포지션에서 draft 를
+                        // 확정하므로, initial 이 세팅된 뒤에만 mount 해야 initialDate seed 가 반영된다.
+                        var loaded by remember { mutableStateOf(false) }
+                        LaunchedEffect(route.scheduleId, route.initialDate) {
                             if (route.scheduleId == null) {
-                                // 신규 진입 — initialDate 가 있으면 그 날짜로 draft seed.
-                                route.initialDate
+                                initial = route.initialDate
                                     ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
                                     ?.let { seed ->
-                                        initial = com.hyunjine.linker.ui.schedule.ScheduleDraft(
+                                        com.hyunjine.linker.ui.schedule.ScheduleDraft(
                                             startDate = seed,
                                             endDate = seed,
                                         )
                                     }
+                                loaded = true
                                 return@LaunchedEffect
                             }
                             runCatching { SchedulesRepository.getDraftById(route.scheduleId) }
@@ -680,7 +682,7 @@ fun App() {
                                     loaded = true
                                 }
                         }
-                        // 로드 완료 전에는 화면을 안 그린다 (편집 대상 draft 확정 후 한 번만 mount).
+                        // 로드 완료 전에는 화면을 안 그린다 (draft 확정 후 한 번만 mount).
                         if (!loaded) return@entry
                         CreateScheduleScreen(
                             initial = initial,
