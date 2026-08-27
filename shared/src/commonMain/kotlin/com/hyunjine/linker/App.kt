@@ -96,9 +96,14 @@ private data object CoupleJoinRoute : NavKey
 
 /**
  * 스케줄 등록/수정 화면. [scheduleId] 가 null 이면 신규, 값이 있으면 그 id 의 스케줄을 로드해 편집.
+ * [initialDate] 는 신규 저장 시 seed 할 시작·종료일 (ISO). 캘린더 셀 롱프레스 · DayDetailSheet "+"
+ * 진입 경로에서 탭한 날짜를 전달. null 이면 오늘 날짜로 기본.
  */
 @Serializable
-private data class CreateScheduleRoute(val scheduleId: String? = null) : NavKey
+private data class CreateScheduleRoute(
+    val scheduleId: String? = null,
+    val initialDate: String? = null,
+) : NavKey
 
 @Serializable
 private data object AnniversariesRoute : NavKey
@@ -534,7 +539,9 @@ fun App() {
                                 runCatching { SchedulesRepository.setTaskDone(id, done) }
                                     .onFailure { println("[Schedule] setTaskDone 실패: $it") }
                             },
-                            onAddSchedule = { backStack.add(CreateScheduleRoute()) },
+                            onAddSchedule = { tappedDate ->
+                                backStack.add(CreateScheduleRoute(initialDate = tappedDate.toString()))
+                            },
                             onEditSchedule = { id -> backStack.add(CreateScheduleRoute(id)) },
                             onAnniversaryClick = { backStack.add(AnniversariesRoute) },
                             onSearchClick = { backStack.add(SearchRoute) },
@@ -651,7 +658,18 @@ fun App() {
                         var initial by remember { mutableStateOf<com.hyunjine.linker.ui.schedule.ScheduleDraft?>(null) }
                         var loaded by remember { mutableStateOf(!editing) }
                         LaunchedEffect(route.scheduleId) {
-                            if (route.scheduleId == null) return@LaunchedEffect
+                            if (route.scheduleId == null) {
+                                // 신규 진입 — initialDate 가 있으면 그 날짜로 draft seed.
+                                route.initialDate
+                                    ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+                                    ?.let { seed ->
+                                        initial = com.hyunjine.linker.ui.schedule.ScheduleDraft(
+                                            startDate = seed,
+                                            endDate = seed,
+                                        )
+                                    }
+                                return@LaunchedEffect
+                            }
                             runCatching { SchedulesRepository.getDraftById(route.scheduleId) }
                                 .onSuccess {
                                     initial = it
