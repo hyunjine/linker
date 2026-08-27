@@ -315,6 +315,22 @@ fun App() {
             // 프로필 편집 후 홈 드로워가 최신 값으로 다시 로드되게끔 하는 신호.
             // ProfileEditRoute 저장 성공 시 bump → MainRoute LaunchedEffect 가 재실행.
             var profileRefreshTick by remember { mutableStateOf(0) }
+            // MainRoute 진입/이탈 시마다 remember 가 초기화되면 chip 색이 튀므로 App 스코프에 hoist.
+            // 프로필 수정 (profileRefreshTick 증가) 시에만 재조회 트리거.
+            var ownerColors by remember { mutableStateOf(OwnerColors.Default) }
+            var myProfile by remember { mutableStateOf<UsersRepository.Profile?>(null) }
+            LaunchedEffect(profileRefreshTick) {
+                val mine = runCatching { UsersRepository.myProfile() }
+                    .onFailure { println("[Main] myProfile 실패: $it") }
+                    .getOrNull()
+                val partner = runCatching { UsersRepository.partnerProfile()?.calendarColor }.getOrNull()
+                myProfile = mine
+                ownerColors = OwnerColors(
+                    me = calendarColorFor(mine?.calendarColor),
+                    partner = calendarColorFor(partner ?: "pink"),
+                    us = CalendarPurple,
+                )
+            }
 
             // 세션 상태 기반 부트스트랩 라우팅.
             //  - Initializing: SplashRoute 유지 (세션 storage 로드 중)
@@ -502,23 +518,7 @@ fun App() {
                     }
                     entry<MainRoute> {
                         val kakao = rememberKakaoLoginClient()
-                        // 내 · 파트너 프로필의 calendar_color 로 owner 별 chip 색을 정한다.
-                        // 로드 전엔 fallback 팔레트 (blue/pink) 사용.
-                        var ownerColors by remember { mutableStateOf(OwnerColors.Default) }
-                        var myProfile by remember { mutableStateOf<UsersRepository.Profile?>(null) }
-                        // profileRefreshTick 이 바뀌면 재조회 (프로필 편집 후 최신 값 반영).
-                        LaunchedEffect(profileRefreshTick) {
-                            val mine = runCatching { UsersRepository.myProfile() }
-                                .onFailure { println("[Main] myProfile 실패: $it") }
-                                .getOrNull()
-                            val partner = runCatching { UsersRepository.partnerProfile()?.calendarColor }.getOrNull()
-                            myProfile = mine
-                            ownerColors = OwnerColors(
-                                me = calendarColorFor(mine?.calendarColor),
-                                partner = calendarColorFor(partner ?: "pink"),
-                                us = CalendarPurple,
-                            )
-                        }
+                        // ownerColors · myProfile 은 App() 스코프에 hoist 됨 (검색 갔다 와도 초기화 X).
                         MainScreen(
                             // 월 이동 시마다 호출됨. 캐시는 화면 내부 (MainScreen) 에서 관리.
                             // 범위는 해당 달 ± 1주 (그리드가 인접 월 leading/trailing 셀도 표시).
