@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -272,19 +273,20 @@ private fun TaskSection(tasks: List<DayTask>, onToggle: (String) -> Unit) {
 @Composable
 private fun TaskRow(task: DayTask, onToggle: () -> Unit) {
     val pretendard = LocalPretendardFontFamily.current
+    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            // 체크박스 뿐 아니라 row 전체가 탭 = 토글. 체크박스가 시각 피드백을 대신하므로 리플은 X.
+            .clickable(interactionSource = interaction, indication = null, onClick = onToggle)
             .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // ripple 은 체크박스 안에서만. clip → clickable 순으로 두어야 ripple 이 rounded rect 로 잘림.
         Box(
             modifier = Modifier
                 .size(22.dp)
                 .clip(RoundedCornerShape(6.dp))
-                .clickable(onClick = onToggle)
                 .background(if (task.isDone) PrimaryBlue else Color.Transparent)
                 .border(
                     width = 1.5.dp,
