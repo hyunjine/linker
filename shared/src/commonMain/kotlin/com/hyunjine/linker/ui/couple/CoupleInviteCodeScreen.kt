@@ -25,10 +25,12 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.tooling.preview.Preview
 import com.hyunjine.linker.ui.common.AppTopBar
 import com.hyunjine.linker.ui.common.SectionLabel
 import com.hyunjine.linker.ui.theme.Chevron
 import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
+import com.hyunjine.linker.ui.theme.ProvidePretendard
 import com.hyunjine.linker.ui.theme.Separator
 import com.hyunjine.linker.ui.theme.SurfaceCard
 import com.hyunjine.linker.ui.theme.SurfaceGray
@@ -180,4 +182,16 @@ private fun InsetSeparator() {
                 .background(Separator),
         )
     }
+}
+
+@Preview
+@Composable
+private fun CoupleInviteCodeScreenPreview_Loaded() {
+    ProvidePretendard { CoupleInviteCodeScreen(myCode = "AB12CD") }
+}
+
+@Preview
+@Composable
+private fun CoupleInviteCodeScreenPreview_Loading() {
+    ProvidePretendard { CoupleInviteCodeScreen(myCode = null) }
 }
