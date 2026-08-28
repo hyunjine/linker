@@ -194,11 +194,14 @@ fun MainScreen(
     onEditSchedule: (id: String) -> Unit = {},
     onAnniversaryClick: () -> Unit = {},
     onProfileEditClick: () -> Unit = {},
+    onCoupleLinkClick: () -> Unit = {},
     onLogout: () -> Unit = {},
     /** 드로워 프로필 헤더에 표시할 값들. 로드 전에는 기본값 표시. */
     profileName: String = "",
     profileHandle: String = "",
     profileImageUrl: String? = null,
+    /** 커플 미가입 상태면 드로워에 "상대방 연결" 진입 노출. 가입되면 감춤. */
+    showCoupleLink: Boolean = false,
 ) {
     // Int.MAX_VALUE 크기의 pager 로 사실상 무한 좌우 스와이프. 중간에서 시작해 양쪽으로 무제한 이동.
     val anchorPage = remember { Int.MAX_VALUE / 2 }
@@ -267,6 +270,11 @@ fun MainScreen(
                 profileHandle = profileHandle,
                 profileImageUrl = profileImageUrl,
                 displayState = displayState,
+                showCoupleLink = showCoupleLink,
+                onCoupleLinkClick = {
+                    scope.launch { drawerState.close() }
+                    onCoupleLinkClick()
+                },
                 onSettingsClick = {
                     // 여기서 drawerState.close() 를 부르면 App-scope 저장 상태가 Closed 로
                     // 굳어져서, 프로필 편집 후 돌아왔을 때 드로워가 다시 열리지 않는다.

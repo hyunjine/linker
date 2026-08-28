@@ -72,6 +72,9 @@ fun MainDrawerContent(
     profileImageUrl: String? = null,
     onSettingsClick: () -> Unit = {},
     onAnniversaryClick: () -> Unit = {},
+    onCoupleLinkClick: () -> Unit = {},
+    /** 커플 미가입 시 true — "상대방 연결" 진입 row 노출. 가입 이후엔 감춤. */
+    showCoupleLink: Boolean = false,
     onToggleMyCalendar: (Boolean) -> Unit = {},
     onTogglePartnerCalendar: (Boolean) -> Unit = {},
     onToggleHolidays: (Boolean) -> Unit = {},
@@ -91,6 +94,14 @@ fun MainDrawerContent(
             onClick = onSettingsClick,
         )
         Spacer(Modifier.height(12.dp))
+        if (showCoupleLink) {
+            AllScheduleButton(
+                text = "상대방 연결",
+                iconRes = Res.drawable.ic_cal_31,
+                onClick = onCoupleLinkClick,
+            )
+            Spacer(Modifier.height(8.dp))
+        }
         AllScheduleButton(
             text = "기념일 설정",
             iconRes = Res.drawable.ic_cal_31,

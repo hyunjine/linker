@@ -82,6 +82,11 @@ object SchedulesRepository {
         return CouplesRepository.myCoupleIdOrNull()?.also { cachedCoupleId = it }
     }
 
+    /** 커플 join · 로그아웃 등 소속이 바뀌었을 때 호출. 다음 요청부터 다시 조회. */
+    fun invalidateCoupleIdCache() {
+        cachedCoupleId = null
+    }
+
     /**
      * 단일 스케줄 조회 후 UI draft 로 변환. 없거나 조회 실패 시 null.
      * 반복 규칙도 함께 fetch (`schedule_repeat_rules` 별건 조회).
