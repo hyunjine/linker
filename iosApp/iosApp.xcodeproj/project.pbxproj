@@ -10,9 +10,39 @@
 		BD8F01D1303BF1B8000751CF /* KakaoSDKAuth in Frameworks */ = {isa = PBXBuildFile; productRef = BD8F01D0303BF1B8000751CF /* KakaoSDKAuth */; };
 		BD8F01D3303BF1B8000751CF /* KakaoSDKCommon in Frameworks */ = {isa = PBXBuildFile; productRef = BD8F01D2303BF1B8000751CF /* KakaoSDKCommon */; };
 		BD8F01D5303BF1B8000751CF /* KakaoSDKUser in Frameworks */ = {isa = PBXBuildFile; productRef = BD8F01D4303BF1B8000751CF /* KakaoSDKUser */; };
+		BDC1030830414CAD0018F84A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BDC1030730414CAD0018F84A /* WidgetKit.framework */; };
+		BDC1030A30414CAD0018F84A /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BDC1030930414CAD0018F84A /* SwiftUI.framework */; };
+		BDC1031730414CAE0018F84A /* LinkerWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BDC1030630414CAD0018F84A /* LinkerWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		BDC1031530414CAE0018F84A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 6A46FEA3C2ABC6AB37FC73F7 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = BDC1030530414CAD0018F84A;
+			remoteInfo = LinkerWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		BDC1031C30414CAE0018F84A /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				BDC1031730414CAE0018F84A /* LinkerWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		BDC1030630414CAD0018F84A /* LinkerWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LinkerWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		BDC1030730414CAD0018F84A /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		BDC1030930414CAD0018F84A /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		CAA19F5C0767436843DE3BCB /* Linker.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Linker.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -23,6 +53,13 @@
 				Info.plist,
 			);
 			target = AC68E6B7F5087EDAC76D1FEE /* iosApp */;
+		};
+		BDC1031B30414CAE0018F84A /* Exceptions for "LinkerWidget" folder in "LinkerWidgetExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = BDC1030530414CAD0018F84A /* LinkerWidgetExtension */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
@@ -40,6 +77,14 @@
 			path = iosApp;
 			sourceTree = "<group>";
 		};
+		BDC1030B30414CAD0018F84A /* LinkerWidget */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				BDC1031B30414CAE0018F84A /* Exceptions for "LinkerWidget" folder in "LinkerWidgetExtension" target */,
+			);
+			path = LinkerWidget;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -53,6 +98,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		BDC1030330414CAD0018F84A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BDC1030A30414CAD0018F84A /* SwiftUI.framework in Frameworks */,
+				BDC1030830414CAD0018F84A /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -60,6 +114,7 @@
 			isa = PBXGroup;
 			children = (
 				CAA19F5C0767436843DE3BCB /* Linker.app */,
+				BDC1030630414CAD0018F84A /* LinkerWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -69,6 +124,7 @@
 			children = (
 				233C92811BCC42C0FC21E086 /* Configuration */,
 				9B135DE6C167A223EDE36E4F /* iosApp */,
+				BDC1030B30414CAD0018F84A /* LinkerWidget */,
 				BD8F01CF303BF1B8000751CF /* Frameworks */,
 				20518BDB74316BC93738C1EB /* Products */,
 			);
@@ -77,6 +133,8 @@
 		BD8F01CF303BF1B8000751CF /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				BDC1030730414CAD0018F84A /* WidgetKit.framework */,
+				BDC1030930414CAD0018F84A /* SwiftUI.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -92,10 +150,12 @@
 				D22EEE64C684728FB27A986C /* Sources */,
 				B365CBDFCC9E1A44FEA44F0B /* Frameworks */,
 				3D18DDB6219FCDE2DD3EE267 /* Resources */,
+				BDC1031C30414CAE0018F84A /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				BDC1031630414CAE0018F84A /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				9B135DE6C167A223EDE36E4F /* iosApp */,
@@ -110,6 +170,28 @@
 			productReference = CAA19F5C0767436843DE3BCB /* Linker.app */;
 			productType = "com.apple.product-type.application";
 		};
+		BDC1030530414CAD0018F84A /* LinkerWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BDC1031830414CAE0018F84A /* Build configuration list for PBXNativeTarget "LinkerWidgetExtension" */;
+			buildPhases = (
+				BDC1030230414CAD0018F84A /* Sources */,
+				BDC1030330414CAD0018F84A /* Frameworks */,
+				BDC1030430414CAD0018F84A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				BDC1030B30414CAD0018F84A /* LinkerWidget */,
+			);
+			name = LinkerWidgetExtension;
+			packageProductDependencies = (
+			);
+			productName = LinkerWidgetExtension;
+			productReference = BDC1030630414CAD0018F84A /* LinkerWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -117,11 +199,14 @@
 			isa = PBXProject;
 			attributes = {
 				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 1620;
+				LastSwiftUpdateCheck = 2650;
 				LastUpgradeCheck = 1620;
 				TargetAttributes = {
 					AC68E6B7F5087EDAC76D1FEE = {
 						CreatedOnToolsVersion = 16.2;
+					};
+					BDC1030530414CAD0018F84A = {
+						CreatedOnToolsVersion = 26.5;
 					};
 				};
 			};
@@ -143,12 +228,20 @@
 			projectRoot = "";
 			targets = (
 				AC68E6B7F5087EDAC76D1FEE /* iosApp */,
+				BDC1030530414CAD0018F84A /* LinkerWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		3D18DDB6219FCDE2DD3EE267 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BDC1030430414CAD0018F84A /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -180,6 +273,13 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		BDC1030230414CAD0018F84A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		D22EEE64C684728FB27A986C /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -189,6 +289,14 @@
 		};
 /* End PBXSourcesBuildPhase section */
 
+/* Begin PBXTargetDependency section */
+		BDC1031630414CAE0018F84A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = BDC1030530414CAD0018F84A /* LinkerWidgetExtension */;
+			targetProxy = BDC1031530414CAE0018F84A /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
 /* Begin XCBuildConfiguration section */
 		56FC0BCA518C24A9CD3B4159 /* Release */ = {
 			isa = XCBuildConfiguration;
@@ -196,6 +304,7 @@
 				ARCHS = arm64;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = iosApp/iosApp.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_ASSET_PATHS = "\"iosApp/Preview Content\"";
@@ -218,12 +327,77 @@
 			};
 			name = Release;
 		};
+		BDC1031930414CAE0018F84A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = LinkerWidget/LinkerWidget.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "${TEAM_ID}";
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LinkerWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = LinkerWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hyunjine.linker.LinkerWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		BDC1031A30414CAE0018F84A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = LinkerWidget/LinkerWidget.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "${TEAM_ID}";
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LinkerWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = LinkerWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.hyunjine.linker.LinkerWidget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 		C5BED061E7CBB6FC62DBB45D /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = arm64;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_ENTITLEMENTS = iosApp/iosApp.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_ASSET_PATHS = "\"iosApp/Preview Content\"";
@@ -386,6 +560,15 @@
 			buildConfigurations = (
 				D477B60D59A645427DD20E47 /* Debug */,
 				C5D31A2EEA45DCB6382413D8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		BDC1031830414CAE0018F84A /* Build configuration list for PBXNativeTarget "LinkerWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BDC1031930414CAE0018F84A /* Debug */,
+				BDC1031A30414CAE0018F84A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
