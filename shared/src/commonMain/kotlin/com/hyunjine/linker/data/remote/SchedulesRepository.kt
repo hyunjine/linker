@@ -1,9 +1,9 @@
 package com.hyunjine.linker.data.remote
 
-import com.hyunjine.linker.ui.schedule.RepeatRule
-import com.hyunjine.linker.ui.schedule.ScheduleDraft
-import com.hyunjine.linker.ui.schedule.ScheduleOwner
-import com.hyunjine.linker.ui.schedule.ScheduleType
+import com.hyunjine.linker.feature.schedule.RepeatRule
+import com.hyunjine.linker.feature.schedule.ScheduleDraft
+import com.hyunjine.linker.feature.schedule.ScheduleOwner
+import com.hyunjine.linker.feature.schedule.ScheduleType
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
 import kotlinx.datetime.DayOfWeek
