@@ -35,11 +35,11 @@ import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderFg
 import com.hyunjine.linker.designsystem.theme.DrawerButtonBg
 import com.hyunjine.linker.designsystem.theme.DrawerCheckBlue
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
-import com.hyunjine.linker.designsystem.theme.LogoGradient
 import com.hyunjine.linker.designsystem.theme.SurfaceCard
 import com.hyunjine.linker.designsystem.theme.TextPrimary
 import com.hyunjine.linker.designsystem.theme.TextSecondary
 import linker.shared.generated.resources.Res
+import linker.shared.generated.resources.ic_app_logo
 import linker.shared.generated.resources.ic_cal_31
 import linker.shared.generated.resources.ic_check
 import linker.shared.generated.resources.ic_setting_outline
@@ -229,8 +229,7 @@ private fun ProfileHeader(name: String, handle: String, imageUrl: String?, onCli
 }
 
 /**
- * "상대방 연결" 전용 — 아이콘 자리를 로그인 화면 로고 (gradient + "현민") 축소판으로 대체.
- * 앱 정체성을 상기시키며 브랜드 톤을 유지. 그 외 시각·간격은 [AllScheduleButton] 과 동일.
+ * "상대방 연결" 전용 — 앱 아이콘 (링키드 링) 을 22dp 로 렌더. 그 외 시각·간격은 [AllScheduleButton] 과 동일.
  */
 @Composable
 private fun AllScheduleButtonWithLogo(
@@ -249,23 +248,11 @@ private fun AllScheduleButtonWithLogo(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Box(
-            modifier = Modifier
-                .size(22.dp)
-                .clip(CircleShape)
-                .background(LogoGradient),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                text = "현민",
-                style = TextStyle(
-                    color = Color.White,
-                    fontFamily = pretendard,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 8.sp,
-                ),
-            )
-        }
+        Image(
+            painter = painterResource(Res.drawable.ic_app_logo),
+            contentDescription = null,
+            modifier = Modifier.size(22.dp).clip(RoundedCornerShape(5.dp)),
+        )
         Text(
             text = text,
             style = TextStyle(
