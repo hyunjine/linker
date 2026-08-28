@@ -68,8 +68,6 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "Shared"
             isStatic = true
-            // shared-api 의 DTO 를 Swift 쪽에서도 볼 수 있도록 framework 로 export
-            export(project(":shared-api"))
         }
     }
 
@@ -102,7 +100,6 @@ kotlin {
             implementation(libs.kakao.user)
         }
         commonMain.dependencies {
-            api(project(":shared-api"))
             implementation(libs.compose.runtime)
             implementation(libs.compose.foundation)
             implementation(libs.compose.material3)
