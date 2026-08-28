@@ -1,6 +1,5 @@
 package com.hyunjine.linker.auth
 
-import com.hyunjine.linker.data.remote.SchedulesRepository
 import com.hyunjine.linker.data.remote.SupabaseProvider
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Kakao
@@ -75,8 +74,6 @@ suspend fun signOut(client: KakaoLoginClient) {
     println("[Auth] signOut: enter")
     runCatching { client.logout() }
         .onFailure { println("[Auth] Kakao logout 실패 (무시): $it") }
-    // 세션 무효화 전에 유저-scoped 캐시 초기화. 다음 로그인 유저가 이전 couple 로 조회하지 않도록.
-    SchedulesRepository.invalidateCoupleIdCache()
     SupabaseProvider.client.auth.signOut()
     println("[Auth] Supabase signOut 완료")
 }

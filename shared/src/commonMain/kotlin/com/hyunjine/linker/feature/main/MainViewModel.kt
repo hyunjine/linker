@@ -93,14 +93,6 @@ class MainViewModel : ViewModel() {
             .onFailure { println("[Schedule] setTaskDone 실패: $it") }
     }
 
-    /**
-     * 커플 소속 변경 후 (join · invite 생성 · 로그아웃 등) 스케줄 조회가 새 couple_id 로 나가도록
-     * SchedulesRepository 캐시를 무효화. 이후 [refreshProfile] · [refreshSchedules] 가 새 값으로 재조회.
-     */
-    fun invalidateCoupleCache() {
-        SchedulesRepository.invalidateCoupleIdCache()
-    }
-
     /** 프로필 편집 · 스케줄 편집 등으로 캐시가 stale 됐을 때 호출. 다음 progressive 로드에서 다시 채움. */
     fun invalidateEntriesCache() {
         _uiState.update { it.copy(entriesByMonth = emptyMap()) }

@@ -13,7 +13,7 @@ import kotlinx.serialization.Serializable
 
 /**
  * `public.schedules` CRUD. RLS `schedules_all_in_my_couple` 로 내 커플 스케줄만 접근 가능.
- * couple_id 는 진입 시 한 번 조회해서 캐시 (`myCoupleId()`).
+ * couple_id 는 매 호출마다 fresh 조회 (`myCoupleId()`).
  *
  * 반복 규칙 (`schedule_repeat_rules`) 은 `save` / `update` 에서 함께 upsert · delete.
  * `weekly_days` 는 bitmask (MON=1<<0..SUN=1<<6, kotlinx `DayOfWeek.ordinal` 기준).
@@ -74,18 +74,12 @@ object SchedulesRepository {
         @SerialName("custom_rule") val customRule: String? = null,
     )
 
-    private var cachedCoupleId: String? = null
-
-    /** 현재 유저의 couple_id. 없으면 null (아직 커플 미가입). 첫 호출 시 조회 후 캐시. */
-    suspend fun myCoupleId(): String? {
-        cachedCoupleId?.let { return it }
-        return CouplesRepository.myCoupleIdOrNull()?.also { cachedCoupleId = it }
-    }
-
-    /** 커플 join · 로그아웃 등 소속이 바뀌었을 때 호출. 다음 요청부터 다시 조회. */
-    fun invalidateCoupleIdCache() {
-        cachedCoupleId = null
-    }
+    /**
+     * 현재 유저의 couple_id. 없으면 null (아직 커플 미가입).
+     * 캐시하지 않는다 — couple 이동 · 파트너 참여 등으로 값이 바뀌면 즉시 반영돼야 하므로
+     * 매 호출마다 fresh 조회. couple_members 는 로우 1~2개짜리 tiny 테이블이라 오버헤드 미미.
+     */
+    suspend fun myCoupleId(): String? = CouplesRepository.myCoupleIdOrNull()
 
     /**
      * 단일 스케줄 조회 후 UI draft 로 변환. 없거나 조회 실패 시 null.
