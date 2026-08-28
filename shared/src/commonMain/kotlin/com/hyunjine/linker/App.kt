@@ -276,6 +276,10 @@ fun App() {
             // ProfileEditRoute 저장 성공 시 bump → MainRoute 의 LaunchedEffect 가 VM.refreshProfile 호출.
             var profileRefreshTick by remember { mutableStateOf(0) }
 
+            // 스케줄 저장/수정/삭제 후 캘린더 chip 을 재fetch 하도록 트리거.
+            // CreateScheduleRoute onDone 시 bump → MainRoute 의 LaunchedEffect 가 VM.refreshSchedules 호출.
+            var scheduleRefreshTick by remember { mutableStateOf(0) }
+
             // 세션 상태 기반 부트스트랩 라우팅.
             //  - Initializing: SplashRoute 유지 (세션 storage 로드 중)
             //  - Authenticated: 프로필/커플 상태 조회 → 미완성 단계로 자동 진입 (재로그인 시 온보딩 스킵)
@@ -372,6 +376,7 @@ fun App() {
                                 }
                             },
                             profileRefreshTick = profileRefreshTick,
+                            scheduleRefreshTick = scheduleRefreshTick,
                         )
                     }
                     entry<SearchRoute> {
@@ -392,7 +397,10 @@ fun App() {
                             initialDate = route.initialDate,
                             initialType = route.initialType,
                             onBack = { backStack.removeLastOrNull() },
-                            onDone = { backStack.removeLastOrNull() },
+                            onDone = {
+                                scheduleRefreshTick++
+                                backStack.removeLastOrNull()
+                            },
                         )
                     }
                 },

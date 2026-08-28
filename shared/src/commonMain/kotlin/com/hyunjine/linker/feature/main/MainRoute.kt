@@ -30,6 +30,7 @@ fun MainRoute(
     onProfileEditClick: () -> Unit,
     onLogout: () -> Unit,
     profileRefreshTick: Int,
+    scheduleRefreshTick: Int,
     onDrawerProfileHandle: (nickname: String, birthDate: String?, imageUrl: String?) -> Unit = { _, _, _ -> },
 ) {
     val viewModel: MainViewModel = viewModel { MainViewModel() }
@@ -38,6 +39,12 @@ fun MainRoute(
 
     // profileRefreshTick 이 바뀔 때마다 (프로필 편집 후) 다시 로드.
     LaunchedEffect(profileRefreshTick) { viewModel.refreshProfile() }
+
+    // scheduleRefreshTick 이 바뀔 때마다 (스케줄 저장/수정/삭제 후) 이미 뜬 달들만 즉시 재fetch.
+    // 초기값 0 무한 재fetch 방지 위해 tick > 0 일 때만.
+    LaunchedEffect(scheduleRefreshTick) {
+        if (scheduleRefreshTick > 0) viewModel.refreshSchedules()
+    }
 
     // 드로워 헤더용 파생값을 상위에 노출 (아직 App.kt 가 드로워 밖 다른 곳에 쓸 여지 대비).
     LaunchedEffect(uiState.myProfile) {
