@@ -48,11 +48,12 @@ fun MainRoute(
         if (scheduleRefreshTick > 0) viewModel.refreshSchedules()
     }
 
-    // 커플 상태 (드로워 "상대방 연결" 표시 여부 결정) — 최초 진입 + join 성공 시 재조회.
-    // join 성공 후엔 프로필 · 파트너 색 · chip 도 다시 로드해야 파트너 스케줄이 반영된다.
+    // 커플 소속 변경 시 (join · invite 생성 등) 캐시 무효화 + 프로필/색 재조회. tick > 0 일 때만.
     LaunchedEffect(coupleRefreshTick) {
-        viewModel.refreshCoupleStatus()
-        if (coupleRefreshTick > 0) viewModel.refreshProfile()
+        if (coupleRefreshTick > 0) {
+            viewModel.invalidateCoupleCache()
+            viewModel.refreshProfile()
+        }
     }
 
     // 드로워 헤더용 파생값을 상위에 노출 (아직 App.kt 가 드로워 밖 다른 곳에 쓸 여지 대비).
@@ -78,7 +79,6 @@ fun MainRoute(
         profileName = uiState.myProfile?.nickname.orEmpty(),
         profileHandle = uiState.myProfile?.birthDate?.let(::isoToHandleBirthDate).orEmpty(),
         profileImageUrl = uiState.myProfile?.profileImageUrl?.toSecureImageUrl(),
-        showCoupleLink = !uiState.coupleLinked,
     )
 }
 

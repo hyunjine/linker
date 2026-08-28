@@ -2,7 +2,6 @@ package com.hyunjine.linker.feature.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hyunjine.linker.data.remote.CouplesRepository
 import com.hyunjine.linker.data.remote.SchedulesRepository
 import com.hyunjine.linker.data.remote.UsersRepository
 import com.hyunjine.linker.designsystem.theme.CalendarPurple
@@ -95,18 +94,11 @@ class MainViewModel : ViewModel() {
     }
 
     /**
-     * 커플 가입 여부 조회. 드로워 "상대방 연결" 메뉴 표시 여부를 결정.
-     * 최초 진입 · 커플 join 성공 직후에 호출. join 직후엔 SchedulesRepository 캐시도 무효화해서
-     * 이후 스케줄 조회가 새 couple_id 로 나가도록 한다.
+     * 커플 소속 변경 후 (join · invite 생성 · 로그아웃 등) 스케줄 조회가 새 couple_id 로 나가도록
+     * SchedulesRepository 캐시를 무효화. 이후 [refreshProfile] · [refreshSchedules] 가 새 값으로 재조회.
      */
-    fun refreshCoupleStatus() {
-        viewModelScope.launch {
-            SchedulesRepository.invalidateCoupleIdCache()
-            val coupleId = runCatching { CouplesRepository.myCoupleIdOrNull() }
-                .onFailure { println("[Couple] status 조회 실패: $it") }
-                .getOrNull()
-            _uiState.update { it.copy(coupleLinked = coupleId != null) }
-        }
+    fun invalidateCoupleCache() {
+        SchedulesRepository.invalidateCoupleIdCache()
     }
 
     /** 프로필 편집 · 스케줄 편집 등으로 캐시가 stale 됐을 때 호출. 다음 progressive 로드에서 다시 채움. */
@@ -131,6 +123,4 @@ data class MainUiState(
     val myProfile: com.hyunjine.linker.data.remote.UsersRepository.Profile? = null,
     val ownerColors: OwnerColors = OwnerColors.Default,
     val entriesByMonth: Map<YearMonth, Map<LocalDate, CalendarDayEntry>> = emptyMap(),
-    /** 커플 가입 여부. false 면 드로워에 "상대방 연결" 메뉴 노출. */
-    val coupleLinked: Boolean = false,
 )
