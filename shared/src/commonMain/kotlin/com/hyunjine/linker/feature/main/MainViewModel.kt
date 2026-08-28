@@ -2,11 +2,14 @@ package com.hyunjine.linker.feature.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hyunjine.linker.data.remote.CoupleRealtimeSubscription
 import com.hyunjine.linker.data.remote.SchedulesRepository
 import com.hyunjine.linker.data.remote.UsersRepository
+import com.hyunjine.linker.data.remote.subscribeCoupleRealtime
 import com.hyunjine.linker.designsystem.theme.CalendarPurple
 import com.hyunjine.linker.designsystem.theme.calendarColorFor
 import com.hyunjine.linker.platform.refreshTodayWidget
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -107,6 +110,42 @@ class MainViewModel : ViewModel() {
         val monthsToReload = _uiState.value.entriesByMonth.keys.toSet()
         _uiState.update { it.copy(entriesByMonth = emptyMap()) }
         monthsToReload.forEach { loadMonthIfNeeded(it) }
+    }
+
+    // ────────── Realtime ──────────
+
+    private var realtimeJob: Job? = null
+
+    /**
+     * Supabase Realtime 구독 시작. schedules · anniversaries · users · couple_members 변경을
+     * 실시간 수신해 관련 UI 를 즉시 refresh. 이미 활성 구독이 있으면 no-op.
+     * MainRoute 진입 시 · 커플 join 성공 후 (couple_id 바뀜) 두 시점에 호출.
+     */
+    fun startRealtime() {
+        if (realtimeJob?.isActive == true) return
+        realtimeJob = viewModelScope.subscribeCoupleRealtime(
+            CoupleRealtimeSubscription(
+                onSchedulesChanged = {
+                    refreshSchedules()
+                    // 파트너 변경도 오늘 위젯에 반영 (foreground 상태만 실제 fire).
+                    viewModelScope.launch { refreshTodayWidget() }
+                },
+                onPartnerProfileChanged = { refreshProfile() },
+                onCoupleChanged = { refreshProfile() },
+            ),
+        )
+    }
+
+    /** couple 이 바뀌면 (join 성공 후) 채널을 새 couple_id 로 다시 만들어야 함. */
+    fun restartRealtime() {
+        realtimeJob?.cancel()
+        realtimeJob = null
+        startRealtime()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        realtimeJob?.cancel()
     }
 }
 

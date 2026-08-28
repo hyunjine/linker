@@ -3,6 +3,9 @@ package com.hyunjine.linker.feature.anniversary
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hyunjine.linker.data.remote.AnniversariesRepository
+import com.hyunjine.linker.data.remote.CoupleRealtimeSubscription
+import com.hyunjine.linker.data.remote.subscribeCoupleRealtime
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,7 +19,16 @@ class AnniversariesViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(AnniversariesUiState())
     val uiState: StateFlow<AnniversariesUiState> = _uiState.asStateFlow()
 
+    private val realtimeJob: Job = viewModelScope.subscribeCoupleRealtime(
+        CoupleRealtimeSubscription(onAnniversariesChanged = { reload() }),
+    )
+
     init { reload() }
+
+    override fun onCleared() {
+        super.onCleared()
+        realtimeJob.cancel()
+    }
 
     private fun reload() {
         viewModelScope.launch {
