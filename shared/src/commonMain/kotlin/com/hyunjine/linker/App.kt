@@ -310,96 +310,22 @@ fun App() {
                 entryProvider = entryProvider {
                     entry<SplashRoute> { SplashScreen() }
                     entry<LoginRoute> {
-                        // rememberKakaoLoginClient 는 LocalContext (Android) / LocalUIViewController (iOS)
-                        // 를 참조하므로 Composable 스코프 안에서 얻어야 한다.
-                        val kakao = rememberKakaoLoginClient()
-                        LoginScreen(
-                            onKakaoLoginClick = {
-                                println("[Auth] 카카오 버튼 click")
-                                scope.launch {
-                                    runCatching { signInWithKakao(kakao) }
-                                        .onFailure { println("[Auth] signInWithKakao 실패: $it") }
-                                }
-                            },
-                        )
+                        com.hyunjine.linker.feature.login.LoginRoute()
                     }
                     entry<ProfileSetupRoute> {
                         val currentUser = (status as? SessionStatus.Authenticated)?.session?.user
-                        val defaults = remember(currentUser) { profileDefaults(currentUser) }
-                        var saving by remember { mutableStateOf(false) }
-                        ProfileSetupScreen(
-                            nickname = defaults.nickname,
-                            defaultAvatarUrl = defaults.avatarUrl.toSecureImageUrl(),
-                            saving = saving,
+                        com.hyunjine.linker.feature.profile.ProfileSetupRoute(
+                            currentUser = currentUser,
                             onBack = { backStack.removeLastOrNull() },
-                            onNext = { nickname, birthDate, colorId ->
-                                saving = true
-                                scope.launch {
-                                    runCatching {
-                                        UsersRepository.completeProfile(
-                                            nickname = nickname,
-                                            birthDate = birthDate,
-                                            profileImageUrl = defaults.avatarUrl.toSecureImageUrl(),
-                                            calendarColor = colorId,
-                                        )
-                                    }.onSuccess {
-                                        println("[Profile] 저장 성공 → CoupleLink 로 이동")
-                                        saving = false
-                                        backStack.add(CoupleLinkRoute)
-                                    }.onFailure {
-                                        println("[Profile] 저장 실패: $it")
-                                        saving = false
-                                    }
-                                }
-                            },
+                            onSaved = { backStack.add(CoupleLinkRoute) },
                         )
                     }
                     entry<ProfileEditRoute> {
-                        // 프리필 로드 전에는 화면을 mount 하지 않는다 (ProfileSetupScreen 이 초기값을
-                        // rememberSaveable 로 잡아버려 나중에 nickname 파라미터가 바뀌어도 반영 안 됨).
-                        var profile by remember { mutableStateOf<UsersRepository.Profile?>(null) }
-                        var loaded by remember { mutableStateOf(false) }
-                        LaunchedEffect(Unit) {
-                            profile = runCatching { UsersRepository.myProfile() }
-                                .onFailure { println("[ProfileEdit] 프로필 로드 실패: $it") }
-                                .getOrNull()
-                            loaded = true
-                        }
-                        if (!loaded) return@entry
-                        val p = profile ?: run {
-                            println("[ProfileEdit] 프로필 없음 — 편집 화면 진입 취소")
-                            backStack.removeLastOrNull()
-                            return@entry
-                        }
-                        var saving by remember { mutableStateOf(false) }
-                        ProfileSetupScreen(
-                            nickname = p.nickname ?: "",
-                            birthDate = p.birthDate?.let(::isoToDisplayBirthDate) ?: "2000. 01. 01.",
-                            selectedColorId = p.calendarColor,
-                            defaultAvatarUrl = p.profileImageUrl.toSecureImageUrl(),
-                            submitText = "저장",
-                            saving = saving,
+                        com.hyunjine.linker.feature.profile.ProfileEditRoute(
                             onBack = { backStack.removeLastOrNull() },
-                            onNext = { nickname, birthDate, colorId ->
-                                if (saving) return@ProfileSetupScreen
-                                saving = true
-                                scope.launch {
-                                    runCatching {
-                                        UsersRepository.updateProfile(
-                                            nickname = nickname,
-                                            birthDate = birthDate,
-                                            calendarColor = colorId,
-                                        )
-                                    }.onSuccess {
-                                        println("[ProfileEdit] 저장 성공")
-                                        saving = false
-                                        profileRefreshTick++
-                                        backStack.removeLastOrNull()
-                                    }.onFailure {
-                                        println("[ProfileEdit] 저장 실패: $it")
-                                        saving = false
-                                    }
-                                }
+                            onSaved = {
+                                profileRefreshTick++
+                                backStack.removeLastOrNull()
                             },
                         )
                     }
@@ -411,53 +337,14 @@ fun App() {
                         )
                     }
                     entry<CoupleInviteCodeRoute> {
-                        var myCode by remember { mutableStateOf<String?>(null) }
-                        LaunchedEffect(Unit) {
-                            runCatching { CouplesRepository.createOrGetMyCouple() }
-                                .onSuccess {
-                                    println("[Couple] my couple id=${it.id} code=${it.inviteCode}")
-                                    myCode = it.inviteCode
-                                }
-                                .onFailure { println("[Couple] createOrGetMyCouple 실패: $it") }
-                        }
-                        val copyToClipboard = rememberCopyToClipboard()
-                        val shareText = rememberShareText()
-                        CoupleInviteCodeScreen(
-                            myCode = myCode,
+                        com.hyunjine.linker.feature.couple.CoupleInviteCodeRoute(
                             onBack = { backStack.removeLastOrNull() },
-                            onCopy = {
-                                val code = myCode ?: return@CoupleInviteCodeScreen
-                                copyToClipboard(code)
-                                println("[Couple] 클립보드 복사: $code")
-                            },
-                            onShare = {
-                                val code = myCode ?: return@CoupleInviteCodeScreen
-                                shareText("링커 초대코드: $code")
-                                println("[Couple] 공유 시트 오픈: $code")
-                            },
                         )
                     }
                     entry<CoupleJoinRoute> {
-                        var linking by remember { mutableStateOf(false) }
-                        CoupleJoinScreen(
-                            linking = linking,
+                        com.hyunjine.linker.feature.couple.CoupleJoinRoute(
                             onBack = { backStack.removeLastOrNull() },
-                            onLink = { partnerCode ->
-                                if (linking) return@CoupleJoinScreen
-                                linking = true
-                                scope.launch {
-                                    runCatching { CouplesRepository.joinByInviteCode(partnerCode) }
-                                        .onSuccess {
-                                            println("[Couple] joined couple $it → 홈으로 이동")
-                                            linking = false
-                                            goHome()
-                                        }
-                                        .onFailure {
-                                            println("[Couple] join 실패: $it")
-                                            linking = false
-                                        }
-                                }
-                            },
+                            onJoined = goHome,
                         )
                     }
                     entry<MainRoute> {
@@ -488,174 +375,24 @@ fun App() {
                         )
                     }
                     entry<SearchRoute> {
-                        // 결과 chip 색 계산용 — MainRoute 와 동일 규칙, 화면 진입마다 재조회.
-                        var ownerColors by remember { mutableStateOf(OwnerColors.Default) }
-                        LaunchedEffect(Unit) {
-                            val my = runCatching { UsersRepository.myProfile()?.calendarColor }.getOrNull()
-                            val partner = runCatching { UsersRepository.partnerProfile()?.calendarColor }.getOrNull()
-                            ownerColors = OwnerColors(
-                                me = calendarColorFor(my),
-                                partner = calendarColorFor(partner ?: "pink"),
-                                us = CalendarPurple,
-                            )
-                        }
-                        SearchScreen(
+                        com.hyunjine.linker.feature.search.SearchRoute(
                             onBack = { backStack.removeLastOrNull() },
-                            onSearch = { query ->
-                                val schedules = runCatching { SchedulesRepository.search(query) }
-                                    .onFailure { println("[Search] schedules 실패: $it") }
-                                    .getOrDefault(emptyList())
-                                    .map { row ->
-                                        SearchScheduleItem(
-                                            id = row.id,
-                                            title = row.title,
-                                            date = LocalDate.parse(row.startDate),
-                                            ownerColor = ownerColors.forOwner(row.ownerKind),
-                                        )
-                                    }
-                                val anniversaries = runCatching { AnniversariesRepository.search(query) }
-                                    .onFailure { println("[Search] anniversaries 실패: $it") }
-                                    .getOrDefault(emptyList())
-                                    .map { row ->
-                                        SearchAnniversaryItem(
-                                            id = row.id,
-                                            title = row.title,
-                                            date = LocalDate.parse(row.date),
-                                            repeatYearly = row.repeatYearly,
-                                        )
-                                    }
-                                SearchResults(schedules = schedules, anniversaries = anniversaries)
-                            },
                             onScheduleClick = { id -> backStack.add(CreateScheduleRoute(id)) },
                             onAnniversaryClick = { _ -> backStack.add(AnniversariesRoute) },
                         )
                     }
                     entry<AnniversariesRoute> {
-                        var items by remember { mutableStateOf(emptyList<AnniversaryUi>()) }
-                        var busy by remember { mutableStateOf(false) }
-                        var reloadTick by remember { mutableStateOf(0) }
-                        LaunchedEffect(reloadTick) {
-                            runCatching { AnniversariesRepository.list() }
-                                .onSuccess { rows -> items = rows.map { it.toUi() } }
-                                .onFailure { println("[Anniv] list 실패: $it") }
-                        }
-                        AnniversariesScreen(
-                            items = items,
-                            busy = busy,
+                        com.hyunjine.linker.feature.anniversary.AnniversariesRoute(
                             onBack = { backStack.removeLastOrNull() },
-                            onAdd = { title, date, repeatYearly ->
-                                if (busy) return@AnniversariesScreen
-                                busy = true
-                                scope.launch {
-                                    runCatching { AnniversariesRepository.create(title, date, repeatYearly) }
-                                        .onSuccess {
-                                            println("[Anniv] 저장 성공: $it")
-                                            busy = false
-                                            reloadTick++
-                                        }
-                                        .onFailure {
-                                            println("[Anniv] 저장 실패: $it")
-                                            busy = false
-                                        }
-                                }
-                            },
-                            onDelete = { id ->
-                                if (busy) return@AnniversariesScreen
-                                busy = true
-                                scope.launch {
-                                    runCatching { AnniversariesRepository.delete(id) }
-                                        .onSuccess {
-                                            println("[Anniv] 삭제 성공: $id")
-                                            busy = false
-                                            reloadTick++
-                                        }
-                                        .onFailure {
-                                            println("[Anniv] 삭제 실패: $it")
-                                            busy = false
-                                        }
-                                }
-                            },
                         )
                     }
                     entry<CreateScheduleRoute> { route ->
-                        val editing = route.scheduleId != null
-                        var saving by remember { mutableStateOf(false) }
-                        var initial by remember { mutableStateOf<com.hyunjine.linker.feature.schedule.ScheduleDraft?>(null) }
-                        // CreateScheduleScreen 내부의 rememberSaveable 은 첫 컴포지션에서 draft 를
-                        // 확정하므로, initial 이 세팅된 뒤에만 mount 해야 initialDate seed 가 반영된다.
-                        var loaded by remember { mutableStateOf(false) }
-                        LaunchedEffect(route.scheduleId, route.initialDate, route.initialType) {
-                            if (route.scheduleId == null) {
-                                val seededDate = route.initialDate
-                                    ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-                                val seededType = when (route.initialType) {
-                                    "task" -> com.hyunjine.linker.feature.schedule.ScheduleType.Task
-                                    "schedule" -> com.hyunjine.linker.feature.schedule.ScheduleType.Schedule
-                                    else -> null
-                                }
-                                initial = if (seededDate != null || seededType != null) {
-                                    val fallbackDate = seededDate ?: today()
-                                    com.hyunjine.linker.feature.schedule.ScheduleDraft(
-                                        startDate = fallbackDate,
-                                        endDate = fallbackDate,
-                                        type = seededType ?: com.hyunjine.linker.feature.schedule.ScheduleType.Schedule,
-                                    )
-                                } else null
-                                loaded = true
-                                return@LaunchedEffect
-                            }
-                            runCatching { SchedulesRepository.getDraftById(route.scheduleId) }
-                                .onSuccess {
-                                    initial = it
-                                    loaded = true
-                                }
-                                .onFailure {
-                                    println("[Schedule] getDraftById 실패: $it")
-                                    loaded = true
-                                }
-                        }
-                        // 로드 완료 전에는 화면을 안 그린다 (draft 확정 후 한 번만 mount).
-                        if (!loaded) return@entry
-                        CreateScheduleScreen(
-                            initial = initial,
-                            editing = editing,
+                        com.hyunjine.linker.feature.schedule.CreateScheduleRoute(
+                            scheduleId = route.scheduleId,
+                            initialDate = route.initialDate,
+                            initialType = route.initialType,
                             onBack = { backStack.removeLastOrNull() },
-                            onSave = { draft ->
-                                if (saving) return@CreateScheduleScreen
-                                saving = true
-                                scope.launch {
-                                    val op = if (route.scheduleId != null) {
-                                        runCatching { SchedulesRepository.update(route.scheduleId, draft) }
-                                    } else {
-                                        runCatching { SchedulesRepository.create(draft) }
-                                    }
-                                    op.onSuccess {
-                                        println("[Schedule] ${if (editing) "수정" else "저장"} 성공")
-                                        saving = false
-                                        backStack.removeLastOrNull()
-                                    }.onFailure {
-                                        println("[Schedule] ${if (editing) "수정" else "저장"} 실패: $it")
-                                        saving = false
-                                    }
-                                }
-                            },
-                            onDelete = {
-                                val id = route.scheduleId ?: return@CreateScheduleScreen
-                                if (saving) return@CreateScheduleScreen
-                                saving = true
-                                scope.launch {
-                                    runCatching { SchedulesRepository.delete(id) }
-                                        .onSuccess {
-                                            println("[Schedule] 삭제 성공: $id")
-                                            saving = false
-                                            backStack.removeLastOrNull()
-                                        }
-                                        .onFailure {
-                                            println("[Schedule] 삭제 실패: $it")
-                                            saving = false
-                                        }
-                                }
-                            },
+                            onDone = { backStack.removeLastOrNull() },
                         )
                     }
                 },
