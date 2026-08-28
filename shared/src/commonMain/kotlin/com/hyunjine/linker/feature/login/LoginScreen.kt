@@ -126,8 +126,9 @@ private fun DebugLoginSheet(
     onSubmit: (email: String, password: String) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState()
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    // 매번 타이핑 안 하도록 세션 테스트 계정 미리 프리필. Debug 빌드에서만 도달하므로 노출 위험 없음.
+    var email by remember { mutableStateOf("thevlakk1@gmail.com") }
+    var password by remember { mutableStateOf("dhfl265213!") }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         Column(
             modifier = Modifier
