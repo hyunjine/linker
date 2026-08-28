@@ -3,6 +3,7 @@ package com.hyunjine.linker.auth
 import com.hyunjine.linker.data.remote.SupabaseProvider
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Kakao
+import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.providers.builtin.IDToken
 import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +38,22 @@ suspend fun signInWithKakao(client: KakaoLoginClient) {
             error(result.reason)
         }
     }
+}
+
+/**
+ * DEBUG 빌드 전용: Supabase 대시보드에서 만든 테스트 유저로 email/password 로그인.
+ * 카카오 계정이 하나뿐이라 커플·Realtime 등 두 유저 흐름을 검증할 때 사용.
+ *
+ * Release 빌드에서는 UI 자체가 노출되지 않으므로 호출 경로가 없다.
+ * 실패 시 예외를 던져 상위 catch 로 UI 에 표시.
+ */
+suspend fun signInWithEmail(email: String, password: String) {
+    println("[Auth] signInWithEmail: $email")
+    SupabaseProvider.client.auth.signInWith(Email) {
+        this.email = email
+        this.password = password
+    }
+    println("[Auth] Supabase 세션 발급 완료 (email)")
 }
 
 /**

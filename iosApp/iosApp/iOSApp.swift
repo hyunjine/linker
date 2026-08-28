@@ -11,6 +11,12 @@ struct iOSApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
+        // Debug 빌드에서만 테스트용 email/password 로그인 UI 를 노출하기 위한 플래그.
+        // Release 빌드에는 이 블록이 컴파일되지 않아 enabled=false 유지.
+        #if DEBUG
+        DebugConfig.shared.enabled = true
+        #endif
+
         // 카카오 SDK 초기화. 네이티브 앱 키는 Config.xcconfig → Info.plist (KAKAO_NATIVE_APP_KEY).
         let appKey = Bundle.main.object(forInfoDictionaryKey: "KAKAO_NATIVE_APP_KEY") as? String ?? ""
         print("[KakaoLogin] init — appKey='\(appKey)' length=\(appKey.count)")

@@ -16,16 +16,28 @@ import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,7 +58,12 @@ import org.jetbrains.compose.resources.painterResource
 @Composable
 fun LoginScreen(
     onKakaoLoginClick: () -> Unit = {},
+    showDebugLogin: Boolean = false,
+    debugError: String? = null,
+    onDebugLoginSubmit: (email: String, password: String) -> Unit = { _, _ -> },
+    onDebugErrorDismiss: () -> Unit = {},
 ) {
+    var debugSheetOpen by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -72,7 +89,92 @@ fun LoginScreen(
             Spacer(Modifier.fillMaxWidth().weight(20f))
         }
 
+        // DEBUG 빌드에서만 노출되는 테스트 계정 로그인 진입. Release 는 렌더 자체 안 됨.
+        if (showDebugLogin) {
+            Spacer(Modifier.size(12.dp))
+            TextButton(onClick = { debugSheetOpen = true }) {
+                Text(
+                    text = "테스트 계정으로 로그인",
+                    style = TextStyle(fontSize = 13.sp, color = TextPrimary.copy(alpha = 0.6f)),
+                )
+            }
+        }
+
         Spacer(Modifier.fillMaxHeight().weight(279f))
+    }
+
+    if (debugSheetOpen) {
+        DebugLoginSheet(
+            error = debugError,
+            onDismiss = {
+                debugSheetOpen = false
+                onDebugErrorDismiss()
+            },
+            onSubmit = { email, password ->
+                onDebugLoginSubmit(email, password)
+                debugSheetOpen = false
+            },
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DebugLoginSheet(
+    error: String?,
+    onDismiss: () -> Unit,
+    onSubmit: (email: String, password: String) -> Unit,
+) {
+    val sheetState = rememberModalBottomSheetState()
+    var email by remember { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(
+                text = "[DEBUG] 테스트 로그인",
+                style = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.SemiBold),
+            )
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("Email") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Password") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (error != null) {
+                Text(
+                    text = error,
+                    style = TextStyle(fontSize = 12.sp, color = Color(0xFFD03A3A)),
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = onDismiss) { Text("취소") }
+                Spacer(Modifier.size(8.dp))
+                TextButton(
+                    enabled = email.isNotBlank() && password.isNotBlank(),
+                    onClick = { onSubmit(email, password) },
+                ) { Text("로그인") }
+            }
+            Spacer(Modifier.size(8.dp))
+        }
     }
 }
 
