@@ -35,7 +35,7 @@ import com.hyunjine.linker.ui.main.CalendarEventType
 import com.hyunjine.linker.ui.main.DayDetail
 import com.hyunjine.linker.ui.main.DayOwner
 import com.hyunjine.linker.ui.main.DayTask
-import com.hyunjine.linker.ui.main.MainScreen
+import com.hyunjine.linker.ui.main.OwnerColors
 import com.hyunjine.linker.ui.main.TimedSchedule
 import com.hyunjine.linker.ui.profile.ProfileSetupScreen
 import com.hyunjine.linker.ui.schedule.CreateScheduleScreen
@@ -224,46 +224,6 @@ private fun AnniversariesRepository.Row.toUi(): AnniversaryUi = AnniversaryUi(
     repeatYearly = repeatYearly,
 )
 
-/** owner_kind → chip 색상. 프로필 로드 전엔 [Default] 폴백. */
-private data class OwnerColors(val me: Color, val partner: Color, val us: Color) {
-    fun forOwner(ownerKind: String): Color = when (ownerKind) {
-        "me" -> me
-        "partner" -> partner
-        else -> us
-    }
-
-    companion object {
-        val Default = OwnerColors(
-            me = calendarColorFor("blue"),
-            partner = calendarColorFor("pink"),
-            us = CalendarPurple,
-        )
-    }
-}
-
-/**
- * 서버에서 받은 스케줄 rows 를 MainScreen 이 소비하는 `Map<LocalDate, CalendarDayEntry>` 로 변환.
- * 스케줄이 [start_date, end_date] 범위를 커버하면 각 날짜에 chip 을 추가한다.
- * chip 색은 [ownerColors] 로 결정 (me/partner/us).
- */
-private fun List<SchedulesRepository.Row>.toCalendarEntries(
-    ownerColors: OwnerColors,
-): Map<LocalDate, CalendarDayEntry> {
-    val out = mutableMapOf<LocalDate, MutableList<CalendarEvent>>()
-    for (row in this) {
-        val start = LocalDate.parse(row.startDate)
-        val end = LocalDate.parse(row.endDate)
-        val tint = ownerColors.forOwner(row.ownerKind)
-        var d = start
-        while (d <= end) {
-            out.getOrPut(d) { mutableListOf() }
-                .add(CalendarEvent(row.title, CalendarEventType.Personal, tintColor = tint, id = row.id))
-            d = d.plus(1, DateTimeUnit.DAY)
-        }
-    }
-    return out.mapValues { CalendarDayEntry(events = it.value.toList()) }
-}
-
 /**
  * 카카오 프로필 URL 은 http 로 내려와 Android 9+ · iOS ATS 가 cleartext 로 차단.
  * 렌더 직전에 https 로 강제. Kakao CDN 은 https 도 동일 경로로 서빙.
@@ -312,25 +272,9 @@ fun App() {
                 backStack.clear()
                 backStack.add(MainRoute)
             }
-            // 프로필 편집 후 홈 드로워가 최신 값으로 다시 로드되게끔 하는 신호.
-            // ProfileEditRoute 저장 성공 시 bump → MainRoute LaunchedEffect 가 재실행.
+            // 프로필 편집 후 MainViewModel 이 프로필 · owner 색 재로드하도록 트리거.
+            // ProfileEditRoute 저장 성공 시 bump → MainRoute 의 LaunchedEffect 가 VM.refreshProfile 호출.
             var profileRefreshTick by remember { mutableStateOf(0) }
-            // MainRoute 진입/이탈 시마다 remember 가 초기화되면 chip 색이 튀므로 App 스코프에 hoist.
-            // 프로필 수정 (profileRefreshTick 증가) 시에만 재조회 트리거.
-            var ownerColors by remember { mutableStateOf(OwnerColors.Default) }
-            var myProfile by remember { mutableStateOf<UsersRepository.Profile?>(null) }
-            LaunchedEffect(profileRefreshTick) {
-                val mine = runCatching { UsersRepository.myProfile() }
-                    .onFailure { println("[Main] myProfile 실패: $it") }
-                    .getOrNull()
-                val partner = runCatching { UsersRepository.partnerProfile()?.calendarColor }.getOrNull()
-                myProfile = mine
-                ownerColors = OwnerColors(
-                    me = calendarColorFor(mine?.calendarColor),
-                    partner = calendarColorFor(partner ?: "pink"),
-                    us = CalendarPurple,
-                )
-            }
 
             // 세션 상태 기반 부트스트랩 라우팅.
             //  - Initializing: SplashRoute 유지 (세션 storage 로드 중)
@@ -518,29 +462,7 @@ fun App() {
                     }
                     entry<MainRoute> {
                         val kakao = rememberKakaoLoginClient()
-                        // ownerColors · myProfile 은 App() 스코프에 hoist 됨 (검색 갔다 와도 초기화 X).
-                        MainScreen(
-                            // 월 이동 시마다 호출됨. 캐시는 화면 내부 (MainScreen) 에서 관리.
-                            // 범위는 해당 달 ± 1주 (그리드가 인접 월 leading/trailing 셀도 표시).
-                            onLoadEntriesForMonth = { yearMonth ->
-                                val first = LocalDate(yearMonth.year, yearMonth.month, 1)
-                                val from = first.plus(-7, DateTimeUnit.DAY)
-                                val to = first.plus(1, DateTimeUnit.MONTH).plus(7, DateTimeUnit.DAY)
-                                runCatching { SchedulesRepository.listInRange(from, to) }
-                                    .onFailure { println("[Schedule] listInRange($yearMonth) 실패: $it") }
-                                    .getOrDefault(emptyList())
-                                    .toCalendarEntries(ownerColors)
-                            },
-                            onLoadDayDetail = { date ->
-                                val rows = runCatching { SchedulesRepository.listInRange(date, date) }
-                                    .onFailure { println("[Schedule] loadDayDetail($date) 실패: $it") }
-                                    .getOrDefault(emptyList())
-                                rows.toDayDetail(date)
-                            },
-                            onToggleTaskDone = { id, done ->
-                                runCatching { SchedulesRepository.setTaskDone(id, done) }
-                                    .onFailure { println("[Schedule] setTaskDone 실패: $it") }
-                            },
+                        com.hyunjine.linker.ui.main.MainRoute(
                             onAddSchedule = { tappedDate, type ->
                                 backStack.add(
                                     CreateScheduleRoute(
@@ -556,20 +478,13 @@ fun App() {
                             onAnniversaryClick = { backStack.add(AnniversariesRoute) },
                             onSearchClick = { backStack.add(SearchRoute) },
                             onProfileEditClick = { backStack.add(ProfileEditRoute) },
-                            profileName = myProfile?.nickname.orEmpty(),
-                            profileHandle = isoToHandleBirthDate(myProfile?.birthDate),
-                            profileImageUrl = myProfile?.profileImageUrl.toSecureImageUrl(),
-                            // ownerColors 자체를 invalidation key 로 사용. profileRefreshTick 을
-                            // 넘기면 App 의 profile fetch 와 MainScreen 의 chip fetch 가 race 해서
-                            // 옛 색으로 tint 된 결과가 캐시에 굳어버림. ownerColors 는 App fetch
-                            // 완료 뒤에 갱신되므로, 이걸 key 로 쓰면 새 색이 확정된 이후에만 재fetch.
-                            refreshTick = ownerColors.hashCode(),
                             onLogout = {
                                 scope.launch {
                                     runCatching { signOut(kakao) }
                                         .onFailure { println("[Auth] signOut 실패: $it") }
                                 }
                             },
+                            profileRefreshTick = profileRefreshTick,
                         )
                     }
                     entry<SearchRoute> {

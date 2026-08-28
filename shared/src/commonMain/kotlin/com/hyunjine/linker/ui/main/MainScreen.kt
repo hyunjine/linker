@@ -173,10 +173,12 @@ fun MainScreen(
      */
     entries: Map<LocalDate, CalendarDayEntry> = emptyMap(),
     /**
-     * 특정 [YearMonth] 의 스케줄 chip 을 불러오는 fetcher. 화면이 보이는 달이 바뀔 때마다 호출되며,
-     * 결과는 화면 내부 캐시에 담긴다 (같은 달은 재요청 안 함). 기본은 no-op 로 Preview 안전.
+     * ViewModel 이 유지하는 월별 chip 캐시. 화면은 여기서 읽기만 하고, 없는 달은 [onMonthVisible]
+     * 콜백으로 알림.
      */
-    onLoadEntriesForMonth: suspend (YearMonth) -> Map<LocalDate, CalendarDayEntry> = { emptyMap() },
+    entriesByMonth: Map<YearMonth, Map<LocalDate, CalendarDayEntry>> = emptyMap(),
+    /** 새 달이 화면에 노출됐음을 상위에 알림. 캐시 미스면 상위가 lazy 로 fetch 트리거. */
+    onMonthVisible: (YearMonth) -> Unit = {},
     /** 선택 날짜의 상세 payload 를 조회. null 이면 sheet 를 안 띄운다. */
     onLoadDayDetail: suspend (LocalDate) -> DayDetail? = { null },
     /** Task 체크박스 토글 (id, 새 값). 실패는 상위에서 처리 · 상위 로직 없이 옵티미스틱 반영. */
@@ -198,11 +200,6 @@ fun MainScreen(
     profileName: String = "",
     profileHandle: String = "",
     profileImageUrl: String? = null,
-    /**
-     * 상위에서 프로필/색상 등이 갱신됐음을 알리는 카운터. 값이 바뀌면 월별 스케줄 캐시를
-     * 비워 다음 컴포지션에서 owner color 를 새 값으로 다시 tint 해 재fetch 한다.
-     */
-    refreshTick: Int = 0,
 ) {
     // Int.MAX_VALUE 크기의 pager 로 사실상 무한 좌우 스와이프. 중간에서 시작해 양쪽으로 무제한 이동.
     val anchorPage = remember { Int.MAX_VALUE / 2 }
@@ -245,23 +242,10 @@ fun MainScreen(
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     var displayState by remember { mutableStateOf(DrawerDisplayState()) }
 
-    // 월별 스케줄 chip 캐시. currentYearMonth 가 바뀌면 아직 로드 안 된 달을 fetch.
-    var scheduleEntriesByMonth by remember {
-        mutableStateOf(mapOf<YearMonth, Map<LocalDate, CalendarDayEntry>>())
-    }
-    // refreshTick 이 바뀌면 캐시를 비워 owner color 를 새 값으로 다시 tint.
-    // (fetcher 가 이미 tint 된 결과를 반환하므로, 캐시된 값은 옛 색으로 굳어있음.)
-    // 아래 fetch LaunchedEffect 도 refreshTick 을 key 로 잡아 곧바로 재조회 트리거.
-    LaunchedEffect(refreshTick) {
-        scheduleEntriesByMonth = emptyMap()
-    }
-    LaunchedEffect(currentYearMonth, refreshTick) {
-        if (scheduleEntriesByMonth.containsKey(currentYearMonth)) return@LaunchedEffect
-        val fetched = onLoadEntriesForMonth(currentYearMonth)
-        scheduleEntriesByMonth = scheduleEntriesByMonth + (currentYearMonth to fetched)
-    }
-    val scheduleEntries = remember(scheduleEntriesByMonth) {
-        scheduleEntriesByMonth.values.fold(emptyMap<LocalDate, CalendarDayEntry>()) { acc, next ->
+    // 현재 보이는 달이 바뀌면 상위에 알림 → ViewModel 이 캐시에 없으면 lazy fetch.
+    LaunchedEffect(currentYearMonth) { onMonthVisible(currentYearMonth) }
+    val scheduleEntries = remember(entriesByMonth) {
+        entriesByMonth.values.fold(emptyMap<LocalDate, CalendarDayEntry>()) { acc, next ->
             mergeEntries(base = acc, override = next)
         }
     }
