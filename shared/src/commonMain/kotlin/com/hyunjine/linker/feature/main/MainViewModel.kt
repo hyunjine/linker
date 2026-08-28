@@ -30,7 +30,12 @@ class MainViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
 
-    /** 앱 진입 · 프로필 편집 후에 호출. 내 · 파트너 프로필을 다시 조회하고 chip 캐시 무효화. */
+    /**
+     * 앱 진입 · 프로필 편집 후에 호출. 내 · 파트너 프로필을 다시 조회하고 owner 색이 바뀌었으면
+     * 기존 chip 캐시를 무효화한 뒤 즉시 재fetch — 앱 시작 시 [loadMonthIfNeeded] 와의 race 로
+     * chip 이 사라지는 문제를 방지 (프로필 fetch 가 늦게 끝나면 default 색으로 채워진 chip 을
+     * 통째로 지우기 때문. `onMonthVisible` 은 재fire 안 되니 스스로 다시 요청해야 함).
+     */
     fun refreshProfile() {
         viewModelScope.launch {
             val mine = runCatching { UsersRepository.myProfile() }
@@ -42,14 +47,18 @@ class MainViewModel : ViewModel() {
                 partner = calendarColorFor(partner ?: "pink"),
                 us = CalendarPurple,
             )
+            val previousColors = _uiState.value.ownerColors
+            val previousMonths = _uiState.value.entriesByMonth.keys.toSet()
             _uiState.update {
                 val cacheInvalidated = it.ownerColors != nextColors
                 it.copy(
                     myProfile = mine,
                     ownerColors = nextColors,
-                    // owner 색이 바뀐 경우만 캐시 초기화 (첫 로드 시엔 default 와 다르니 자연스레 초기화됨)
                     entriesByMonth = if (cacheInvalidated) emptyMap() else it.entriesByMonth,
                 )
+            }
+            if (previousColors != nextColors) {
+                previousMonths.forEach { loadMonthIfNeeded(it) }
             }
         }
     }
