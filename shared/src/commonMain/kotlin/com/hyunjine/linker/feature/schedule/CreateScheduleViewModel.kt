@@ -3,6 +3,7 @@ package com.hyunjine.linker.feature.schedule
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hyunjine.linker.data.remote.SchedulesRepository
+import com.hyunjine.linker.platform.refreshTodayWidget
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -71,6 +72,7 @@ class CreateScheduleViewModel(
             op.onSuccess {
                 println("[Schedule] ${if (editing) "수정" else "저장"} 성공")
                 _uiState.value = _uiState.value.copy(saving = false)
+                refreshTodayWidget()
                 onDone()
             }.onFailure {
                 println("[Schedule] ${if (editing) "수정" else "저장"} 실패: $it")
@@ -88,6 +90,7 @@ class CreateScheduleViewModel(
                 .onSuccess {
                     println("[Schedule] 삭제 성공: $id")
                     _uiState.value = _uiState.value.copy(saving = false)
+                    refreshTodayWidget()
                     onDone()
                 }
                 .onFailure {

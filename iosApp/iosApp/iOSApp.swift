@@ -67,6 +67,10 @@ struct iOSApp: App {
             }
         }
 
+        // shared → 위젯 refresh 브리지. 스케줄 CRUD 성공 후 CreateScheduleViewModel /
+        // MainViewModel.toggleTaskDone 이 이 handler 를 호출 → 앱이 foreground 에 있어도 즉시 반영.
+        WidgetBridge.shared.handler = { WidgetSync.refresh() }
+
         // Kakao SDK 세션 폐기. Supabase signOut 만으로는 부족 — 안 하면 다음 로그인 시 계정
         // 선택 없이 자동 재로그인됨. 에러가 나도 done() 은 반드시 호출.
         KakaoLoginBridge.shared.logoutHandler = { done in

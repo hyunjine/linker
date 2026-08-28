@@ -7,6 +7,7 @@ import com.hyunjine.linker.data.remote.SchedulesRepository
 import com.hyunjine.linker.data.remote.UsersRepository
 import com.hyunjine.linker.designsystem.theme.CalendarPurple
 import com.hyunjine.linker.designsystem.theme.calendarColorFor
+import com.hyunjine.linker.platform.refreshTodayWidget
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -89,6 +90,7 @@ class MainViewModel : ViewModel() {
     /** 할 일 체크박스 토글. 실패는 삼키고 로그만 남김 (옵티미스틱 UI 는 UI 층에서 별도 처리). */
     suspend fun toggleTaskDone(id: String, done: Boolean) {
         runCatching { SchedulesRepository.setTaskDone(id, done) }
+            .onSuccess { refreshTodayWidget() }
             .onFailure { println("[Schedule] setTaskDone 실패: $it") }
     }
 
