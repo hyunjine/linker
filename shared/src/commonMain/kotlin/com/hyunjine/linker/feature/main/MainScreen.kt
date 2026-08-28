@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
@@ -661,13 +660,15 @@ private fun DayCell(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
-        // 모든 셀의 숫자 컨테이너를 28dp Box 로 통일 → 아래 chip 의 y 시작 위치가 오늘/평일 모두 동일.
-        // 오늘 셀만 원 배경을 그리고, 폰트 ascent 로 시각 중심이 아래로 밀리는 걸 offset(-4) 로 보정.
+        // 모든 셀의 숫자 컨테이너를 28dp Box 로 통일 → 오늘/평일 모두 같은 baseline.
+        // 오늘 셀만 원 배경을 얹고 텍스트 색만 반전 (offset · fontSize 변주 없이 정확히 겹침).
         Box(
-            modifier = Modifier.size(28.dp).let {
-                if (isToday) it.offset(y = (-4).dp).clip(CircleShape).background(CalendarTodayCircle)
-                else it
-            },
+            modifier = Modifier
+                .size(28.dp)
+                .then(
+                    if (isToday) Modifier.clip(CircleShape).background(CalendarTodayCircle)
+                    else Modifier,
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Text(
@@ -675,7 +676,7 @@ private fun DayCell(
                 style = TextStyle(
                     fontFamily = pretendard,
                     fontWeight = FontWeight.Bold,
-                    fontSize = if (isToday) 16.sp else 17.sp,
+                    fontSize = 17.sp,
                     color = if (isToday) CalendarTodayText else dayColor,
                 ),
             )
