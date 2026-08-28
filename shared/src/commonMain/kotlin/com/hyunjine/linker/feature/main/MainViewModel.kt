@@ -87,6 +87,17 @@ class MainViewModel : ViewModel() {
     fun invalidateEntriesCache() {
         _uiState.update { it.copy(entriesByMonth = emptyMap()) }
     }
+
+    /**
+     * 스케줄 CRUD 직후 호출. 이미 로드된 달들을 기억해 두었다가 캐시를 비우고 다시 fetch —
+     * 화면에 보이는 달은 pager 재구성 없이도 즉시 최신 chip 으로 갱신된다.
+     * (invalidateEntriesCache 만 부르면 onMonthVisible 이 다시 안 불려 새로 뜰 때까지 chip 이 안 보임.)
+     */
+    fun refreshSchedules() {
+        val monthsToReload = _uiState.value.entriesByMonth.keys.toSet()
+        _uiState.update { it.copy(entriesByMonth = emptyMap()) }
+        monthsToReload.forEach { loadMonthIfNeeded(it) }
+    }
 }
 
 /** MainScreen 이 소비하는 화면 상태. */
