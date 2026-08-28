@@ -1,4 +1,4 @@
-package com.hyunjine.linker.ui.login
+package com.hyunjine.linker.feature.login
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,13 +29,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.hyunjine.linker.ui.theme.Background
-import com.hyunjine.linker.ui.theme.KakaoLabel
-import com.hyunjine.linker.ui.theme.KakaoYellow
-import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
-import com.hyunjine.linker.ui.theme.LogoGradient
-import com.hyunjine.linker.ui.theme.ProvidePretendard
-import com.hyunjine.linker.ui.theme.TextPrimary
+import com.hyunjine.linker.designsystem.theme.Background
+import com.hyunjine.linker.designsystem.theme.KakaoLabel
+import com.hyunjine.linker.designsystem.theme.KakaoYellow
+import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
+import com.hyunjine.linker.designsystem.theme.LogoGradient
+import com.hyunjine.linker.designsystem.theme.ProvidePretendard
+import com.hyunjine.linker.designsystem.theme.TextPrimary
 import linker.shared.generated.resources.Res
 import linker.shared.generated.resources.ic_kakao_bubble
 import org.jetbrains.compose.resources.painterResource

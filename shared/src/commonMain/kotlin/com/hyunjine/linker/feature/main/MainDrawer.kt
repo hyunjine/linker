@@ -1,4 +1,4 @@
-package com.hyunjine.linker.ui.main
+package com.hyunjine.linker.feature.main
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -30,14 +30,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import com.hyunjine.linker.ui.theme.AvatarPlaceholderBg
-import com.hyunjine.linker.ui.theme.AvatarPlaceholderFg
-import com.hyunjine.linker.ui.theme.DrawerButtonBg
-import com.hyunjine.linker.ui.theme.DrawerCheckBlue
-import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
-import com.hyunjine.linker.ui.theme.SurfaceCard
-import com.hyunjine.linker.ui.theme.TextPrimary
-import com.hyunjine.linker.ui.theme.TextSecondary
+import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderBg
+import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderFg
+import com.hyunjine.linker.designsystem.theme.DrawerButtonBg
+import com.hyunjine.linker.designsystem.theme.DrawerCheckBlue
+import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
+import com.hyunjine.linker.designsystem.theme.SurfaceCard
+import com.hyunjine.linker.designsystem.theme.TextPrimary
+import com.hyunjine.linker.designsystem.theme.TextSecondary
 import linker.shared.generated.resources.Res
 import linker.shared.generated.resources.ic_cal_31
 import linker.shared.generated.resources.ic_check

@@ -1,4 +1,4 @@
-package com.hyunjine.linker.ui.main
+package com.hyunjine.linker.feature.main
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect

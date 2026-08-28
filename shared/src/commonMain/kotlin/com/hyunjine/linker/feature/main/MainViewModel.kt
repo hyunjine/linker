@@ -1,12 +1,12 @@
-package com.hyunjine.linker.ui.main
+package com.hyunjine.linker.feature.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hyunjine.linker.data.remote.CouplesRepository
 import com.hyunjine.linker.data.remote.SchedulesRepository
 import com.hyunjine.linker.data.remote.UsersRepository
-import com.hyunjine.linker.ui.theme.CalendarPurple
-import com.hyunjine.linker.ui.theme.calendarColorFor
+import com.hyunjine.linker.designsystem.theme.CalendarPurple
+import com.hyunjine.linker.designsystem.theme.calendarColorFor
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

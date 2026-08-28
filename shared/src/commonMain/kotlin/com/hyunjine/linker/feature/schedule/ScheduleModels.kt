@@ -1,4 +1,4 @@
-package com.hyunjine.linker.ui.schedule
+package com.hyunjine.linker.feature.schedule
 
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate

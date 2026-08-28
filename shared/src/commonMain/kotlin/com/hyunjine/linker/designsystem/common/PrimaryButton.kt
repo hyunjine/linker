@@ -1,4 +1,4 @@
-package com.hyunjine.linker.ui.common
+package com.hyunjine.linker.designsystem.common
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -19,11 +19,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.tooling.preview.Preview
-import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
-import com.hyunjine.linker.ui.theme.OnPrimary
-import com.hyunjine.linker.ui.theme.PrimaryBlue
-import com.hyunjine.linker.ui.theme.ProvidePretendard
-import com.hyunjine.linker.ui.theme.SurfaceGray
+import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
+import com.hyunjine.linker.designsystem.theme.OnPrimary
+import com.hyunjine.linker.designsystem.theme.PrimaryBlue
+import com.hyunjine.linker.designsystem.theme.ProvidePretendard
+import com.hyunjine.linker.designsystem.theme.SurfaceGray
 
 /**
  * 화면 하단 CTA 로 쓰는 주 액션 버튼. iOS 톤의 채워진 파랑 필 버튼.

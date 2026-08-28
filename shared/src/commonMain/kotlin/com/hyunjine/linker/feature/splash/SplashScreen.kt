@@ -1,4 +1,4 @@
-package com.hyunjine.linker.ui.splash
+package com.hyunjine.linker.feature.splash
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -18,13 +18,13 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.hyunjine.linker.ui.theme.Background
-import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
+import com.hyunjine.linker.designsystem.theme.Background
+import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import androidx.compose.ui.tooling.preview.Preview
-import com.hyunjine.linker.ui.theme.LogoGradient
-import com.hyunjine.linker.ui.theme.PrimaryBlue
-import com.hyunjine.linker.ui.theme.ProvidePretendard
-import com.hyunjine.linker.ui.theme.TextPrimary
+import com.hyunjine.linker.designsystem.theme.LogoGradient
+import com.hyunjine.linker.designsystem.theme.PrimaryBlue
+import com.hyunjine.linker.designsystem.theme.ProvidePretendard
+import com.hyunjine.linker.designsystem.theme.TextPrimary
 
 /**
  * 앱 시작 시 세션 storage 복원 중 (`SessionStatus.Initializing`) 노출되는 스플래시.

@@ -1,4 +1,4 @@
-package com.hyunjine.linker.ui.common
+package com.hyunjine.linker.designsystem.common
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -14,9 +14,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
-import com.hyunjine.linker.ui.theme.PrimaryBlue
-import com.hyunjine.linker.ui.theme.TextPrimary
+import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
+import com.hyunjine.linker.designsystem.theme.PrimaryBlue
+import com.hyunjine.linker.designsystem.theme.TextPrimary
 
 /**
  * iOS 26 모달 편집 화면용 상단 툴바. 좌측 텍스트 버튼(취소류) / 중앙 타이틀 / 우측 텍스트 버튼(저장류).

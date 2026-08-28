@@ -1,4 +1,4 @@
-package com.hyunjine.linker.ui.common
+package com.hyunjine.linker.designsystem.common
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
@@ -31,10 +31,10 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hyunjine.linker.platform.rememberSelectionHaptic
-import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
-import com.hyunjine.linker.ui.theme.ProvidePretendard
-import com.hyunjine.linker.ui.theme.SurfaceCard
-import com.hyunjine.linker.ui.theme.TextPrimary
+import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
+import com.hyunjine.linker.designsystem.theme.ProvidePretendard
+import com.hyunjine.linker.designsystem.theme.SurfaceCard
+import com.hyunjine.linker.designsystem.theme.TextPrimary
 import kotlin.math.abs
 import kotlinx.coroutines.flow.drop
 

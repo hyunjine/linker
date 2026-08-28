@@ -1,4 +1,4 @@
-package com.hyunjine.linker.ui.profile
+package com.hyunjine.linker.feature.profile
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -52,31 +52,31 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.hyunjine.linker.platform.rememberImagePicker
-import com.hyunjine.linker.ui.common.AppBottomSheet
-import com.hyunjine.linker.ui.common.AppTopBar
-import com.hyunjine.linker.ui.common.PrimaryButton
-import com.hyunjine.linker.ui.common.SectionLabel
-import com.hyunjine.linker.ui.common.YearMonthDayPickerSheet
-import com.hyunjine.linker.ui.theme.AvatarPlaceholderBg
-import com.hyunjine.linker.ui.theme.AvatarPlaceholderFg
-import com.hyunjine.linker.ui.theme.CalendarBlue
-import com.hyunjine.linker.ui.theme.CalendarGray
-import com.hyunjine.linker.ui.theme.CalendarGreen
-import com.hyunjine.linker.ui.theme.CalendarMint
-import com.hyunjine.linker.ui.theme.CalendarOrange
-import com.hyunjine.linker.ui.theme.CalendarPink
-import com.hyunjine.linker.ui.theme.CalendarPurple
-import com.hyunjine.linker.ui.theme.CalendarYellow
-import com.hyunjine.linker.ui.theme.Chevron
-import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
-import com.hyunjine.linker.ui.theme.OnPrimary
-import com.hyunjine.linker.ui.theme.PrimaryBlue
-import com.hyunjine.linker.ui.theme.ProvidePretendard
-import com.hyunjine.linker.ui.theme.Separator
-import com.hyunjine.linker.ui.theme.SurfaceCard
-import com.hyunjine.linker.ui.theme.SurfaceGray
-import com.hyunjine.linker.ui.theme.TextPrimary
-import com.hyunjine.linker.ui.theme.TextSecondary
+import com.hyunjine.linker.designsystem.common.AppBottomSheet
+import com.hyunjine.linker.designsystem.common.AppTopBar
+import com.hyunjine.linker.designsystem.common.PrimaryButton
+import com.hyunjine.linker.designsystem.common.SectionLabel
+import com.hyunjine.linker.designsystem.common.YearMonthDayPickerSheet
+import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderBg
+import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderFg
+import com.hyunjine.linker.designsystem.theme.CalendarBlue
+import com.hyunjine.linker.designsystem.theme.CalendarGray
+import com.hyunjine.linker.designsystem.theme.CalendarGreen
+import com.hyunjine.linker.designsystem.theme.CalendarMint
+import com.hyunjine.linker.designsystem.theme.CalendarOrange
+import com.hyunjine.linker.designsystem.theme.CalendarPink
+import com.hyunjine.linker.designsystem.theme.CalendarPurple
+import com.hyunjine.linker.designsystem.theme.CalendarYellow
+import com.hyunjine.linker.designsystem.theme.Chevron
+import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
+import com.hyunjine.linker.designsystem.theme.OnPrimary
+import com.hyunjine.linker.designsystem.theme.PrimaryBlue
+import com.hyunjine.linker.designsystem.theme.ProvidePretendard
+import com.hyunjine.linker.designsystem.theme.Separator
+import com.hyunjine.linker.designsystem.theme.SurfaceCard
+import com.hyunjine.linker.designsystem.theme.SurfaceGray
+import com.hyunjine.linker.designsystem.theme.TextPrimary
+import com.hyunjine.linker.designsystem.theme.TextSecondary
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -517,7 +517,7 @@ private fun NicknameEditSheet(
             )
         }
 
-        com.hyunjine.linker.ui.common.AppInputCard(
+        com.hyunjine.linker.designsystem.common.AppInputCard(
             label = "닉네임",
             value = value,
             onValueChange = { value = it },

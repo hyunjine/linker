@@ -1,7 +1,7 @@
-package com.hyunjine.linker.ui.schedule
+package com.hyunjine.linker.feature.schedule
 
 import androidx.compose.runtime.Composable
-import com.hyunjine.linker.ui.common.ListBottomSheet
+import com.hyunjine.linker.designsystem.common.ListBottomSheet
 import kotlinx.datetime.LocalDate
 
 /**

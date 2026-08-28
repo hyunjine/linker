@@ -22,28 +22,28 @@ import com.hyunjine.linker.data.remote.AnniversariesRepository
 import com.hyunjine.linker.data.remote.CouplesRepository
 import com.hyunjine.linker.data.remote.SchedulesRepository
 import com.hyunjine.linker.data.remote.UsersRepository
-import com.hyunjine.linker.ui.anniversary.AnniversariesScreen
-import com.hyunjine.linker.ui.anniversary.AnniversaryUi
-import com.hyunjine.linker.ui.couple.CoupleInviteCodeScreen
-import com.hyunjine.linker.ui.couple.CoupleJoinScreen
-import com.hyunjine.linker.ui.couple.CoupleLinkScreen
-import com.hyunjine.linker.ui.login.LoginScreen
-import com.hyunjine.linker.ui.main.AllDaySchedule
-import com.hyunjine.linker.ui.main.CalendarDayEntry
-import com.hyunjine.linker.ui.main.CalendarEvent
-import com.hyunjine.linker.ui.main.CalendarEventType
-import com.hyunjine.linker.ui.main.DayDetail
-import com.hyunjine.linker.ui.main.DayOwner
-import com.hyunjine.linker.ui.main.DayTask
-import com.hyunjine.linker.ui.main.OwnerColors
-import com.hyunjine.linker.ui.main.TimedSchedule
-import com.hyunjine.linker.ui.profile.ProfileSetupScreen
-import com.hyunjine.linker.ui.schedule.CreateScheduleScreen
-import com.hyunjine.linker.ui.search.SearchAnniversaryItem
-import com.hyunjine.linker.ui.search.SearchResults
-import com.hyunjine.linker.ui.search.SearchScheduleItem
-import com.hyunjine.linker.ui.search.SearchScreen
-import com.hyunjine.linker.ui.splash.SplashScreen
+import com.hyunjine.linker.feature.anniversary.AnniversariesScreen
+import com.hyunjine.linker.feature.anniversary.AnniversaryUi
+import com.hyunjine.linker.feature.couple.CoupleInviteCodeScreen
+import com.hyunjine.linker.feature.couple.CoupleJoinScreen
+import com.hyunjine.linker.feature.couple.CoupleLinkScreen
+import com.hyunjine.linker.feature.login.LoginScreen
+import com.hyunjine.linker.feature.main.AllDaySchedule
+import com.hyunjine.linker.feature.main.CalendarDayEntry
+import com.hyunjine.linker.feature.main.CalendarEvent
+import com.hyunjine.linker.feature.main.CalendarEventType
+import com.hyunjine.linker.feature.main.DayDetail
+import com.hyunjine.linker.feature.main.DayOwner
+import com.hyunjine.linker.feature.main.DayTask
+import com.hyunjine.linker.feature.main.OwnerColors
+import com.hyunjine.linker.feature.main.TimedSchedule
+import com.hyunjine.linker.feature.profile.ProfileSetupScreen
+import com.hyunjine.linker.feature.schedule.CreateScheduleScreen
+import com.hyunjine.linker.feature.search.SearchAnniversaryItem
+import com.hyunjine.linker.feature.search.SearchResults
+import com.hyunjine.linker.feature.search.SearchScheduleItem
+import com.hyunjine.linker.feature.search.SearchScreen
+import com.hyunjine.linker.feature.splash.SplashScreen
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
@@ -51,9 +51,9 @@ import kotlinx.datetime.toLocalDateTime
 import androidx.compose.ui.graphics.Color
 import com.hyunjine.linker.platform.rememberCopyToClipboard
 import com.hyunjine.linker.platform.rememberShareText
-import com.hyunjine.linker.ui.theme.CalendarPurple
-import com.hyunjine.linker.ui.theme.ProvidePretendard
-import com.hyunjine.linker.ui.theme.calendarColorFor
+import com.hyunjine.linker.designsystem.theme.CalendarPurple
+import com.hyunjine.linker.designsystem.theme.ProvidePretendard
+import com.hyunjine.linker.designsystem.theme.calendarColorFor
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserInfo
 import kotlinx.coroutines.launch
@@ -462,14 +462,14 @@ fun App() {
                     }
                     entry<MainRoute> {
                         val kakao = rememberKakaoLoginClient()
-                        com.hyunjine.linker.ui.main.MainRoute(
+                        com.hyunjine.linker.feature.main.MainRoute(
                             onAddSchedule = { tappedDate, type ->
                                 backStack.add(
                                     CreateScheduleRoute(
                                         initialDate = tappedDate.toString(),
                                         initialType = when (type) {
-                                            com.hyunjine.linker.ui.schedule.ScheduleType.Task -> "task"
-                                            com.hyunjine.linker.ui.schedule.ScheduleType.Schedule -> "schedule"
+                                            com.hyunjine.linker.feature.schedule.ScheduleType.Task -> "task"
+                                            com.hyunjine.linker.feature.schedule.ScheduleType.Schedule -> "schedule"
                                         },
                                     ),
                                 )
@@ -580,7 +580,7 @@ fun App() {
                     entry<CreateScheduleRoute> { route ->
                         val editing = route.scheduleId != null
                         var saving by remember { mutableStateOf(false) }
-                        var initial by remember { mutableStateOf<com.hyunjine.linker.ui.schedule.ScheduleDraft?>(null) }
+                        var initial by remember { mutableStateOf<com.hyunjine.linker.feature.schedule.ScheduleDraft?>(null) }
                         // CreateScheduleScreen 내부의 rememberSaveable 은 첫 컴포지션에서 draft 를
                         // 확정하므로, initial 이 세팅된 뒤에만 mount 해야 initialDate seed 가 반영된다.
                         var loaded by remember { mutableStateOf(false) }
@@ -589,16 +589,16 @@ fun App() {
                                 val seededDate = route.initialDate
                                     ?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
                                 val seededType = when (route.initialType) {
-                                    "task" -> com.hyunjine.linker.ui.schedule.ScheduleType.Task
-                                    "schedule" -> com.hyunjine.linker.ui.schedule.ScheduleType.Schedule
+                                    "task" -> com.hyunjine.linker.feature.schedule.ScheduleType.Task
+                                    "schedule" -> com.hyunjine.linker.feature.schedule.ScheduleType.Schedule
                                     else -> null
                                 }
                                 initial = if (seededDate != null || seededType != null) {
                                     val fallbackDate = seededDate ?: today()
-                                    com.hyunjine.linker.ui.schedule.ScheduleDraft(
+                                    com.hyunjine.linker.feature.schedule.ScheduleDraft(
                                         startDate = fallbackDate,
                                         endDate = fallbackDate,
-                                        type = seededType ?: com.hyunjine.linker.ui.schedule.ScheduleType.Schedule,
+                                        type = seededType ?: com.hyunjine.linker.feature.schedule.ScheduleType.Schedule,
                                     )
                                 } else null
                                 loaded = true

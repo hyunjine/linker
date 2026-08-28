@@ -1,4 +1,4 @@
-package com.hyunjine.linker.ui.main
+package com.hyunjine.linker.feature.main
 
 import com.hyunjine.linker.data.remote.SchedulesRepository
 import kotlinx.datetime.DateTimeUnit

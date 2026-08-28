@@ -1,4 +1,4 @@
-package com.hyunjine.linker.ui.common
+package com.hyunjine.linker.designsystem.common
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -24,11 +24,11 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
-import com.hyunjine.linker.ui.theme.PrimaryBlue
-import com.hyunjine.linker.ui.theme.SurfaceCard
-import com.hyunjine.linker.ui.theme.TextPrimary
-import com.hyunjine.linker.ui.theme.TextSecondary
+import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
+import com.hyunjine.linker.designsystem.theme.PrimaryBlue
+import com.hyunjine.linker.designsystem.theme.SurfaceCard
+import com.hyunjine.linker.designsystem.theme.TextPrimary
+import com.hyunjine.linker.designsystem.theme.TextSecondary
 
 /**
  * 프로필 · 커플 · 스케줄 등에서 공용으로 쓰는 라벨 + 텍스트필드 카드.

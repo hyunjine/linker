@@ -1,4 +1,4 @@
-package com.hyunjine.linker.ui.common
+package com.hyunjine.linker.designsystem.common
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -25,9 +25,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.hyunjine.linker.ui.theme.ProvidePretendard
-import com.hyunjine.linker.ui.theme.SegmentTrack
-import com.hyunjine.linker.ui.theme.SurfaceCard
+import com.hyunjine.linker.designsystem.theme.ProvidePretendard
+import com.hyunjine.linker.designsystem.theme.SegmentTrack
+import com.hyunjine.linker.designsystem.theme.SurfaceCard
 import kotlinx.datetime.LocalDate
 
 /**

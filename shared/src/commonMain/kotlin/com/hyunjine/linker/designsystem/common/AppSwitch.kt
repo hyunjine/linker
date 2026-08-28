@@ -1,4 +1,4 @@
-package com.hyunjine.linker.ui.common
+package com.hyunjine.linker.designsystem.common
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
@@ -28,11 +28,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.hyunjine.linker.platform.rememberSelectionHaptic
-import com.hyunjine.linker.ui.theme.PrimaryBlue
-import com.hyunjine.linker.ui.theme.ProvidePretendard
-import com.hyunjine.linker.ui.theme.Separator
-import com.hyunjine.linker.ui.theme.SurfaceCard
-import com.hyunjine.linker.ui.theme.SurfaceGray
+import com.hyunjine.linker.designsystem.theme.PrimaryBlue
+import com.hyunjine.linker.designsystem.theme.ProvidePretendard
+import com.hyunjine.linker.designsystem.theme.Separator
+import com.hyunjine.linker.designsystem.theme.SurfaceCard
+import com.hyunjine.linker.designsystem.theme.SurfaceGray
 
 // iOS 네이티브 UISwitch 규격을 따라간다. TrackWidth 는 프로젝트 톤에 맞춰 살짝 늘렸다.
 // - Track 54×31, 완전한 pill

@@ -1,4 +1,4 @@
-package com.hyunjine.linker.ui.theme
+package com.hyunjine.linker.designsystem.theme
 
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color

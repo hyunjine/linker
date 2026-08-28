@@ -1,4 +1,4 @@
-package com.hyunjine.linker.ui.common
+package com.hyunjine.linker.designsystem.common
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -31,11 +31,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.hyunjine.linker.ui.theme.ProvidePretendard
-import com.hyunjine.linker.ui.theme.SurfaceCard
-import com.hyunjine.linker.ui.theme.SurfaceGray
-import com.hyunjine.linker.ui.theme.TextPrimary
-import com.hyunjine.linker.ui.theme.TextSecondary
+import com.hyunjine.linker.designsystem.theme.ProvidePretendard
+import com.hyunjine.linker.designsystem.theme.SurfaceCard
+import com.hyunjine.linker.designsystem.theme.SurfaceGray
+import com.hyunjine.linker.designsystem.theme.TextPrimary
+import com.hyunjine.linker.designsystem.theme.TextSecondary
 
 /**
  * 앱 전역에서 사용하는 바텀시트. material3의 [ModalBottomSheet]을 감싼 얇은 래퍼이며,

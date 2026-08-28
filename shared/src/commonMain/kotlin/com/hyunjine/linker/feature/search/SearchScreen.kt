@@ -1,4 +1,4 @@
-package com.hyunjine.linker.ui.search
+package com.hyunjine.linker.feature.search
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -42,13 +42,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.hyunjine.linker.ui.common.AppSearchField
-import com.hyunjine.linker.ui.common.BackCircleButton
-import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
-import com.hyunjine.linker.ui.theme.SurfaceCard
-import com.hyunjine.linker.ui.theme.SurfaceGray
-import com.hyunjine.linker.ui.theme.TextPrimary
-import com.hyunjine.linker.ui.theme.TextSecondary
+import com.hyunjine.linker.designsystem.common.AppSearchField
+import com.hyunjine.linker.designsystem.common.BackCircleButton
+import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
+import com.hyunjine.linker.designsystem.theme.SurfaceCard
+import com.hyunjine.linker.designsystem.theme.SurfaceGray
+import com.hyunjine.linker.designsystem.theme.TextPrimary
+import com.hyunjine.linker.designsystem.theme.TextSecondary
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -333,7 +333,7 @@ private fun formatDate(date: LocalDate): String {
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun SearchScreenPreview_InitialHint() {
-    com.hyunjine.linker.ui.theme.ProvidePretendard {
+    com.hyunjine.linker.designsystem.theme.ProvidePretendard {
         SearchScreen(
             onBack = {},
             onSearch = { SearchResults() },
@@ -346,7 +346,7 @@ private fun SearchScreenPreview_InitialHint() {
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun SearchScreenPreview_ResultsList() {
-    com.hyunjine.linker.ui.theme.ProvidePretendard {
+    com.hyunjine.linker.designsystem.theme.ProvidePretendard {
         ResultsList(
             results = SearchResults(
                 schedules = listOf(
@@ -381,11 +381,11 @@ private fun SearchScreenPreview_ResultsList() {
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun SearchScreenPreview_LoadingState() {
-    com.hyunjine.linker.ui.theme.ProvidePretendard { LoadingState() }
+    com.hyunjine.linker.designsystem.theme.ProvidePretendard { LoadingState() }
 }
 
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun SearchScreenPreview_NoResults() {
-    com.hyunjine.linker.ui.theme.ProvidePretendard { NoResultsState("여행") }
+    com.hyunjine.linker.designsystem.theme.ProvidePretendard { NoResultsState("여행") }
 }

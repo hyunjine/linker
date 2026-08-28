@@ -1,8 +1,8 @@
-package com.hyunjine.linker.ui.main
+package com.hyunjine.linker.feature.main
 
 import androidx.compose.ui.graphics.Color
-import com.hyunjine.linker.ui.theme.CalendarPurple
-import com.hyunjine.linker.ui.theme.calendarColorFor
+import com.hyunjine.linker.designsystem.theme.CalendarPurple
+import com.hyunjine.linker.designsystem.theme.calendarColorFor
 
 /**
  * 스케줄 chip · row 등에 쓰이는 소유자별 색상. 내 프로필 · 파트너 프로필의 `calendar_color` 로부터

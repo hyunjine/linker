@@ -1,4 +1,4 @@
-package com.hyunjine.linker.ui.theme
+package com.hyunjine.linker.designsystem.theme
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider

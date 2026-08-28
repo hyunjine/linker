@@ -1,4 +1,4 @@
-package com.hyunjine.linker.ui.couple
+package com.hyunjine.linker.feature.couple
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -35,16 +35,16 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.tooling.preview.Preview
-import com.hyunjine.linker.ui.common.AppTopBar
-import com.hyunjine.linker.ui.common.PrimaryButton
-import com.hyunjine.linker.ui.common.SectionLabel
-import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
-import com.hyunjine.linker.ui.theme.PrimaryBlue
-import com.hyunjine.linker.ui.theme.ProvidePretendard
-import com.hyunjine.linker.ui.theme.SurfaceCard
-import com.hyunjine.linker.ui.theme.SurfaceGray
-import com.hyunjine.linker.ui.theme.TextPrimary
-import com.hyunjine.linker.ui.theme.TextSecondary
+import com.hyunjine.linker.designsystem.common.AppTopBar
+import com.hyunjine.linker.designsystem.common.PrimaryButton
+import com.hyunjine.linker.designsystem.common.SectionLabel
+import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
+import com.hyunjine.linker.designsystem.theme.PrimaryBlue
+import com.hyunjine.linker.designsystem.theme.ProvidePretendard
+import com.hyunjine.linker.designsystem.theme.SurfaceCard
+import com.hyunjine.linker.designsystem.theme.SurfaceGray
+import com.hyunjine.linker.designsystem.theme.TextPrimary
+import com.hyunjine.linker.designsystem.theme.TextSecondary
 
 private val TOP_BAR_HEIGHT = 54.dp
 
@@ -132,7 +132,7 @@ private fun PartnerCodeInputCard(
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    com.hyunjine.linker.ui.common.AppInputCard(
+    com.hyunjine.linker.designsystem.common.AppInputCard(
         label = "초대코드",
         value = value,
         onValueChange = onValueChange,

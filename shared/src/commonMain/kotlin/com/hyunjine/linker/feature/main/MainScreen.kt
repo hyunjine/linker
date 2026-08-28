@@ -1,4 +1,4 @@
-package com.hyunjine.linker.ui.main
+package com.hyunjine.linker.feature.main
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -51,26 +51,26 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.rememberDrawerState
 import com.hyunjine.linker.data.specialday.SpecialDayKind
-import com.hyunjine.linker.ui.common.AppDrawer
-import com.hyunjine.linker.ui.common.YearMonthPickerSheet
-import com.hyunjine.linker.ui.common.liquidGlass
-import com.hyunjine.linker.ui.theme.Background
-import com.hyunjine.linker.ui.theme.CalendarLunarText
-import com.hyunjine.linker.ui.theme.CalendarSaturday
-import com.hyunjine.linker.ui.theme.CalendarSunday
-import com.hyunjine.linker.ui.theme.CalendarTodayCircle
-import com.hyunjine.linker.ui.theme.CalendarTodayText
-import com.hyunjine.linker.ui.theme.CalendarWeekdayText
-import com.hyunjine.linker.ui.theme.ChipHolidayBg
-import com.hyunjine.linker.ui.theme.ChipHolidayText
-import com.hyunjine.linker.ui.theme.ChipPersonalBg
-import com.hyunjine.linker.ui.theme.ChipPersonalText
-import com.hyunjine.linker.ui.theme.ChipSeasonBg
-import com.hyunjine.linker.ui.theme.ChipSeasonText
-import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
-import com.hyunjine.linker.ui.theme.ProvidePretendard
-import com.hyunjine.linker.ui.theme.SurfaceGray
-import com.hyunjine.linker.ui.theme.TextPrimary
+import com.hyunjine.linker.designsystem.common.AppDrawer
+import com.hyunjine.linker.designsystem.common.YearMonthPickerSheet
+import com.hyunjine.linker.designsystem.common.liquidGlass
+import com.hyunjine.linker.designsystem.theme.Background
+import com.hyunjine.linker.designsystem.theme.CalendarLunarText
+import com.hyunjine.linker.designsystem.theme.CalendarSaturday
+import com.hyunjine.linker.designsystem.theme.CalendarSunday
+import com.hyunjine.linker.designsystem.theme.CalendarTodayCircle
+import com.hyunjine.linker.designsystem.theme.CalendarTodayText
+import com.hyunjine.linker.designsystem.theme.CalendarWeekdayText
+import com.hyunjine.linker.designsystem.theme.ChipHolidayBg
+import com.hyunjine.linker.designsystem.theme.ChipHolidayText
+import com.hyunjine.linker.designsystem.theme.ChipPersonalBg
+import com.hyunjine.linker.designsystem.theme.ChipPersonalText
+import com.hyunjine.linker.designsystem.theme.ChipSeasonBg
+import com.hyunjine.linker.designsystem.theme.ChipSeasonText
+import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
+import com.hyunjine.linker.designsystem.theme.ProvidePretendard
+import com.hyunjine.linker.designsystem.theme.SurfaceGray
+import com.hyunjine.linker.designsystem.theme.TextPrimary
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlinx.datetime.DateTimeUnit
@@ -191,7 +191,7 @@ fun MainScreen(
      * 일정 생성 진입. 롱프레스 · DayDetailSheet "+" 두 경로가 공유. [type] 은 어느 pill/롱프레스인지에
      * 따라 다름 — 롱프레스는 [ScheduleType.Schedule] 기본, "+" pill 은 사용자가 고른 것.
      */
-    onAddSchedule: (LocalDate, com.hyunjine.linker.ui.schedule.ScheduleType) -> Unit = { _, _ -> },
+    onAddSchedule: (LocalDate, com.hyunjine.linker.feature.schedule.ScheduleType) -> Unit = { _, _ -> },
     onEditSchedule: (id: String) -> Unit = {},
     onAnniversaryClick: () -> Unit = {},
     onProfileEditClick: () -> Unit = {},
@@ -326,7 +326,7 @@ fun MainScreen(
                     sheetVisible = true
                 },
                 onDayLongClick = { date ->
-                    onAddSchedule(date, com.hyunjine.linker.ui.schedule.ScheduleType.Schedule)
+                    onAddSchedule(date, com.hyunjine.linker.feature.schedule.ScheduleType.Schedule)
                 },
                 modifier = Modifier.fillMaxSize(),
             )

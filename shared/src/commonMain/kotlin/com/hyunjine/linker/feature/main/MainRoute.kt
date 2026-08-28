@@ -1,4 +1,4 @@
-package com.hyunjine.linker.ui.main
+package com.hyunjine.linker.feature.main
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -6,7 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.hyunjine.linker.ui.schedule.ScheduleType
+import com.hyunjine.linker.feature.schedule.ScheduleType
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 

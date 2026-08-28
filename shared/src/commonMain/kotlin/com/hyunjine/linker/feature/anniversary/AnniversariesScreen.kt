@@ -1,4 +1,4 @@
-package com.hyunjine.linker.ui.anniversary
+package com.hyunjine.linker.feature.anniversary
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -42,19 +42,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.hyunjine.linker.ui.common.AppBottomSheet
-import com.hyunjine.linker.ui.common.AppSwitch
-import com.hyunjine.linker.ui.common.AppTopBar
-import com.hyunjine.linker.ui.common.PrimaryButton
-import com.hyunjine.linker.ui.common.YearMonthDayPickerSheet
-import com.hyunjine.linker.ui.theme.LocalPretendardFontFamily
-import com.hyunjine.linker.ui.theme.OnPrimary
-import com.hyunjine.linker.ui.theme.PrimaryBlue
-import com.hyunjine.linker.ui.theme.Separator
-import com.hyunjine.linker.ui.theme.SurfaceCard
-import com.hyunjine.linker.ui.theme.SurfaceGray
-import com.hyunjine.linker.ui.theme.TextPrimary
-import com.hyunjine.linker.ui.theme.TextSecondary
+import com.hyunjine.linker.designsystem.common.AppBottomSheet
+import com.hyunjine.linker.designsystem.common.AppSwitch
+import com.hyunjine.linker.designsystem.common.AppTopBar
+import com.hyunjine.linker.designsystem.common.PrimaryButton
+import com.hyunjine.linker.designsystem.common.YearMonthDayPickerSheet
+import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
+import com.hyunjine.linker.designsystem.theme.OnPrimary
+import com.hyunjine.linker.designsystem.theme.PrimaryBlue
+import com.hyunjine.linker.designsystem.theme.Separator
+import com.hyunjine.linker.designsystem.theme.SurfaceCard
+import com.hyunjine.linker.designsystem.theme.SurfaceGray
+import com.hyunjine.linker.designsystem.theme.TextPrimary
+import com.hyunjine.linker.designsystem.theme.TextSecondary
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
 import kotlinx.datetime.LocalDate
@@ -425,7 +425,7 @@ private fun today(): LocalDate =
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun AnniversariesScreenPreview_Empty() {
-    com.hyunjine.linker.ui.theme.ProvidePretendard {
+    com.hyunjine.linker.designsystem.theme.ProvidePretendard {
         AnniversariesScreen(items = emptyList())
     }
 }
@@ -433,7 +433,7 @@ private fun AnniversariesScreenPreview_Empty() {
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun AnniversariesScreenPreview_Filled() {
-    com.hyunjine.linker.ui.theme.ProvidePretendard {
+    com.hyunjine.linker.designsystem.theme.ProvidePretendard {
         AnniversariesScreen(
             items = listOf(
                 AnniversaryUi("1", "처음 만난 날", LocalDate(2024, 3, 14), repeatYearly = true),
@@ -447,7 +447,7 @@ private fun AnniversariesScreenPreview_Filled() {
 @androidx.compose.ui.tooling.preview.Preview
 @Composable
 private fun AnniversariesScreenPreview_Busy() {
-    com.hyunjine.linker.ui.theme.ProvidePretendard {
+    com.hyunjine.linker.designsystem.theme.ProvidePretendard {
         AnniversariesScreen(
             items = listOf(
                 AnniversaryUi("1", "처음 만난 날", LocalDate(2024, 3, 14), repeatYearly = true),
