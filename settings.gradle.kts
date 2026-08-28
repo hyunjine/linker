@@ -1,6 +1,9 @@
 rootProject.name = "Linker"
 
 pluginManagement {
+    // 컨벤션 플러그인 (linker.kmp.library · linker.kmp.compose.library) 을 참조 가능하게
+    // build-logic 을 composite build 로 include. #96 멀티모듈 리팩터의 인프라 조각.
+    includeBuild("build-logic")
     repositories {
         google {
             mavenContent {
@@ -31,4 +34,3 @@ dependencyResolutionManagement {
 
 include(":androidApp")
 include(":shared")
-include(":shared-api")
