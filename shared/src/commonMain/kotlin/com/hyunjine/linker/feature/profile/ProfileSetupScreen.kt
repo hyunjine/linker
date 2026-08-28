@@ -103,8 +103,8 @@ val DefaultCalendarColors = listOf(
 // 큰 여백만 weight로 늘려 잡고, 각 블록 사이의 짧은 간격도 정수 비율로 표기.
 @Composable
 fun ProfileSetupScreen(
-    nickname: String = "현진",
-    birthDate: String = "1998. 05. 24.",
+    nickname: String = "",
+    birthDate: String = "2000. 01. 01.",
     selectedColorId: String = "blue",
     calendarColors: List<CalendarColorOption> = DefaultCalendarColors,
     saving: Boolean = false,

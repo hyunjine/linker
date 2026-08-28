@@ -35,6 +35,7 @@ import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderFg
 import com.hyunjine.linker.designsystem.theme.DrawerButtonBg
 import com.hyunjine.linker.designsystem.theme.DrawerCheckBlue
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
+import com.hyunjine.linker.designsystem.theme.LogoGradient
 import com.hyunjine.linker.designsystem.theme.SurfaceCard
 import com.hyunjine.linker.designsystem.theme.TextPrimary
 import com.hyunjine.linker.designsystem.theme.TextSecondary
@@ -95,9 +96,8 @@ fun MainDrawerContent(
         )
         Spacer(Modifier.height(12.dp))
         if (showCoupleLink) {
-            AllScheduleButton(
+            AllScheduleButtonWithLogo(
                 text = "상대방 연결",
-                iconRes = Res.drawable.ic_cal_31,
                 onClick = onCoupleLinkClick,
             )
             Spacer(Modifier.height(8.dp))
@@ -228,6 +228,56 @@ private fun ProfileHeader(name: String, handle: String, imageUrl: String?, onCli
             contentDescription = null,
             colorFilter = ColorFilter.tint(TextPrimary),
             modifier = Modifier.size(24.dp),
+        )
+    }
+}
+
+/**
+ * "상대방 연결" 전용 — 아이콘 자리를 로그인 화면 로고 (gradient + "현민") 축소판으로 대체.
+ * 앱 정체성을 상기시키며 브랜드 톤을 유지. 그 외 시각·간격은 [AllScheduleButton] 과 동일.
+ */
+@Composable
+private fun AllScheduleButtonWithLogo(
+    text: String,
+    onClick: () -> Unit,
+) {
+    val pretendard = LocalPretendardFontFamily.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(DrawerButtonBg)
+            .noRippleClickable(onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .size(22.dp)
+                .clip(CircleShape)
+                .background(LogoGradient),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "현민",
+                style = TextStyle(
+                    color = Color.White,
+                    fontFamily = pretendard,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 8.sp,
+                ),
+            )
+        }
+        Text(
+            text = text,
+            style = TextStyle(
+                fontFamily = pretendard,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                color = TextPrimary,
+            ),
         )
     }
 }

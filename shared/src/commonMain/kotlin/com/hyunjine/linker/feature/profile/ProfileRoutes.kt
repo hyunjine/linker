@@ -79,9 +79,10 @@ internal data class ProfileDefaults(val nickname: String, val avatarUrl: String?
 
 internal fun profileDefaults(user: UserInfo?): ProfileDefaults {
     val meta: JsonObject? = user?.userMetadata
+    // 카카오 provider 가 채운 값만 사용. 없으면 빈 문자열/null — 사용자가 직접 입력 · 선택.
     val nickname = meta?.get("full_name")?.jsonPrimitive?.contentOrNull
         ?: meta?.get("name")?.jsonPrimitive?.contentOrNull
-        ?: "현진"
+        ?: ""
     val avatar = meta?.get("avatar_url")?.jsonPrimitive?.contentOrNull
     return ProfileDefaults(nickname = nickname, avatarUrl = avatar)
 }
