@@ -6,6 +6,10 @@ import KakaoSDKUser
 
 @main
 struct iOSApp: App {
+    // 홈화면 · 잠금화면 위젯이 볼 오늘 일정 payload 를 앱이 write.
+    // scenePhase 변화 감지에 필요.
+    @Environment(\.scenePhase) private var scenePhase
+
     init() {
         // 카카오 SDK 초기화. 네이티브 앱 키는 Config.xcconfig → Info.plist (KAKAO_NATIVE_APP_KEY).
         let appKey = Bundle.main.object(forInfoDictionaryKey: "KAKAO_NATIVE_APP_KEY") as? String ?? ""
@@ -86,6 +90,14 @@ struct iOSApp: App {
                         _ = AuthController.handleOpenUrl(url: url)
                     }
                 }
+                .onAppear {
+                    // 첫 진입 시 위젯 payload 갱신 (세션 없으면 shared 가 빈 items 로 반환).
+                    WidgetSync.refresh()
+                }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // foreground 복귀 · 로그인 후 등에도 최신 오늘 일정 반영.
+            if phase == .active { WidgetSync.refresh() }
         }
     }
 }
