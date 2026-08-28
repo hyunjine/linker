@@ -71,6 +71,7 @@ struct TodayScheduleWidget: Widget {
             .systemMedium,
             .accessoryRectangular,
             .accessoryInline,
+            .accessoryCircular,
         ])
     }
 }
@@ -87,6 +88,8 @@ struct TodayScheduleView: View {
             InlineView(entry: entry)
         case .accessoryRectangular:
             RectangularView(entry: entry)
+        case .accessoryCircular:
+            CircularView(entry: entry)
         case .systemSmall:
             SmallView(entry: entry)
         case .systemMedium:
@@ -102,6 +105,26 @@ private struct InlineView: View {
     var body: some View {
         let count = entry.payload?.items.count ?? 0
         Text(count == 0 ? "오늘 일정 없음" : "오늘 \(count)개")
+    }
+}
+
+private struct CircularView: View {
+    let entry: TodayScheduleEntry
+    var body: some View {
+        // 잠금화면 원형은 공간이 극도로 좁아 카운트만 보여줌.
+        // AccessoryWidgetBackground 는 iOS 가 잠금화면 톤에 맞춰 반투명 원 배경을 그림.
+        let count = entry.payload?.items.count ?? 0
+        ZStack {
+            AccessoryWidgetBackground()
+            VStack(spacing: 0) {
+                Text("\(count)")
+                    .font(.system(size: 22, weight: .semibold))
+                    .monospacedDigit()
+                Text("일정")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }
 
@@ -269,6 +292,19 @@ private struct OwnerDot: View {
         date: "2026-08-28",
         items: [
             WidgetSchedule(id: "1", title: "병원 예약", timeLabel: "오전 10:00", ownerKind: "me", isTask: false, isDone: false),
+        ],
+    ))
+}
+
+#Preview("Lock Circular", as: .accessoryCircular) {
+    TodayScheduleWidget()
+} timeline: {
+    TodayScheduleEntry(date: Date(), payload: WidgetTodayPayload(
+        date: "2026-08-28",
+        items: [
+            WidgetSchedule(id: "1", title: "병원 예약", timeLabel: "오전 10:00", ownerKind: "me", isTask: false, isDone: false),
+            WidgetSchedule(id: "2", title: "장보기", timeLabel: nil, ownerKind: "us", isTask: true, isDone: false),
+            WidgetSchedule(id: "3", title: "저녁 약속", timeLabel: "오후 7:00", ownerKind: "partner", isTask: false, isDone: false),
         ],
     ))
 }
