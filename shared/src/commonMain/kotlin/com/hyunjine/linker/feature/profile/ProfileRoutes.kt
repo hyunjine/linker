@@ -1,6 +1,7 @@
 package com.hyunjine.linker.feature.profile
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -52,6 +53,9 @@ fun ProfileEditRoute(
 ) {
     val viewModel: ProfileEditViewModel = viewModel { ProfileEditViewModel() }
     val ui by viewModel.uiState.collectAsStateWithLifecycle()
+    // 매 진입 시 fresh 조회 — 저장 후 다시 들어와도 stale 값 안 보이도록. VM 이 재사용되는
+    // 케이스 (nav3 백스택 재구성 등) 를 방어.
+    LaunchedEffect(Unit) { viewModel.reload() }
     if (!ui.loaded) return
     val p = ui.profile ?: run {
         println("[ProfileEdit] 프로필 없음 — 편집 화면 진입 취소")

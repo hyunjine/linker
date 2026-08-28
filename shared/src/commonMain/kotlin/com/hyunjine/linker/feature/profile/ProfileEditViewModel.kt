@@ -18,7 +18,13 @@ class ProfileEditViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(ProfileEditUiState())
     val uiState: StateFlow<ProfileEditUiState> = _uiState.asStateFlow()
 
-    init {
+    init { reload() }
+
+    /**
+     * DB 에서 프로필 다시 조회. Route composable 이 재진입할 때 호출해 저장 직후 값이 즉시 반영되게 한다
+     * (VM 이 nav 재사용으로 살아있는 경우 init 이 한 번만 돌아 stale 상태로 남는 문제 해결).
+     */
+    fun reload() {
         viewModelScope.launch {
             val profile = runCatching { UsersRepository.myProfile() }
                 .onFailure { println("[ProfileEdit] 프로필 로드 실패: $it") }
