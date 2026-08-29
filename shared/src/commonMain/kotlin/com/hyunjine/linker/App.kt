@@ -137,8 +137,7 @@ private fun oneMonthAhead(): LocalDate = today().plus(93, DateTimeUnit.DAY)
 /**
  * 로그인 완료 시 자동으로 진입할 화면을 결정한다.
  * - 프로필 미완성 → ProfileSetup
- * - 프로필 완성 · 커플 미가입 → CoupleLink
- * - 둘 다 완료 → Main (홈)
+ * - 프로필 완성 → Main (커플 가입 여부와 무관 — 커플 연결은 드로워 "상대방 연결" 에서 언제든지)
  *
  * 조회 실패는 안전하게 ProfileSetup 으로 폴백 (사용자가 다시 시도할 수 있게 하는 게 최선).
  */
@@ -146,11 +145,7 @@ private suspend fun decideBootstrapTarget(): NavKey {
     val profile = runCatching { UsersRepository.myProfile() }
         .onFailure { println("[Boot] myProfile 실패: $it") }
         .getOrNull()
-    if (profile?.isCompleted != true) return ProfileSetupRoute
-    val coupleId = runCatching { CouplesRepository.myCoupleIdOrNull() }
-        .onFailure { println("[Boot] myCoupleIdOrNull 실패: $it") }
-        .getOrNull()
-    return if (coupleId == null) CoupleLinkRoute else MainRoute
+    return if (profile?.isCompleted != true) ProfileSetupRoute else MainRoute
 }
 
 @kotlin.OptIn(kotlin.time.ExperimentalTime::class)
@@ -280,6 +275,10 @@ fun App() {
             // CreateScheduleRoute onDone 시 bump → MainRoute 의 LaunchedEffect 가 VM.refreshSchedules 호출.
             var scheduleRefreshTick by remember { mutableStateOf(0) }
 
+            // 커플 연결 상태가 바뀔 때마다 (join 성공 등) MainViewModel 이 파트너 프로필 · 색 · chip 재조회.
+            // 드로워 "상대방 연결" 진입은 이 상태를 hide/show 로 반영.
+            var coupleRefreshTick by remember { mutableStateOf(0) }
+
             // 세션 상태 기반 부트스트랩 라우팅.
             //  - Initializing: SplashRoute 유지 (세션 storage 로드 중)
             //  - Authenticated: 프로필/커플 상태 조회 → 미완성 단계로 자동 진입 (재로그인 시 온보딩 스킵)
@@ -321,7 +320,8 @@ fun App() {
                         com.hyunjine.linker.feature.profile.ProfileSetupRoute(
                             currentUser = currentUser,
                             onBack = { backStack.removeLastOrNull() },
-                            onSaved = { backStack.add(CoupleLinkRoute) },
+                            // 프로필 세팅 완료 → 커플 연결은 선택이라 바로 홈. 원할 때 드로워로 연결.
+                            onSaved = goHome,
                         )
                     }
                     entry<ProfileEditRoute> {
@@ -342,13 +342,26 @@ fun App() {
                     }
                     entry<CoupleInviteCodeRoute> {
                         com.hyunjine.linker.feature.couple.CoupleInviteCodeRoute(
-                            onBack = { backStack.removeLastOrNull() },
+                            onBack = {
+                                // 이 화면 진입만으로 createOrGetMyCouple 이 호출돼 유저가 "커플 있음" 상태로
+                                // 바뀔 수 있음 → 돌아갈 때 Main 이 상태 재조회하도록 tick bump.
+                                coupleRefreshTick++
+                                backStack.removeLastOrNull()
+                            },
                         )
                     }
                     entry<CoupleJoinRoute> {
                         com.hyunjine.linker.feature.couple.CoupleJoinRoute(
                             onBack = { backStack.removeLastOrNull() },
-                            onJoined = goHome,
+                            onJoined = {
+                                // Main 에서 진입한 케이스: CoupleJoin · CoupleLink 만 걷어내고 Main 유지.
+                                // 온보딩 직후 진입은 없어졌지만 안전하게 Main 이 스택에 없으면 goHome 폴백.
+                                while (backStack.isNotEmpty() && backStack.last() != MainRoute) {
+                                    backStack.removeLastOrNull()
+                                }
+                                if (backStack.isEmpty()) goHome()
+                                coupleRefreshTick++
+                            },
                         )
                     }
                     entry<MainRoute> {
@@ -369,6 +382,7 @@ fun App() {
                             onAnniversaryClick = { backStack.add(AnniversariesRoute) },
                             onSearchClick = { backStack.add(SearchRoute) },
                             onProfileEditClick = { backStack.add(ProfileEditRoute) },
+                            onCoupleLinkClick = { backStack.add(CoupleLinkRoute) },
                             onLogout = {
                                 scope.launch {
                                     runCatching { signOut(kakao) }
@@ -377,6 +391,7 @@ fun App() {
                             },
                             profileRefreshTick = profileRefreshTick,
                             scheduleRefreshTick = scheduleRefreshTick,
+                            coupleRefreshTick = coupleRefreshTick,
                         )
                     }
                     entry<SearchRoute> {

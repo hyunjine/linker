@@ -39,6 +39,7 @@ import com.hyunjine.linker.designsystem.theme.SurfaceCard
 import com.hyunjine.linker.designsystem.theme.TextPrimary
 import com.hyunjine.linker.designsystem.theme.TextSecondary
 import linker.shared.generated.resources.Res
+import linker.shared.generated.resources.ic_app_logo
 import linker.shared.generated.resources.ic_cal_31
 import linker.shared.generated.resources.ic_check
 import linker.shared.generated.resources.ic_setting_outline
@@ -72,6 +73,7 @@ fun MainDrawerContent(
     profileImageUrl: String? = null,
     onSettingsClick: () -> Unit = {},
     onAnniversaryClick: () -> Unit = {},
+    onCoupleLinkClick: () -> Unit = {},
     onToggleMyCalendar: (Boolean) -> Unit = {},
     onTogglePartnerCalendar: (Boolean) -> Unit = {},
     onToggleHolidays: (Boolean) -> Unit = {},
@@ -91,6 +93,11 @@ fun MainDrawerContent(
             onClick = onSettingsClick,
         )
         Spacer(Modifier.height(12.dp))
+        AllScheduleButtonWithLogo(
+            text = "상대방 연결",
+            onClick = onCoupleLinkClick,
+        )
+        Spacer(Modifier.height(8.dp))
         AllScheduleButton(
             text = "기념일 설정",
             iconRes = Res.drawable.ic_cal_31,
@@ -217,6 +224,43 @@ private fun ProfileHeader(name: String, handle: String, imageUrl: String?, onCli
             contentDescription = null,
             colorFilter = ColorFilter.tint(TextPrimary),
             modifier = Modifier.size(24.dp),
+        )
+    }
+}
+
+/**
+ * "상대방 연결" 전용 — 앱 아이콘 (링키드 링) 을 22dp 로 렌더. 그 외 시각·간격은 [AllScheduleButton] 과 동일.
+ */
+@Composable
+private fun AllScheduleButtonWithLogo(
+    text: String,
+    onClick: () -> Unit,
+) {
+    val pretendard = LocalPretendardFontFamily.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(DrawerButtonBg)
+            .noRippleClickable(onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Image(
+            painter = painterResource(Res.drawable.ic_app_logo),
+            contentDescription = null,
+            modifier = Modifier.size(22.dp).clip(RoundedCornerShape(5.dp)),
+        )
+        Text(
+            text = text,
+            style = TextStyle(
+                fontFamily = pretendard,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+                color = TextPrimary,
+            ),
         )
     }
 }

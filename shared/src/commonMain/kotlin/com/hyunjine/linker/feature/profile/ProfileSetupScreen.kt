@@ -103,8 +103,8 @@ val DefaultCalendarColors = listOf(
 // 큰 여백만 weight로 늘려 잡고, 각 블록 사이의 짧은 간격도 정수 비율로 표기.
 @Composable
 fun ProfileSetupScreen(
-    nickname: String = "현진",
-    birthDate: String = "1998. 05. 24.",
+    nickname: String = "",
+    birthDate: String = "2000. 01. 01.",
     selectedColorId: String = "blue",
     calendarColors: List<CalendarColorOption> = DefaultCalendarColors,
     saving: Boolean = false,
@@ -123,12 +123,15 @@ fun ProfileSetupScreen(
     var showBirthDateSheet by rememberSaveable { mutableStateOf(false) }
     var showNicknameSheet by rememberSaveable { mutableStateOf(false) }
     // 화면이 직접 소유하는 편집 상태 (uncontrolled). 상위는 콜백으로만 최종 값을 수신.
-    var currentNickname by rememberSaveable { mutableStateOf(nickname) }
-    var currentBirthDate by rememberSaveable { mutableStateOf(birthDate) }
-    var currentColorId by rememberSaveable { mutableStateOf(selectedColorId) }
+    // 입력 파라미터를 key 로 걸어야 계정 전환 · 프리필 변경 시 이전 세션 값이 복원되지 않음
+    // (기본 rememberSaveable 은 최초 1회만 저장 → 로그아웃/재로그인 후에도 옛 계정 정보 표시되는 버그).
+    var currentNickname by rememberSaveable(nickname) { mutableStateOf(nickname) }
+    var currentBirthDate by rememberSaveable(birthDate) { mutableStateOf(birthDate) }
+    var currentColorId by rememberSaveable(selectedColorId) { mutableStateOf(selectedColorId) }
     // 사용자가 사진 라이브러리에서 고른 아바타. 메모리 전용 (파일 저장은 이후).
-    // rememberSaveable 은 ImageBitmap 을 저장할 수 없어 remember 로만 유지.
-    var avatarImage by remember { mutableStateOf<ImageBitmap?>(null) }
+    // rememberSaveable 은 ImageBitmap 을 저장할 수 없어 remember 로만 유지. defaultAvatarUrl 이
+    // 바뀌면 (다른 계정) 이전에 pick 한 이미지가 남아있지 않도록 함께 리셋.
+    var avatarImage by remember(defaultAvatarUrl) { mutableStateOf<ImageBitmap?>(null) }
     val launchPhotoPicker = rememberImagePicker { picked ->
         if (picked != null) avatarImage = picked
     }

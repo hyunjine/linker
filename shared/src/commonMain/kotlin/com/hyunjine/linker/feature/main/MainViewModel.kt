@@ -2,7 +2,6 @@ package com.hyunjine.linker.feature.main
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.hyunjine.linker.data.remote.CouplesRepository
 import com.hyunjine.linker.data.remote.SchedulesRepository
 import com.hyunjine.linker.data.remote.UsersRepository
 import com.hyunjine.linker.designsystem.theme.CalendarPurple
