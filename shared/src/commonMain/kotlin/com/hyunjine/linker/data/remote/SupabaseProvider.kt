@@ -5,6 +5,7 @@ import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
+import io.github.jan.supabase.realtime.Realtime
 
 /**
  * Supabase 클라이언트 진입점. 앱 프로세스에 하나만 있으면 되고, 첫 접근 시 지연 초기화.
@@ -16,6 +17,7 @@ import io.github.jan.supabase.postgrest.Postgrest
  * - [Auth]: Supabase Auth. 인증은 카카오 SDK 로그인 → `signInWith(IDToken, Kakao)` 흐름. 별도
  *   OAuth 딥링크 (scheme/host) 는 불필요해 설정하지 않는다.
  * - [Postgrest]: PostgREST 자동 API.
+ * - [Realtime]: postgres_changes 구독. 파트너 변경 즉시 sync (schedules · anniversaries · users).
  *
  * Swift 에서는 `SupabaseProvider.shared.client` 로 접근.
  */
@@ -27,6 +29,7 @@ object SupabaseProvider {
         ) {
             install(Auth)
             install(Postgrest)
+            install(Realtime)
         }
     }
 
