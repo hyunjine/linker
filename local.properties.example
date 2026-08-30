@@ -1,0 +1,29 @@
+## local.properties 템플릿.
+##
+## 다른 맥에서 클론 직후 이 파일을 참고해 `local.properties` 를 만드세요.
+##   1) `cp local.properties.example local.properties`
+##   2) 아래 값들을 실제 값으로 교체
+##
+## 실제 `local.properties` 는 .gitignore 되어 저장소에 안 들어갑니다.
+
+# Android SDK 경로. Android Studio 가 자동으로 채워주기도 함.
+sdk.dir=/Users/<username>/Library/Android/sdk
+
+# ─── Supabase (필수) ────────────────────────────────────────────────
+# Project URL — 대시보드 프로젝트 홈에 표시됨.
+# https://supabase.com/dashboard/project/<project-ref>/settings/api
+supabase.url=https://<project-ref>.supabase.co
+
+# Publishable API key (sb_publishable_...). 클라이언트 임베드 안전 (RLS 로 보호).
+# 대시보드 → Project Settings → API Keys → Publishable
+supabase.publishableKey=sb_publishable_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+# ─── Kakao 네이티브 앱 키 (필수) ─────────────────────────────────────
+# https://developers.kakao.com/console/app → 앱 선택 → 앱 키 → "네이티브 앱 키"
+# Android SDK init + `kakao{키}://oauth` manifest 스킴에 주입.
+kakao.native.app.key=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+# ─── data.go.kr 특일정보 API (선택 · 공휴일 · 절기 표시용) ──────────
+# https://www.data.go.kr → 마이페이지 → 오픈API → 활용신청 → 인증키.
+# URL-encoded 원본 그대로 (일반 인증키 · Encoding).
+holiday.api.key=XXXXXXXXXXXXXXXXXX%2FXXXXXXXX%3D%3D

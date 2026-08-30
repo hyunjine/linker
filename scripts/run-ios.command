@@ -19,21 +19,23 @@ echo " Linker — iOS 실행 준비"
 echo " 위치: $REPO_ROOT"
 echo "───────────────────────────────────────────"
 
-# 0. 필수 파일 존재 확인 — 누락 시 무엇을 채워야 하는지 안내.
-missing=0
+# 0. 필수 파일 존재 확인. 없으면 .example 을 자동 복사해 두고 사용자에게 채우도록 안내.
+copied=0
 if [[ ! -f "iosApp/Configuration/Config.xcconfig" ]]; then
-  echo "  ✘ iosApp/Configuration/Config.xcconfig 가 없음."
-  echo "    KAKAO_NATIVE_APP_KEY=... 와 TEAM_ID=... 를 이 파일에 넣어주세요."
-  missing=1
+  cp iosApp/Configuration/Config.xcconfig.example iosApp/Configuration/Config.xcconfig
+  echo "  ▸ iosApp/Configuration/Config.xcconfig 를 .example 로부터 새로 생성했어요."
+  echo "    → TEAM_ID · KAKAO_NATIVE_APP_KEY 를 실제 값으로 채워주세요."
+  copied=1
 fi
 if [[ ! -f "local.properties" ]]; then
-  echo "  ✘ local.properties 가 없음."
-  echo "    supabase.url · supabase.publishableKey · kakao.native.app.key 를 넣어주세요."
-  missing=1
+  cp local.properties.example local.properties
+  echo "  ▸ local.properties 를 .example 로부터 새로 생성했어요."
+  echo "    → supabase / kakao / holiday 키를 실제 값으로 채워주세요."
+  copied=1
 fi
-if (( missing == 1 )); then
+if (( copied == 1 )); then
   echo ""
-  echo "  ↑ 위 파일부터 준비 후 다시 실행하세요."
+  echo "  ↑ 위 파일들에 실제 값 채운 후 이 스크립트를 다시 실행하세요."
   read -n 1 -s -r -p "  아무 키나 눌러 창을 닫으세요..."
   exit 1
 fi

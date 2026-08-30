@@ -23,11 +23,21 @@ echo " Linker — iOS 완전 자동 실행"
 echo " 위치: $REPO_ROOT"
 echo "───────────────────────────────────────────"
 
-# 0. 필수 파일.
-missing=0
-[[ -f "iosApp/Configuration/Config.xcconfig" ]] || { echo "  ✘ iosApp/Configuration/Config.xcconfig 없음"; missing=1; }
-[[ -f "local.properties" ]] || { echo "  ✘ local.properties 없음"; missing=1; }
-if (( missing == 1 )); then
+# 0. 필수 파일. 없으면 .example 로부터 자동 복사 후 사용자에게 값 채우도록 안내.
+copied=0
+if [[ ! -f "iosApp/Configuration/Config.xcconfig" ]]; then
+  cp iosApp/Configuration/Config.xcconfig.example iosApp/Configuration/Config.xcconfig
+  echo "  ▸ Config.xcconfig 생성 — TEAM_ID · KAKAO_NATIVE_APP_KEY 채워주세요."
+  copied=1
+fi
+if [[ ! -f "local.properties" ]]; then
+  cp local.properties.example local.properties
+  echo "  ▸ local.properties 생성 — supabase / kakao / holiday 키 채워주세요."
+  copied=1
+fi
+if (( copied == 1 )); then
+  echo ""
+  echo "  ↑ 값 채운 후 다시 실행하세요."
   read -n 1 -s -r -p "  아무 키나 눌러 창을 닫으세요..."
   exit 1
 fi
