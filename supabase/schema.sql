@@ -128,6 +128,10 @@ CREATE TABLE IF NOT EXISTS public.schedules (
     end_time    TIME,
 
     is_done     BOOLEAN NOT NULL DEFAULT FALSE,
+    -- 반복 시리즈 그룹핑. 같은 반복 규칙으로 생성된 인스턴스들은 동일 값을 공유.
+    -- 편집 · 삭제 시 series_id 로 batch 처리 → 시리즈 전체 일괄 적용.
+    series_id   UUID,
+
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
 
@@ -145,6 +149,7 @@ FOR EACH ROW EXECUTE FUNCTION public.touch_updated_at();
 
 CREATE INDEX IF NOT EXISTS ix_schedules_couple_range ON public.schedules(couple_id, start_date, end_date);
 CREATE INDEX IF NOT EXISTS ix_schedules_couple_type  ON public.schedules(couple_id, type);
+CREATE INDEX IF NOT EXISTS ix_schedules_couple_series ON public.schedules(couple_id, series_id) WHERE series_id IS NOT NULL;
 
 DO $$ BEGIN
     CREATE TYPE public.repeat_kind AS ENUM ('daily', 'weekly', 'monthly', 'yearly', 'custom');

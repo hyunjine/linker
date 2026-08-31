@@ -252,9 +252,10 @@ fun CreateScheduleScreen(
     RepeatPickerSheet(
         visible = repeatSheet,
         current = draft.repeat,
+        currentEndDate = draft.repeatEndDate,
         anchorDate = draft.startDate,
-        onSelect = { rule ->
-            draft = draft.copy(repeat = rule)
+        onConfirm = { rule, endDate ->
+            draft = draft.copy(repeat = rule, repeatEndDate = endDate)
             repeatSheet = false
         },
         onDismiss = { repeatSheet = false },
@@ -512,8 +513,8 @@ private val ScheduleDraftSaver = androidx.compose.runtime.saveable.Saver<Schedul
                 is RepeatRule.Weekly -> "weekly"
                 is RepeatRule.Monthly -> "monthly:${d.repeat.day}"
                 is RepeatRule.Yearly -> "yearly:${d.repeat.month}:${d.repeat.day}"
-                RepeatRule.Custom -> "custom"
             },
+            d.repeatEndDate?.toString(),
             d.owner.name,
         )
     },
@@ -527,7 +528,8 @@ private val ScheduleDraftSaver = androidx.compose.runtime.saveable.Saver<Schedul
             startTime = list[5] as String?,
             endTime = list[6] as String?,
             repeat = parseRepeat(list[7] as String),
-            owner = ScheduleOwner.valueOf(list[8] as String),
+            repeatEndDate = (list[8] as String?)?.let { LocalDate.parse(it) },
+            owner = ScheduleOwner.valueOf(list[9] as String),
         )
     },
 )
@@ -541,6 +543,5 @@ private fun parseRepeat(s: String): RepeatRule = when {
         val parts = s.substringAfter(":").split(":")
         RepeatRule.Yearly(parts.getOrNull(0)?.toIntOrNull() ?: 1, parts.getOrNull(1)?.toIntOrNull() ?: 1)
     }
-    s == "custom" -> RepeatRule.Custom
     else -> RepeatRule.None
 }

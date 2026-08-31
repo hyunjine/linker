@@ -6,8 +6,12 @@ import com.hyunjine.linker.feature.schedule.ScheduleOwner
 import com.hyunjine.linker.feature.schedule.ScheduleType
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.daysUntil
+import kotlinx.datetime.plus
+import kotlin.random.Random
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -15,11 +19,17 @@ import kotlinx.serialization.Serializable
  * `public.schedules` CRUD. RLS `schedules_all_in_my_couple` 로 내 커플 스케줄만 접근 가능.
  * couple_id 는 매 호출마다 fresh 조회 (`myCoupleId()`).
  *
- * 반복 규칙 (`schedule_repeat_rules`) 은 `save` / `update` 에서 함께 upsert · delete.
+ * 반복 규칙 (`schedule_repeat_rules`) 은 각 materialized row 마다 복제 저장 (denormalize).
+ * 편집 UI 가 어느 인스턴스에서 열려도 자기 규칙을 그대로 복원할 수 있게 하기 위함.
  * `weekly_days` 는 bitmask (MON=1<<0..SUN=1<<6, kotlinx `DayOfWeek.ordinal` 기준).
- * 종료조건 (`ends_at` / `max_count`) 는 UI 미노출로 이번 스코프 밖.
+ *
+ * 시리즈 개념: 같은 반복 규칙으로 생성된 인스턴스들은 `schedules.series_id` 를 공유.
+ * 편집 · 삭제는 series_id 로 batch 처리 → 시리즈 전체 일괄 적용.
  */
 object SchedulesRepository {
+
+    /** materialize 상한. 사용자가 실수로 "매일 · 종료 100년 뒤" 같은 걸 골라도 안전. */
+    private const val MAX_SERIES_INSTANCES = 1000
 
     /**
      * 서버 row 형태. 컬럼명이 snake_case 라 그대로 프로퍼티 이름으로 매핑
@@ -40,13 +50,14 @@ object SchedulesRepository {
         @SerialName("start_time") val startTime: String? = null,
         @SerialName("end_time") val endTime: String? = null,
         @SerialName("is_done") val isDone: Boolean,
+        @SerialName("series_id") val seriesId: String? = null,
     )
 
     /**
      * INSERT 전용 payload. `Row` 를 그대로 쓰면 `id = "00000000-..."` placeholder 가 실제 값으로
      * 서버에 기록되어 (Postgres DEFAULT 는 컬럼 명시 시 발동하지 않음) PK 유니크 위반 · 캘린더에
      * placeholder UUID 저장이 발생. id · is_done · created_at · updated_at 은 서버 DEFAULT 로 채워지므로
-     * 여기서 아예 필드를 뺀다.
+     * 여기서 아예 필드를 뺀다. series_id 는 반복 시리즈일 때만 채워진다.
      */
     @Serializable
     data class InsertPayload(
@@ -60,18 +71,19 @@ object SchedulesRepository {
         @SerialName("all_day") val allDay: Boolean,
         @SerialName("start_time") val startTime: String? = null,
         @SerialName("end_time") val endTime: String? = null,
+        @SerialName("series_id") val seriesId: String? = null,
     )
 
     /** `schedule_repeat_rules` row. 필요한 필드만 nullable — CHECK 제약은 서버가 검증. */
     @Serializable
     data class RepeatRow(
         @SerialName("schedule_id") val scheduleId: String,
-        val kind: String, // 'daily' | 'weekly' | 'monthly' | 'yearly' | 'custom'
+        val kind: String, // 'daily' | 'weekly' | 'monthly' | 'yearly'
         @SerialName("weekly_days") val weeklyDays: Short? = null,
         @SerialName("monthly_day") val monthlyDay: Short? = null,
         @SerialName("yearly_month") val yearlyMonth: Short? = null,
         @SerialName("yearly_day") val yearlyDay: Short? = null,
-        @SerialName("custom_rule") val customRule: String? = null,
+        @SerialName("ends_at") val endsAt: String? = null,
     )
 
     /**
@@ -89,12 +101,13 @@ object SchedulesRepository {
         val row = SupabaseProvider.client.from("schedules")
             .select { filter { eq("id", id) } }
             .decodeSingleOrNull<Row>() ?: return null
-        val repeat = SupabaseProvider.client.from("schedule_repeat_rules")
+        val repeatRow = SupabaseProvider.client.from("schedule_repeat_rules")
             .select { filter { eq("schedule_id", id) } }
             .decodeSingleOrNull<RepeatRow>()
-            ?.toRule() ?: RepeatRule.None
+        val rule = repeatRow?.toRule() ?: RepeatRule.None
+        val endDate = repeatRow?.endsAt?.let { LocalDate.parse(it) }
         val viewerId = SupabaseProvider.client.auth.currentUserOrNull()?.id
-        return row.toDraft(repeat, viewerId)
+        return row.toDraft(rule, endDate, viewerId)
     }
 
     /**
@@ -131,42 +144,75 @@ object SchedulesRepository {
     }
 
     /**
-     * 새 스케줄 저장. 반환값은 생성된 id. 반복 규칙도 함께 삽입 (draft.repeat != None 일 때).
+     * 새 스케줄 저장. 반환값은 대표 row 의 id.
+     *
+     * - 반복 없음: 단일 row insert
+     * - 반복 있음: [expandOccurrences] 로 종료일까지의 인스턴스를 계산해서 batch insert.
+     *   모든 row 는 새 series_id 를 공유하고 각자 schedule_repeat_rules 복제본을 가짐.
      */
     suspend fun create(draft: ScheduleDraft): String {
         val coupleId = myCoupleId() ?: error("커플에 속하지 않은 유저가 스케줄 저장 시도")
         val uid = SupabaseProvider.client.auth.currentUserOrNull()?.id
             ?: error("세션 없이 스케줄 저장 시도")
-        val inserted = SupabaseProvider.client.from("schedules")
-            .insert(draft.toInsertPayload(coupleId = coupleId, createdBy = uid)) {
-                select()
-            }
-            .decodeSingle<Row>()
-        applyRepeatRule(inserted.id, draft.repeat)
-        return inserted.id
+
+        if (draft.repeat == RepeatRule.None) {
+            val inserted = SupabaseProvider.client.from("schedules")
+                .insert(draft.toInsertPayload(coupleId, uid, seriesId = null)) { select() }
+                .decodeSingle<Row>()
+            return inserted.id
+        }
+        return insertSeries(draft, coupleId, uid)
     }
 
     /**
-     * 기존 스케줄 갱신. 본체 UPDATE 후 반복 규칙도 upsert/delete 로 재정렬.
-     * `owner_kind` 는 DB 에 creator 관점으로 저장. draft.owner 는 viewer 관점이므로
-     * viewer != creator 인 경우 me ↔ partner 를 되돌린다.
+     * 기존 스케줄 갱신. 반환값은 대표 row 의 id (편집한 인스턴스의 id 를 유지하려 노력).
+     *
+     * 시나리오별 처리:
+     * - 기존/신규 모두 단일: 기존 row 단일 UPDATE (+ 반복 규칙 정리)
+     * - 기존 단일 → 신규 시리즈: 기존 row 삭제 + 새 시리즈 생성
+     * - 기존 시리즈 → 신규 단일: 시리즈 전체 삭제 + 단일 row 생성
+     * - 기존/신규 모두 시리즈이고 규칙 동일: 시리즈 전체 batch UPDATE (title/type/times/owner/allDay 만)
+     * - 기존/신규 모두 시리즈이고 규칙 변경: 시리즈 전체 삭제 + 새 시리즈 생성 (is_done 초기화 감수)
+     *
+     * `owner_kind` 는 DB 에 creator 관점으로 저장. draft.owner 는 viewer 관점이라
+     * viewer != creator 인 경우 me ↔ partner 스왑.
      */
-    suspend fun update(id: String, draft: ScheduleDraft) {
-        val viewerId = SupabaseProvider.client.auth.currentUserOrNull()?.id
-        val ownerForStorage = ownerKindForStorage(draft.owner.toDbValue(), draft.createdBy, viewerId)
-        SupabaseProvider.client.from("schedules").update({
-            set("type", draft.type.toDbValue())
-            set("owner_kind", ownerForStorage)
-            set("title", draft.title)
-            set("start_date", draft.startDate.toString())
-            set("end_date", draft.endDate.toString())
-            set("all_day", draft.allDay)
-            set("start_time", draft.startTimeForDb())
-            set("end_time", draft.endTimeForDb())
-        }) {
-            filter { eq("id", id) }
+    suspend fun update(id: String, draft: ScheduleDraft): String {
+        val coupleId = myCoupleId() ?: error("커플에 속하지 않은 유저가 스케줄 편집 시도")
+        val uid = SupabaseProvider.client.auth.currentUserOrNull()?.id
+            ?: error("세션 없이 스케줄 편집 시도")
+
+        val oldSeriesId = draft.seriesId
+        val oldRepeat = oldSeriesId?.let { fetchRepeatRuleForSchedule(id) } ?: RepeatRule.None
+        val oldEndDate = oldSeriesId?.let { fetchRepeatEndsAt(id) }
+        val ruleChanged = oldRepeat != draft.repeat || oldEndDate != draft.repeatEndDate
+
+        return when {
+            oldSeriesId == null && draft.repeat == RepeatRule.None -> {
+                updateSingleRow(id, draft, uid)
+                id
+            }
+            oldSeriesId == null && draft.repeat != RepeatRule.None -> {
+                deleteRowById(id)
+                insertSeries(draft, coupleId, uid)
+            }
+            oldSeriesId != null && draft.repeat == RepeatRule.None -> {
+                deleteSeriesById(oldSeriesId)
+                val inserted = SupabaseProvider.client.from("schedules")
+                    .insert(draft.toInsertPayload(coupleId, uid, seriesId = null)) { select() }
+                    .decodeSingle<Row>()
+                inserted.id
+            }
+            oldSeriesId != null && !ruleChanged -> {
+                updateSeriesMetadata(oldSeriesId, draft, uid)
+                id
+            }
+            else -> {
+                // 시리즈 · 규칙 변경 → 전체 재생성
+                deleteSeriesById(oldSeriesId!!)
+                insertSeries(draft, coupleId, uid)
+            }
         }
-        applyRepeatRule(id, draft.repeat)
     }
 
     /**
@@ -184,11 +230,16 @@ object SchedulesRepository {
         }
     }
 
+    /**
+     * 삭제. 시리즈에 속하면 시리즈 전체 삭제 (사용자의 "일괄 적용" 방침에 맞춤).
+     * schedule_repeat_rules 는 FK ON DELETE CASCADE 로 함께 삭제됨.
+     */
     suspend fun delete(id: String) {
-        // schedule_repeat_rules 는 FK ON DELETE CASCADE 로 함께 삭제됨.
-        SupabaseProvider.client.from("schedules").delete {
-            filter { eq("id", id) }
-        }
+        val row = SupabaseProvider.client.from("schedules")
+            .select { filter { eq("id", id) } }
+            .decodeSingleOrNull<Row>()
+        val seriesId = row?.seriesId
+        if (seriesId != null) deleteSeriesById(seriesId) else deleteRowById(id)
     }
 
     /** 할 일 (`type='task'`) 의 `is_done` 만 단일 컬럼 갱신. DayDetailSheet 체크박스 토글에서 사용. */
@@ -200,36 +251,183 @@ object SchedulesRepository {
         }
     }
 
+    // ─── Private helpers ────────────────────────────────────────
+
+    /** 반복 시리즈 batch insert. materialize 개수는 [MAX_SERIES_INSTANCES] 로 상한. */
+    private suspend fun insertSeries(draft: ScheduleDraft, coupleId: String, uid: String): String {
+        val seriesId = randomUuid()
+        val occurrences = expandOccurrences(draft)
+        require(occurrences.isNotEmpty()) { "반복 규칙이 종료일 안에 생성하는 인스턴스가 없다" }
+        val payloads = occurrences.map { (s, e) ->
+            draft.toInsertPayload(coupleId, uid, seriesId = seriesId).copy(
+                startDate = s.toString(),
+                endDate = e.toString(),
+            )
+        }
+        val inserted = SupabaseProvider.client.from("schedules")
+            .insert(payloads) { select() }
+            .decodeList<Row>()
+        // 각 row 에 반복 규칙 복제. ends_at 은 draft.repeatEndDate 재사용.
+        val repeatRows = inserted.mapNotNull { row -> draft.repeat.toRow(row.id, draft.repeatEndDate) }
+        if (repeatRows.isNotEmpty()) {
+            SupabaseProvider.client.from("schedule_repeat_rules").insert(repeatRows)
+        }
+        return inserted.first().id
+    }
+
+    /** 단일 row UPDATE + 반복 규칙 정리. 시리즈가 아닌 케이스에서만 호출. */
+    private suspend fun updateSingleRow(id: String, draft: ScheduleDraft, viewerId: String) {
+        val ownerForStorage = ownerKindForStorage(draft.owner.toDbValue(), draft.createdBy, viewerId)
+        SupabaseProvider.client.from("schedules").update({
+            set("type", draft.type.toDbValue())
+            set("owner_kind", ownerForStorage)
+            set("title", draft.title)
+            set("start_date", draft.startDate.toString())
+            set("end_date", draft.endDate.toString())
+            set("all_day", draft.allDay)
+            set("start_time", draft.startTimeForDb())
+            set("end_time", draft.endTimeForDb())
+        }) {
+            filter { eq("id", id) }
+        }
+        applyRepeatRule(id, draft.repeat, draft.repeatEndDate)
+    }
+
+    /**
+     * 시리즈 전체 metadata batch UPDATE. 규칙 · 날짜는 그대로 두고 (start_date/end_date 는
+     * 인스턴스마다 다르므로) title/type/times/owner/allDay 만 반영.
+     */
+    private suspend fun updateSeriesMetadata(seriesId: String, draft: ScheduleDraft, viewerId: String) {
+        val ownerForStorage = ownerKindForStorage(draft.owner.toDbValue(), draft.createdBy, viewerId)
+        SupabaseProvider.client.from("schedules").update({
+            set("type", draft.type.toDbValue())
+            set("owner_kind", ownerForStorage)
+            set("title", draft.title)
+            set("all_day", draft.allDay)
+            set("start_time", draft.startTimeForDb())
+            set("end_time", draft.endTimeForDb())
+        }) {
+            filter { eq("series_id", seriesId) }
+        }
+    }
+
+    private suspend fun deleteRowById(id: String) {
+        SupabaseProvider.client.from("schedules").delete {
+            filter { eq("id", id) }
+        }
+    }
+
+    /** 시리즈 전체 삭제. schedule_repeat_rules 는 CASCADE. */
+    private suspend fun deleteSeriesById(seriesId: String) {
+        SupabaseProvider.client.from("schedules").delete {
+            filter { eq("series_id", seriesId) }
+        }
+    }
+
+    private suspend fun fetchRepeatRuleForSchedule(id: String): RepeatRule {
+        val row = SupabaseProvider.client.from("schedule_repeat_rules")
+            .select { filter { eq("schedule_id", id) } }
+            .decodeSingleOrNull<RepeatRow>() ?: return RepeatRule.None
+        return row.toRule()
+    }
+
+    private suspend fun fetchRepeatEndsAt(id: String): LocalDate? {
+        val row = SupabaseProvider.client.from("schedule_repeat_rules")
+            .select { filter { eq("schedule_id", id) } }
+            .decodeSingleOrNull<RepeatRow>() ?: return null
+        return row.endsAt?.let { LocalDate.parse(it) }
+    }
+
     /**
      * `rule` 이 [RepeatRule.None] 이면 기존 규칙 삭제, 그 외에는 upsert.
      * schedule_repeat_rules 는 schedule_id 가 PK 라 upsert 로 idempotent.
+     * 시리즈용 batch 처리는 [insertSeries] 에서 별도로 담당.
      */
-    private suspend fun applyRepeatRule(scheduleId: String, rule: RepeatRule) {
+    private suspend fun applyRepeatRule(scheduleId: String, rule: RepeatRule, endDate: LocalDate?) {
         if (rule == RepeatRule.None) {
             SupabaseProvider.client.from("schedule_repeat_rules").delete {
                 filter { eq("schedule_id", scheduleId) }
             }
             return
         }
-        val row = rule.toRow(scheduleId) ?: return  // Custom without payload 등 저장 스킵
+        val row = rule.toRow(scheduleId, endDate) ?: return
         SupabaseProvider.client.from("schedule_repeat_rules").upsert(row)
     }
 }
 
+/**
+ * 반복 규칙 + 종료일 → materialized 인스턴스 리스트.
+ * 각 인스턴스는 원본과 동일한 duration (endDate - startDate) 을 유지한다.
+ * 상한 초과 시 예외 (사용자에게는 "종료일이 너무 멀다" 정도의 메시지가 적절).
+ */
+internal fun expandOccurrences(draft: ScheduleDraft): List<Pair<LocalDate, LocalDate>> {
+    val start = draft.startDate
+    val end = draft.endDate
+    val until = draft.repeatEndDate
+        ?: error("반복 규칙이 지정됐지만 종료일이 없음 — RepeatPickerSheet 이 강제해야 함")
+    require(start <= until) { "반복 종료일이 시작일보다 이전" }
+    val duration = start.daysUntil(end)  // >= 0 by schedules CHECK
+    val result = mutableListOf<Pair<LocalDate, LocalDate>>()
+
+    fun emit(s: LocalDate) {
+        result += s to s.plus(duration, DateTimeUnit.DAY)
+    }
+
+    when (val rule = draft.repeat) {
+        RepeatRule.None -> Unit
+        RepeatRule.Daily -> {
+            var cursor = start
+            while (cursor <= until && result.size < 1000) {
+                emit(cursor); cursor = cursor.plus(1, DateTimeUnit.DAY)
+            }
+        }
+        is RepeatRule.Weekly -> {
+            if (rule.days.isEmpty()) {
+                emit(start)  // 요일 미선택 방어 — 단발성 저장
+            } else {
+                var cursor = start
+                while (cursor <= until && result.size < 1000) {
+                    if (cursor.dayOfWeek in rule.days) emit(cursor)
+                    cursor = cursor.plus(1, DateTimeUnit.DAY)
+                }
+            }
+        }
+        is RepeatRule.Monthly -> {
+            var cursor = start
+            while (cursor <= until && result.size < 1000) {
+                if (cursor.dayOfMonth == rule.day) emit(cursor)
+                cursor = cursor.plus(1, DateTimeUnit.DAY)
+            }
+        }
+        is RepeatRule.Yearly -> {
+            var cursor = start
+            while (cursor <= until && result.size < 1000) {
+                if (cursor.monthNumber == rule.month && cursor.dayOfMonth == rule.day) emit(cursor)
+                cursor = cursor.plus(1, DateTimeUnit.DAY)
+            }
+        }
+    }
+    return result
+}
+
 /** draft → INSERT payload. RLS `schedules_all_in_my_couple` 이 `created_by = auth.uid()` 를 요구하므로 명시 포함. */
-private fun ScheduleDraft.toInsertPayload(coupleId: String, createdBy: String) =
-    SchedulesRepository.InsertPayload(
-        coupleId = coupleId,
-        createdBy = createdBy,
-        type = type.toDbValue(),
-        ownerKind = owner.toDbValue(),
-        title = title,
-        startDate = startDate.toString(),
-        endDate = endDate.toString(),
-        allDay = allDay,
-        startTime = startTimeForDb(),
-        endTime = endTimeForDb(),
-    )
+private fun ScheduleDraft.toInsertPayload(
+    coupleId: String,
+    createdBy: String,
+    seriesId: String?,
+) = SchedulesRepository.InsertPayload(
+    coupleId = coupleId,
+    createdBy = createdBy,
+    type = type.toDbValue(),
+    ownerKind = owner.toDbValue(),
+    title = title,
+    startDate = startDate.toString(),
+    endDate = endDate.toString(),
+    allDay = allDay,
+    startTime = startTimeForDb(),
+    endTime = endTimeForDb(),
+    seriesId = seriesId,
+)
 
 private fun ScheduleType.toDbValue(): String = when (this) {
     ScheduleType.Task -> "task"
@@ -250,11 +448,15 @@ private fun ScheduleDraft.endTimeForDb(): String? =
     if (showsTimeRows) endTime?.let { "$it:00" } else null
 
 /**
- * 서버 row → UI draft. 반복 규칙은 별건 조회로 [rule] 전달받아 병합.
+ * 서버 row → UI draft. 반복 규칙 · 종료일은 별건 조회로 [rule], [endDate] 전달받아 병합.
  * DB `owner_kind` 는 creator 관점이라 [viewerId] 로 뷰어 관점으로 되돌린다 (파트너가 만든 걸 내가 보면 me↔partner 스왑).
  * [ScheduleDraft.createdBy] 에 원본 값을 유지해 편집 후 [SchedulesRepository.update] 가 다시 creator 관점으로 저장 가능.
  */
-private fun SchedulesRepository.Row.toDraft(rule: RepeatRule, viewerId: String?): ScheduleDraft {
+private fun SchedulesRepository.Row.toDraft(
+    rule: RepeatRule,
+    repeatEnd: LocalDate?,
+    viewerId: String?,
+): ScheduleDraft {
     val resolved = when {
         ownerKind == "us" || viewerId == null -> ownerKind
         createdBy == viewerId -> ownerKind
@@ -271,43 +473,48 @@ private fun SchedulesRepository.Row.toDraft(rule: RepeatRule, viewerId: String?)
         startTime = startTime?.take(5),   // "HH:MM:SS" → "HH:MM"
         endTime = endTime?.take(5),
         repeat = rule,
+        repeatEndDate = repeatEnd,
         owner = when (resolved) {
             "me" -> ScheduleOwner.Me
             "partner" -> ScheduleOwner.Partner
             else -> ScheduleOwner.Us
         },
         createdBy = createdBy,
+        seriesId = seriesId,
     )
 }
 
 /**
- * `RepeatRule` → `RepeatRow`. `None` · 저장 못 하는 형태 (예: Custom without payload) 는 null 반환.
- * Custom 은 아직 UI 에서 세부 규칙을 못 입력해 저장 스킵 (스키마의 `custom_rule NOT NULL` 위배).
+ * `RepeatRule` → `RepeatRow`. `None` 은 null 반환.
+ * Weekly 는 요일 미선택 시 저장 스킵 (CHECK weekly_days IS NOT NULL 위배).
  */
-private fun RepeatRule.toRow(scheduleId: String): SchedulesRepository.RepeatRow? = when (this) {
+private fun RepeatRule.toRow(scheduleId: String, endDate: LocalDate?): SchedulesRepository.RepeatRow? = when (this) {
     RepeatRule.None -> null
-    RepeatRule.Daily -> SchedulesRepository.RepeatRow(scheduleId = scheduleId, kind = "daily")
+    RepeatRule.Daily -> SchedulesRepository.RepeatRow(
+        scheduleId = scheduleId, kind = "daily", endsAt = endDate?.toString(),
+    )
     is RepeatRule.Weekly -> {
-        // weekly_days IS NOT NULL 이 CHECK 요건. days 가 비어있으면 저장 스킵.
         if (days.isEmpty()) null
         else SchedulesRepository.RepeatRow(
             scheduleId = scheduleId,
             kind = "weekly",
             weeklyDays = days.toWeeklyBitmask(),
+            endsAt = endDate?.toString(),
         )
     }
     is RepeatRule.Monthly -> SchedulesRepository.RepeatRow(
         scheduleId = scheduleId,
         kind = "monthly",
         monthlyDay = day.toShort(),
+        endsAt = endDate?.toString(),
     )
     is RepeatRule.Yearly -> SchedulesRepository.RepeatRow(
         scheduleId = scheduleId,
         kind = "yearly",
         yearlyMonth = month.toShort(),
         yearlyDay = day.toShort(),
+        endsAt = endDate?.toString(),
     )
-    RepeatRule.Custom -> null  // 세부 규칙 UI 붙기 전엔 저장 스킵
 }
 
 /** `RepeatRow` → `RepeatRule`. 알 수 없는 kind 는 [RepeatRule.None] 폴백. */
@@ -316,7 +523,6 @@ private fun SchedulesRepository.RepeatRow.toRule(): RepeatRule = when (kind) {
     "weekly" -> RepeatRule.Weekly(days = (weeklyDays ?: 0).fromWeeklyBitmask())
     "monthly" -> RepeatRule.Monthly(day = (monthlyDay ?: 1).toInt())
     "yearly" -> RepeatRule.Yearly(month = (yearlyMonth ?: 1).toInt(), day = (yearlyDay ?: 1).toInt())
-    "custom" -> RepeatRule.Custom
     else -> RepeatRule.None
 }
 
@@ -330,4 +536,18 @@ private fun Set<DayOfWeek>.toWeeklyBitmask(): Short {
 private fun Short.fromWeeklyBitmask(): Set<DayOfWeek> {
     val bits = toInt()
     return DayOfWeek.entries.filterTo(mutableSetOf()) { bits and (1 shl it.ordinal) != 0 }
+}
+
+/**
+ * 시리즈 id 로 쓸 UUID. platform 의존 없이 kotlinx.uuid 도 안 쓰고 간단히 random 16 bytes 를 hex 로.
+ * Supabase 는 문자열이면 UUID 타입에 그대로 들어감 (postgres 가 파싱).
+ */
+private fun randomUuid(): String {
+    val bytes = Random.Default.nextBytes(16)
+    // RFC 4122 v4 markers
+    bytes[6] = ((bytes[6].toInt() and 0x0F) or 0x40).toByte()
+    bytes[8] = ((bytes[8].toInt() and 0x3F) or 0x80).toByte()
+    val hex = bytes.joinToString("") { ((it.toInt() and 0xFF) + 0x100).toString(16).substring(1) }
+    return "${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-" +
+        "${hex.substring(16, 20)}-${hex.substring(20)}"
 }
