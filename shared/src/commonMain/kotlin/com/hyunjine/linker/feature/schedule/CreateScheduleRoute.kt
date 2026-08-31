@@ -1,6 +1,7 @@
 package com.hyunjine.linker.feature.schedule
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -33,6 +34,9 @@ fun CreateScheduleRoute(
     val ui by viewModel.uiState.collectAsStateWithLifecycle()
 
     if (viewModel.editing) {
+        // 매 mount 마다 fresh 조회 — 저장 후 재편집해도 stale 값 안 보이도록. VM 이 재사용되는
+        // 케이스 (nav3 백스택 재구성 등) 를 방어.
+        LaunchedEffect(scheduleId) { viewModel.reloadFromDb() }
         // DB fetch 완료 대기.
         if (!ui.loaded) return
         CreateScheduleScreen(
