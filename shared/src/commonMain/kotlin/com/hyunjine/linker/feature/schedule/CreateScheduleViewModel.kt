@@ -26,7 +26,10 @@ class CreateScheduleViewModel(
 
     val editing: Boolean = scheduleId != null
 
-    private val _uiState = MutableStateFlow(CreateScheduleUiState(loaded = !editing))
+    // create 모드도 initial 을 계산한 뒤에만 loaded=true 로 넘긴다. constructor 에서 미리 true 로 두면
+    // Route 가 initial=null 상태로 즉시 mount → CreateScheduleScreen 의 rememberSaveable 이 default
+    // Schedule draft 를 굳혀버려, 이후 launch 가 Task seed 를 채워도 반영 안 되는 버그가 있었음 (#143 · #98 재발).
+    private val _uiState = MutableStateFlow(CreateScheduleUiState(loaded = false))
     val uiState: StateFlow<CreateScheduleUiState> = _uiState.asStateFlow()
 
     init {
