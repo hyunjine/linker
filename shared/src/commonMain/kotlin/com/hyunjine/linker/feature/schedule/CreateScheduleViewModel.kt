@@ -27,16 +27,22 @@ class CreateScheduleViewModel(
     private val _uiState = MutableStateFlow(CreateScheduleUiState(loaded = !editing))
     val uiState: StateFlow<CreateScheduleUiState> = _uiState.asStateFlow()
 
-    init {
-        if (editing && scheduleId != null) {
-            viewModelScope.launch {
-                runCatching { SchedulesRepository.getDraftById(scheduleId) }
-                    .onSuccess { _uiState.value = _uiState.value.copy(initial = it, loaded = true) }
-                    .onFailure {
-                        println("[Schedule] getDraftById 실패: $it")
-                        _uiState.value = _uiState.value.copy(loaded = true)
-                    }
-            }
+    init { reloadFromDb() }
+
+    /**
+     * 편집 모드일 때 DB 에서 draft 를 다시 조회. Route 재진입마다 호출해서 저장 직후 재편집해도
+     * 최신 값이 반영되게 한다. Nav 재진입이 같은 scheduleId key 로 VM 을 재사용해 init 이 한 번만
+     * 도는 경우를 방어 (ProfileEdit 와 동일 패턴).
+     */
+    fun reloadFromDb() {
+        if (!editing || scheduleId == null) return
+        viewModelScope.launch {
+            runCatching { SchedulesRepository.getDraftById(scheduleId) }
+                .onSuccess { _uiState.value = _uiState.value.copy(initial = it, loaded = true) }
+                .onFailure {
+                    println("[Schedule] getDraftById 실패: $it")
+                    _uiState.value = _uiState.value.copy(loaded = true)
+                }
         }
     }
 
