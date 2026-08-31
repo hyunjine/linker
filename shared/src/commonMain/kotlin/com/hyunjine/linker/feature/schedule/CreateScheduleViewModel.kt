@@ -8,58 +8,35 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.toLocalDateTime
-import kotlin.time.Clock
-import kotlin.time.ExperimentalTime
 
 /**
- * CreateScheduleScreen — 신규 · 편집 겸용. 진입 시 [scheduleId]/[initialDate]/[initialType] 로부터
- * seed draft 계산. 편집이면 DB 에서 draft prefetch. 저장/수정/삭제 시 [onDone] 콜백.
+ * CreateScheduleScreen — 신규 · 편집 겸용.
+ * - 신규(create): initial 은 Route 가 인자로 즉시 만들어 Screen 에 넘김. VM 은 저장 · 삭제만 담당.
+ * - 편집(edit): [scheduleId] 로 DB 에서 prefetch → uiState.initial 에 담아 Screen 에 노출.
+ *
+ * VM 이 신규 case 의 initial 을 async 로 계산하던 이전 구조는 Route 가 initial=null 상태로 잠깐
+ * mount → Screen 의 rememberSaveable 이 default 로 굳어져 Task pill 이 안 먹히던 #143 원인이었음.
  */
 class CreateScheduleViewModel(
     private val scheduleId: String?,
-    initialDate: String?,
-    initialType: String?,
 ) : ViewModel() {
 
     val editing: Boolean = scheduleId != null
 
-    // create 모드도 initial 을 계산한 뒤에만 loaded=true 로 넘긴다. constructor 에서 미리 true 로 두면
-    // Route 가 initial=null 상태로 즉시 mount → CreateScheduleScreen 의 rememberSaveable 이 default
-    // Schedule draft 를 굳혀버려, 이후 launch 가 Task seed 를 채워도 반영 안 되는 버그가 있었음 (#143 · #98 재발).
-    private val _uiState = MutableStateFlow(CreateScheduleUiState(loaded = false))
+    // edit 모드만 async fetch 대기. create 는 uiState 를 안 쓴다.
+    private val _uiState = MutableStateFlow(CreateScheduleUiState(loaded = !editing))
     val uiState: StateFlow<CreateScheduleUiState> = _uiState.asStateFlow()
 
     init {
-        viewModelScope.launch {
-            if (scheduleId == null) {
-                val seededDate = initialDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-                val seededType = when (initialType) {
-                    "task" -> ScheduleType.Task
-                    "schedule" -> ScheduleType.Schedule
-                    else -> null
-                }
-                _uiState.value = _uiState.value.copy(
-                    initial = if (seededDate != null || seededType != null) {
-                        val date = seededDate ?: todayLocalDate()
-                        ScheduleDraft(
-                            startDate = date,
-                            endDate = date,
-                            type = seededType ?: ScheduleType.Schedule,
-                        )
-                    } else null,
-                    loaded = true,
-                )
-                return@launch
+        if (editing && scheduleId != null) {
+            viewModelScope.launch {
+                runCatching { SchedulesRepository.getDraftById(scheduleId) }
+                    .onSuccess { _uiState.value = _uiState.value.copy(initial = it, loaded = true) }
+                    .onFailure {
+                        println("[Schedule] getDraftById 실패: $it")
+                        _uiState.value = _uiState.value.copy(loaded = true)
+                    }
             }
-            runCatching { SchedulesRepository.getDraftById(scheduleId) }
-                .onSuccess { _uiState.value = _uiState.value.copy(initial = it, loaded = true) }
-                .onFailure {
-                    println("[Schedule] getDraftById 실패: $it")
-                    _uiState.value = _uiState.value.copy(loaded = true)
-                }
         }
     }
 
@@ -102,10 +79,6 @@ class CreateScheduleViewModel(
                 }
         }
     }
-
-    @OptIn(ExperimentalTime::class)
-    private fun todayLocalDate(): LocalDate =
-        Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
 }
 
 data class CreateScheduleUiState(
