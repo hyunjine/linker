@@ -1,8 +1,11 @@
 package com.hyunjine.linker.feature.profile
 
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hyunjine.linker.data.remote.AvatarsRepository
 import com.hyunjine.linker.data.remote.UsersRepository
+import com.hyunjine.linker.platform.encodeToPngBytes
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -33,20 +36,28 @@ class ProfileEditViewModel : ViewModel() {
         }
     }
 
+    /**
+     * @param pickedImage 사용자가 photo picker 로 새로 고른 이미지. null 이면 사진 변경 안 함.
+     *                    있으면 avatars 버킷에 PNG 로 업로드하고 새 URL 을 profile_image_url 에 함께 저장.
+     */
     fun save(
         nickname: String,
         birthDate: LocalDate?,
         calendarColor: String,
+        pickedImage: ImageBitmap?,
         onSaved: () -> Unit,
     ) {
         if (_uiState.value.saving) return
         _uiState.value = _uiState.value.copy(saving = true)
         viewModelScope.launch {
             runCatching {
+                // 사진이 새로 선택됐으면 업로드 먼저, 그 URL 을 updateProfile 로 함께 저장.
+                val newUrl = pickedImage?.let { AvatarsRepository.uploadPng(it.encodeToPngBytes()) }
                 UsersRepository.updateProfile(
                     nickname = nickname,
                     birthDate = birthDate,
                     calendarColor = calendarColor,
+                    profileImageUrl = newUrl,
                 )
             }.onSuccess {
                 println("[ProfileEdit] 저장 성공")

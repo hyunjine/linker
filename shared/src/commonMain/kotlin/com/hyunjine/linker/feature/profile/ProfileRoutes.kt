@@ -30,11 +30,12 @@ fun ProfileSetupRoute(
         defaultAvatarUrl = defaults.avatarUrl.toSecureImageUrl(),
         saving = saving,
         onBack = onBack,
-        onNext = { nickname, birthDate, colorId ->
+        onNext = { nickname, birthDate, colorId, pickedImage ->
             viewModel.save(
                 nickname = nickname,
                 birthDate = birthDate,
-                avatarUrl = defaults.avatarUrl.toSecureImageUrl(),
+                pickedImage = pickedImage,
+                defaultAvatarUrl = defaults.avatarUrl.toSecureImageUrl(),
                 calendarColor = colorId,
                 onSaved = onSaved,
             )
@@ -70,8 +71,8 @@ fun ProfileEditRoute(
         submitText = "저장",
         saving = ui.saving,
         onBack = onBack,
-        onNext = { nickname, birthDate, colorId ->
-            viewModel.save(nickname, birthDate, colorId, onSaved)
+        onNext = { nickname, birthDate, colorId, pickedImage ->
+            viewModel.save(nickname, birthDate, colorId, pickedImage, onSaved)
         },
     )
 }
