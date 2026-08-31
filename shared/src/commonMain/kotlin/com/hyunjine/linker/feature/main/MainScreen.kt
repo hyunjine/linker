@@ -221,21 +221,19 @@ fun MainScreen(
     // 타이틀 탭 시 년/월 피커 시트 오픈. dismiss 시 선택 값으로 pager 를 해당 월까지 스크롤.
     var pickerVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    // 셀 탭 시 날짜 상세 시트 오픈. dummy 데이터는 임시 (후속 이슈에서 실제 소스 연결).
-    // 선택된 날짜(=진짜 payload)와 시트 visible 을 분리해서 관리한다:
-    //  - `selectedDateString` (rememberSaveable): CreateSchedule 등 다른 nav 목적지에서 돌아왔을 때
-    //    이전 선택 날짜를 유지하기 위함.
-    //  - `sheetVisible` (remember): chip 탭으로 CreateSchedule 진입 직전에만 false 로 만들어 시트
-    //    slide-down 애니메이션 없이 즉시 사라지게 하기 위함. 최초 진입 or pop 재진입 시
-    //    LaunchedEffect 로 selectedDate 가 있으면 true 로 자동 복원.
+    // 셀 탭 시 날짜 상세 시트 오픈.
+    //  - `selectedDateString` · `sheetVisible` 둘 다 rememberSaveable. peek 로 재composition 돼도
+    //    이전 상태 그대로 복원 · LaunchedEffect 에 의한 자동 재오픈 없음 (#156).
+    //  - dayDetail 은 sheetVisible=true 로 전환될 때만 fetch.
+    //  - chip 탭으로 편집 화면 진입 시엔 sheetVisible=false 로 명시 dismiss → 저장 상태도 false 라
+    //    편집 pop 후에도 시트 안 뜸. 사용자가 원하면 셀 다시 탭.
     var selectedDateString by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedDate = remember(selectedDateString) { selectedDateString?.let { LocalDate.parse(it) } }
+    var sheetVisible by rememberSaveable { mutableStateOf(false) }
     var dayDetail by remember(selectedDate) { mutableStateOf<DayDetail?>(null) }
-    var sheetVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(selectedDate) {
-        if (selectedDate != null) {
+    LaunchedEffect(selectedDate, sheetVisible) {
+        if (sheetVisible && selectedDate != null && dayDetail == null) {
             dayDetail = onLoadDayDetail(selectedDate)
-            sheetVisible = dayDetail != null
         }
     }
     // 사이드 드로워 상태 + 표시 옵션 (MVP: 로컬 state, 저장·연동은 후속 이슈).
@@ -371,11 +369,10 @@ fun MainScreen(
             scope.launch { runCatching { onToggleTaskDone(taskId, newValue) } }
         },
         onAdd = { type ->
-            // 시트 안 pill (할 일 / 일정) 탭 → 일정 생성 진입. type 은 어느 pill 을 눌렀는지.
-            //  - `sheetVisible = false` 로 시트를 즉시 composition 에서 빼 CreateSchedule 이
-            //    slide-down 애니메이션 지연 없이 곧바로 포그라운드에 올라오게 한다.
-            //  - `selectedDateString` 은 유지해서 pop 으로 돌아오면 위 LaunchedEffect 가
-            //    같은 날짜 시트를 다시 열어 준다.
+            // 시트 안 pill (할 일 / 일정) 탭 → 일정 생성 진입.
+            //  - sheetVisible = false 로 즉시 dismiss (slide-down 애니 없이 편집 화면이 올라옴).
+            //  - selectedDateString 은 유지하되 sheetVisible=false 는 saveable 로 저장돼
+            //    pop 후에도 시트 안 뜸 (#156 · peek 재오픈 방지). 원하면 사용자가 셀 다시 탭.
             val date = selectedDate ?: return@DayDetailSheet
             sheetVisible = false
             onAddSchedule(date, type)
