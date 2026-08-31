@@ -156,9 +156,15 @@ fun CreateScheduleScreen(
                 }
 
                 SectionBlock(label = "일정 주체") {
+                    // "상대방" 은 picker 에서 제거 — 파트너에게 일정을 배정할 권한 없음.
+                    // 파트너가 만든 스케줄 (기존 owner=Partner) 은 편집 화면에서 canEdit=false 로
+                    // 그대로 표시되지만, 사용자가 owner 를 바꿀 수는 없음 (segment 조작 불가).
+                    val options = remember { listOf(ScheduleOwner.Me, ScheduleOwner.Us) }
                     SegmentedControl(
-                        options = ScheduleOwner.values().toList(),
-                        selected = draft.owner,
+                        options = options,
+                        // draft.owner 가 Partner 면 (파트너 스케줄 편집 · 읽기 전용) 시각적으로
+                        // Me 로 fallback — SegmentedControl 은 options 밖 값이면 아무것도 선택 안 함.
+                        selected = if (draft.owner == ScheduleOwner.Partner) ScheduleOwner.Me else draft.owner,
                         onSelect = { if (canEdit) draft = draft.copy(owner = it) },
                         label = { it.label },
                     )
