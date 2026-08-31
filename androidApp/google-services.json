@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "319241271170",
+    "project_id": "linker-226a9",
+    "storage_bucket": "linker-226a9.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:319241271170:android:b6ab752b0bfd35cba8019b",
+        "android_client_info": {
+          "package_name": "com.hyunjine.linker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCGqoIFzv5ENjxItXnGbQtzbTSrDWgpSSc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

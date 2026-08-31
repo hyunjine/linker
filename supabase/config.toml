@@ -1,0 +1,9 @@
+# Supabase local config. Edge Function 별 설정.
+# `supabase functions deploy` 시 이 파일을 참조.
+
+project_id = "guxpohhhacljwhyiskdk"
+
+[functions.send-schedule-push]
+# JWT verify 끔 — DB trigger 의 pg_net 호출은 익명 (또는 service_role 없이) 이므로 필요.
+# 함수 자체가 SUPABASE_SERVICE_ROLE_KEY 로 안전하게 데이터 접근하므로 endpoint 자체는 열려있어도 무방.
+verify_jwt = false
