@@ -117,7 +117,11 @@ fun ProfileSetupScreen(
     onNicknameChange: (String) -> Unit = {},
     onBirthDateChange: (String) -> Unit = {},
     onSelectColor: (String) -> Unit = {},
-    onNext: (nickname: String, birthDate: LocalDate?, colorId: String) -> Unit = { _, _, _ -> },
+    /**
+     * `pickedImage` 는 사용자가 photo picker 로 새로 고른 이미지. null 이면 사진 변경 안 함
+     * (호출자가 기존 URL 을 유지하도록 처리). Kakao/DB 기본 아바타를 그대로 두는 경우도 null.
+     */
+    onNext: (nickname: String, birthDate: LocalDate?, colorId: String, pickedImage: ImageBitmap?) -> Unit = { _, _, _, _ -> },
 ) {
     // 시트 표시 여부. 프로세스 재구성/구성 변경 상황에서도 유지.
     var showBirthDateSheet by rememberSaveable { mutableStateOf(false) }
@@ -193,7 +197,7 @@ fun ProfileSetupScreen(
                         if (saving) return@PrimaryButton
                         val parsed = parseBirthDate(currentBirthDate)
                         val date = runCatching { LocalDate(parsed.year, parsed.month, parsed.day) }.getOrNull()
-                        onNext(currentNickname.trim(), date, currentColorId)
+                        onNext(currentNickname.trim(), date, currentColorId, avatarImage)
                     },
                 )
             }

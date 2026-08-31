@@ -96,17 +96,19 @@ object UsersRepository {
     }
 
     /**
-     * 온보딩 이후 프로필 수정. `profile_completed_at` · `profile_image_url` 은 건드리지 않고
-     * 편집 화면에서 노출되는 세 필드만 갱신한다.
+     * 온보딩 이후 프로필 수정. `profile_completed_at` 는 건드리지 않는다.
      *
      * @param nickname 새 닉네임 (필수, 공백 제외 1자 이상은 UI 층에서 검증 가정).
      * @param birthDate 새 생년월일. null 이면 컬럼도 NULL 로 남긴다.
      * @param calendarColor 새 캘린더 색상 id.
+     * @param profileImageUrl 새 프로필 사진 URL. null 이면 컬럼 미수정 (기존 URL 유지) —
+     *                       사진을 지우고 싶을 때는 별도 API (미구현).
      */
     suspend fun updateProfile(
         nickname: String,
         birthDate: LocalDate?,
         calendarColor: String,
+        profileImageUrl: String? = null,
     ) {
         val uid = SupabaseProvider.client.auth.currentUserOrNull()?.id
             ?: error("로그인되지 않은 상태에서 프로필 수정 시도")
@@ -114,6 +116,7 @@ object UsersRepository {
             set("nickname", nickname)
             set("birth_date", birthDate?.toString())
             set("calendar_color", calendarColor)
+            if (profileImageUrl != null) set("profile_image_url", profileImageUrl)
         }) {
             filter { eq("id", uid) }
         }

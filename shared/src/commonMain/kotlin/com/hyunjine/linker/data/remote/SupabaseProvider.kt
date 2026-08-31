@@ -6,6 +6,7 @@ import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.realtime.Realtime
+import io.github.jan.supabase.storage.Storage
 
 /**
  * Supabase 클라이언트 진입점. 앱 프로세스에 하나만 있으면 되고, 첫 접근 시 지연 초기화.
@@ -18,6 +19,7 @@ import io.github.jan.supabase.realtime.Realtime
  *   OAuth 딥링크 (scheme/host) 는 불필요해 설정하지 않는다.
  * - [Postgrest]: PostgREST 자동 API.
  * - [Realtime]: postgres_changes 구독. 파트너 변경 즉시 sync (schedules · anniversaries · users).
+ * - [Storage]: avatars 버킷 (프로필 사진 업로드).
  *
  * Swift 에서는 `SupabaseProvider.shared.client` 로 접근.
  */
@@ -30,6 +32,7 @@ object SupabaseProvider {
             install(Auth)
             install(Postgrest)
             install(Realtime)
+            install(Storage)
         }
     }
 

@@ -53,9 +53,11 @@ ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "kto
 
 # supabase-kt (KMP). auth-kt: Supabase Auth (카카오 provider), postgrest-kt: 테이블 CRUD.
 # realtime-kt: postgres_changes 구독 (파트너 변경 즉시 sync).
+# storage-kt: avatars 버킷 업로드 (프로필 사진 저장).
 supabase-auth = { module = "io.github.jan-tennert.supabase:auth-kt", version.ref = "supabase" }
 supabase-postgrest = { module = "io.github.jan-tennert.supabase:postgrest-kt", version.ref = "supabase" }
 supabase-realtime = { module = "io.github.jan-tennert.supabase:realtime-kt", version.ref = "supabase" }
+supabase-storage = { module = "io.github.jan-tennert.supabase:storage-kt", version.ref = "supabase" }
 
 # Coil3 (KMP). AsyncImage 로 URL 로부터 아바타 로딩. 네트워크는 ktor engine 재사용.
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
