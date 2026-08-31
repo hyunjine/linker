@@ -17,6 +17,10 @@ struct iOSApp: App {
         DebugConfig.shared.enabled = true
         #endif
 
+        // FCM: FirebaseApp.configure + Messaging/UNUserNotificationCenter delegate 세팅.
+        // 실제 알림 권한 요청은 아래 onAppear 에서 (앱 UI 뜬 뒤에 물어보는 게 UX 상 자연스러움).
+        LinkerPushBridge.shared.configure()
+
         // 카카오 SDK 초기화. 네이티브 앱 키는 Config.xcconfig → Info.plist (KAKAO_NATIVE_APP_KEY).
         let appKey = Bundle.main.object(forInfoDictionaryKey: "KAKAO_NATIVE_APP_KEY") as? String ?? ""
         print("[KakaoLogin] init — appKey='\(appKey)' length=\(appKey.count)")
@@ -103,6 +107,8 @@ struct iOSApp: App {
                 .onAppear {
                     // 첫 진입 시 위젯 payload 갱신 (세션 없으면 shared 가 빈 items 로 반환).
                     WidgetSync.refresh()
+                    // 알림 권한 요청 (사용자가 수락하면 APNs 등록 → Firebase 가 FCM 토큰 발급 → delegate).
+                    LinkerPushBridge.shared.requestPermissionAndToken()
                 }
         }
         .onChange(of: scenePhase) { _, phase in

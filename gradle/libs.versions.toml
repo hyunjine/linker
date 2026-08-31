@@ -21,6 +21,8 @@ navigation3 = "1.1.1"
 supabase = "3.7.0"
 coil = "3.5.0"
 kakaoSdk = "2.20.6"
+firebaseBom = "34.4.0"
+googleServices = "4.4.4"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -66,6 +68,10 @@ coil-network-ktor = { module = "io.coil-kt.coil3:coil-network-ktor3", version.re
 # Kakao SDK (Android only). v2-user 로 로그인 · 유저 API. iOS 는 SPM 으로 별도 통합.
 kakao-user = { module = "com.kakao.sdk:v2-user", version.ref = "kakaoSdk" }
 
+# Firebase (Android). BOM 으로 버전 통합 관리. iOS 는 SPM firebase-ios-sdk 로 별도 통합.
+firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
+firebase-messaging = { module = "com.google.firebase:firebase-messaging" }
+
 # Gradle plugin artifacts (build-logic composite build 에서 compileOnly 로만 참조).
 # 컨벤션 플러그인이 KotlinProjectExtension · LibraryExtension 같은 DSL 타입을 import 하려면 필요.
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
@@ -80,3 +86,4 @@ composeMultiplatform = { id = "org.jetbrains.compose", version.ref = "composeMul
 composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlinMultiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
 kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+googleServices = { id = "com.google.gms.google-services", version.ref = "googleServices" }
