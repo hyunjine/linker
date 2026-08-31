@@ -384,6 +384,11 @@ fun MainScreen(
             sheetVisible = false
             onEditSchedule(scheduleId)
         },
+        onSelectTask = { taskId ->
+            // 체크박스 외 영역 탭 → 편집 화면 진입 (일정과 동일 흐름). 체크박스는 자체 clickable 로 토글.
+            sheetVisible = false
+            onEditSchedule(taskId)
+        },
     )
     } // ← AppDrawer content lambda close
 }
