@@ -93,7 +93,8 @@ object SchedulesRepository {
             .select { filter { eq("schedule_id", id) } }
             .decodeSingleOrNull<RepeatRow>()
             ?.toRule() ?: RepeatRule.None
-        return row.toDraft(repeat)
+        val viewerId = SupabaseProvider.client.auth.currentUserOrNull()?.id
+        return row.toDraft(repeat, viewerId)
     }
 
     /**
@@ -145,11 +146,17 @@ object SchedulesRepository {
         return inserted.id
     }
 
-    /** 기존 스케줄 갱신. 본체 UPDATE 후 반복 규칙도 upsert/delete 로 재정렬. */
+    /**
+     * 기존 스케줄 갱신. 본체 UPDATE 후 반복 규칙도 upsert/delete 로 재정렬.
+     * `owner_kind` 는 DB 에 creator 관점으로 저장. draft.owner 는 viewer 관점이므로
+     * viewer != creator 인 경우 me ↔ partner 를 되돌린다.
+     */
     suspend fun update(id: String, draft: ScheduleDraft) {
+        val viewerId = SupabaseProvider.client.auth.currentUserOrNull()?.id
+        val ownerForStorage = ownerKindForStorage(draft.owner.toDbValue(), draft.createdBy, viewerId)
         SupabaseProvider.client.from("schedules").update({
             set("type", draft.type.toDbValue())
-            set("owner_kind", draft.owner.toDbValue())
+            set("owner_kind", ownerForStorage)
             set("title", draft.title)
             set("start_date", draft.startDate.toString())
             set("end_date", draft.endDate.toString())
@@ -160,6 +167,21 @@ object SchedulesRepository {
             filter { eq("id", id) }
         }
         applyRepeatRule(id, draft.repeat)
+    }
+
+    /**
+     * 뷰어 관점의 owner ("me"/"partner"/"us") 를 creator 관점으로 되돌린다.
+     * DB 는 항상 creator 관점으로 저장하므로, 파트너가 만든 걸 내가 편집해서 owner 를 바꿔 저장할 때 스왑 필요.
+     * createdBy 를 모르는 경우 (신규 draft — 이 함수는 update 에서만 씀) 는 그대로 둔다.
+     */
+    private fun ownerKindForStorage(viewerOwner: String, createdBy: String?, viewerId: String?): String {
+        if (viewerOwner == "us" || createdBy == null || viewerId == null) return viewerOwner
+        val viewerIsCreator = createdBy == viewerId
+        return when (viewerOwner) {
+            "me" -> if (viewerIsCreator) "me" else "partner"
+            "partner" -> if (viewerIsCreator) "partner" else "me"
+            else -> viewerOwner
+        }
     }
 
     suspend fun delete(id: String) {
@@ -227,22 +249,36 @@ private fun ScheduleDraft.startTimeForDb(): String? =
 private fun ScheduleDraft.endTimeForDb(): String? =
     if (showsTimeRows) endTime?.let { "$it:00" } else null
 
-/** 서버 row → UI draft. 반복 규칙은 별건 조회로 [rule] 전달받아 병합. */
-private fun SchedulesRepository.Row.toDraft(rule: RepeatRule): ScheduleDraft = ScheduleDraft(
-    title = title,
-    startDate = LocalDate.parse(startDate),
-    endDate = LocalDate.parse(endDate),
-    type = if (type == "task") ScheduleType.Task else ScheduleType.Schedule,
-    allDay = allDay,
-    startTime = startTime?.take(5),   // "HH:MM:SS" → "HH:MM"
-    endTime = endTime?.take(5),
-    repeat = rule,
-    owner = when (ownerKind) {
-        "me" -> ScheduleOwner.Me
-        "partner" -> ScheduleOwner.Partner
-        else -> ScheduleOwner.Us
-    },
-)
+/**
+ * 서버 row → UI draft. 반복 규칙은 별건 조회로 [rule] 전달받아 병합.
+ * DB `owner_kind` 는 creator 관점이라 [viewerId] 로 뷰어 관점으로 되돌린다 (파트너가 만든 걸 내가 보면 me↔partner 스왑).
+ * [ScheduleDraft.createdBy] 에 원본 값을 유지해 편집 후 [SchedulesRepository.update] 가 다시 creator 관점으로 저장 가능.
+ */
+private fun SchedulesRepository.Row.toDraft(rule: RepeatRule, viewerId: String?): ScheduleDraft {
+    val resolved = when {
+        ownerKind == "us" || viewerId == null -> ownerKind
+        createdBy == viewerId -> ownerKind
+        ownerKind == "me" -> "partner"
+        ownerKind == "partner" -> "me"
+        else -> ownerKind
+    }
+    return ScheduleDraft(
+        title = title,
+        startDate = LocalDate.parse(startDate),
+        endDate = LocalDate.parse(endDate),
+        type = if (type == "task") ScheduleType.Task else ScheduleType.Schedule,
+        allDay = allDay,
+        startTime = startTime?.take(5),   // "HH:MM:SS" → "HH:MM"
+        endTime = endTime?.take(5),
+        repeat = rule,
+        owner = when (resolved) {
+            "me" -> ScheduleOwner.Me
+            "partner" -> ScheduleOwner.Partner
+            else -> ScheduleOwner.Us
+        },
+        createdBy = createdBy,
+    )
+}
 
 /**
  * `RepeatRule` → `RepeatRow`. `None` · 저장 못 하는 형태 (예: Custom without payload) 는 null 반환.
