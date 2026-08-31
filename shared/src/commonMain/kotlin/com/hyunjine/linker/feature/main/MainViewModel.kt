@@ -53,19 +53,17 @@ class MainViewModel : ViewModel() {
             val previousColors = _uiState.value.ownerColors
             val previousViewerId = _uiState.value.myProfile?.id
             val previousMonths = _uiState.value.entriesByMonth.keys.toSet()
+            // 캐시를 비우지 않는다 — 이전 tint 로 살아 있는 chip 을 유지하다가 도착 순서대로 atomic 교체.
+            // (예전엔 emptyMap 으로 비우고 다시 채우느라 chip 이 순간 사라졌다 다시 뜨는 깜빡임이 있었음 #141)
             _uiState.update {
-                // 색 변경 · viewerId 최초 확보 (null → 실제값) 둘 다 캐시 무효화. 후자가 없으면
-                // 앱 시작 시 프로필 도착 전에 로드된 chip 이 잘못된 me/partner tint 로 남음.
-                val cacheInvalidated = it.ownerColors != nextColors || (previousViewerId == null && mine?.id != null)
                 it.copy(
                     myProfile = mine,
                     ownerColors = nextColors,
-                    entriesByMonth = if (cacheInvalidated) emptyMap() else it.entriesByMonth,
                 )
             }
             val needsReload = previousColors != nextColors || (previousViewerId == null && mine?.id != null)
             if (needsReload) {
-                previousMonths.forEach { loadMonthIfNeeded(it) }
+                previousMonths.forEach { fetchAndReplaceMonth(it) }
             }
         }
     }
@@ -73,6 +71,14 @@ class MainViewModel : ViewModel() {
     /** 해당 달의 chip 이 캐시에 없으면 fetch 해 채운다. 이미 있으면 no-op. */
     fun loadMonthIfNeeded(yearMonth: YearMonth) {
         if (_uiState.value.entriesByMonth.containsKey(yearMonth)) return
+        fetchAndReplaceMonth(yearMonth)
+    }
+
+    /**
+     * 강제로 다시 fetch 해서 도착한 즉시 해당 달 entry 를 atomic 하게 교체.
+     * 캐시를 미리 비우지 않아 사용자 화면에서 chip 이 "잠깐 사라졌다 다시 뜨는" 깜빡임 없음.
+     */
+    private fun fetchAndReplaceMonth(yearMonth: YearMonth) {
         viewModelScope.launch {
             val first = LocalDate(yearMonth.year, yearMonth.month, 1)
             val from = first.plus(-7, DateTimeUnit.DAY)
@@ -109,14 +115,12 @@ class MainViewModel : ViewModel() {
     }
 
     /**
-     * 스케줄 CRUD 직후 호출. 이미 로드된 달들을 기억해 두었다가 캐시를 비우고 다시 fetch —
-     * 화면에 보이는 달은 pager 재구성 없이도 즉시 최신 chip 으로 갱신된다.
-     * (invalidateEntriesCache 만 부르면 onMonthVisible 이 다시 안 불려 새로 뜰 때까지 chip 이 안 보임.)
+     * 스케줄 CRUD 직후 · Realtime 이벤트 시 호출. 이미 로드된 달만 골라 백그라운드에서 재fetch 하고
+     * 도착한 순서대로 해당 달 entry 를 atomic 하게 교체한다. **캐시를 미리 비우지 않는 것이 포인트** —
+     * 이전 버전은 emptyMap 으로 비웠다가 다시 채우느라 화면 chip 이 순간 사라졌다 다시 뜨는 깜빡임이 있었음 (#141).
      */
     fun refreshSchedules() {
-        val monthsToReload = _uiState.value.entriesByMonth.keys.toSet()
-        _uiState.update { it.copy(entriesByMonth = emptyMap()) }
-        monthsToReload.forEach { loadMonthIfNeeded(it) }
+        _uiState.value.entriesByMonth.keys.toSet().forEach { fetchAndReplaceMonth(it) }
     }
 
     // ────────── Realtime ──────────
