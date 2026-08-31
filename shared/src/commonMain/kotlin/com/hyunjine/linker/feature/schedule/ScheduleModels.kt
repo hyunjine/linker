@@ -66,6 +66,12 @@ data class ScheduleDraft(
     val endTime: String? = "11:00",
     val repeat: RepeatRule = RepeatRule.None,
     val owner: ScheduleOwner = ScheduleOwner.Me,
+    /**
+     * 원본 row 의 created_by. 신규는 null. 편집 시 UPDATE 에서 owner 를 creator 관점으로 되돌릴 때 사용.
+     * DB `owner_kind` 는 creator 관점으로 저장되므로, 파트너가 만든 걸 내가 편집해서 owner 를
+     * 바꿔 저장할 때 me<->partner 스왑이 필요하다.
+     */
+    val createdBy: String? = null,
 ) {
     val isEditableByCurrentUser: Boolean get() = owner != ScheduleOwner.Partner
 

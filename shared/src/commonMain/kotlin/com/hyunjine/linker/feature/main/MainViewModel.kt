@@ -51,16 +51,20 @@ class MainViewModel : ViewModel() {
                 us = CalendarPurple,
             )
             val previousColors = _uiState.value.ownerColors
+            val previousViewerId = _uiState.value.myProfile?.id
             val previousMonths = _uiState.value.entriesByMonth.keys.toSet()
             _uiState.update {
-                val cacheInvalidated = it.ownerColors != nextColors
+                // 색 변경 · viewerId 최초 확보 (null → 실제값) 둘 다 캐시 무효화. 후자가 없으면
+                // 앱 시작 시 프로필 도착 전에 로드된 chip 이 잘못된 me/partner tint 로 남음.
+                val cacheInvalidated = it.ownerColors != nextColors || (previousViewerId == null && mine?.id != null)
                 it.copy(
                     myProfile = mine,
                     ownerColors = nextColors,
                     entriesByMonth = if (cacheInvalidated) emptyMap() else it.entriesByMonth,
                 )
             }
-            if (previousColors != nextColors) {
+            val needsReload = previousColors != nextColors || (previousViewerId == null && mine?.id != null)
+            if (needsReload) {
                 previousMonths.forEach { loadMonthIfNeeded(it) }
             }
         }
@@ -76,7 +80,10 @@ class MainViewModel : ViewModel() {
             val rows = runCatching { SchedulesRepository.listInRange(from, to) }
                 .onFailure { println("[Schedule] listInRange($yearMonth) 실패: $it") }
                 .getOrDefault(emptyList())
-            val fetched = rows.toCalendarEntries(_uiState.value.ownerColors)
+            val fetched = rows.toCalendarEntries(
+                ownerColors = _uiState.value.ownerColors,
+                viewerId = _uiState.value.myProfile?.id,
+            )
             _uiState.update { it.copy(entriesByMonth = it.entriesByMonth + (yearMonth to fetched)) }
         }
     }
@@ -86,7 +93,7 @@ class MainViewModel : ViewModel() {
         val rows = runCatching { SchedulesRepository.listInRange(date, date) }
             .onFailure { println("[Schedule] loadDayDetail($date) 실패: $it") }
             .getOrDefault(emptyList())
-        return rows.toDayDetail(date)
+        return rows.toDayDetail(date, viewerId = _uiState.value.myProfile?.id)
     }
 
     /** 할 일 체크박스 토글. 실패는 삼키고 로그만 남김 (옵티미스틱 UI 는 UI 층에서 별도 처리). */

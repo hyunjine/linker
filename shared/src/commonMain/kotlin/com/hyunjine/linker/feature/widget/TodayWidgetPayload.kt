@@ -1,7 +1,10 @@
 package com.hyunjine.linker.feature.widget
 
 import com.hyunjine.linker.data.remote.SchedulesRepository
+import com.hyunjine.linker.data.remote.SupabaseProvider
+import com.hyunjine.linker.feature.main.resolveOwnerForViewer
 import com.hyunjine.linker.feature.main.toKoreanClock
+import io.github.jan.supabase.auth.auth
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -55,23 +58,25 @@ object TodayWidgetPayloadBuilder {
 
     @OptIn(ExperimentalTime::class)
     private suspend fun buildPayload(today: LocalDate): TodayWidgetPayload {
+        val viewerId = SupabaseProvider.client.auth.currentUserOrNull()?.id
         val rows = runCatching { SchedulesRepository.listInRange(today, today) }
             .getOrDefault(emptyList())
         val items = rows
-            .map { it.toWidgetItem() }
+            .map { it.toWidgetItem(viewerId) }
             .sortedWith(compareBy(nullsLast()) { it.sortKey() })
             .map { it.item }
         return TodayWidgetPayload(date = today.toString(), items = items)
     }
 
-    private fun SchedulesRepository.Row.toWidgetItem(): SortableItem {
+    private fun SchedulesRepository.Row.toWidgetItem(viewerId: String?): SortableItem {
         val label = if (type == "task" || allDay) null else startTime.toKoreanClock()
+        val resolvedOwner = resolveOwnerForViewer(ownerKind, createdBy, viewerId)
         return SortableItem(
             item = TodayWidgetSchedule(
                 id = id,
                 title = title,
                 timeLabel = label,
-                ownerKind = ownerKind,
+                ownerKind = resolvedOwner,
                 isTask = type == "task",
                 isDone = isDone,
             ),
