@@ -115,6 +115,7 @@ fun DayDetailSheet(
     detail: DayDetail?,
     onDismiss: () -> Unit,
     onToggleTask: (taskId: String) -> Unit = {},
+    onSelectTask: (taskId: String) -> Unit = {},
     onAdd: (ScheduleType) -> Unit = {},
     /** 스케줄 (timed / all-day) row 탭 시 편집 화면 진입 콜백. task 는 체크박스만 반응. */
     onSelectSchedule: (scheduleId: String) -> Unit = {},
@@ -138,7 +139,11 @@ fun DayDetailSheet(
             Spacer(Modifier.height(12.dp))
             AddChips(onAdd = onAdd)
             Spacer(Modifier.height(20.dp))
-            TaskSection(tasks = detail.tasks, onToggle = onToggleTask)
+            TaskSection(
+                tasks = detail.tasks,
+                onToggle = onToggleTask,
+                onSelect = onSelectTask,
+            )
             if (detail.timedSchedules.isNotEmpty()) {
                 Spacer(Modifier.height(16.dp))
                 TimedScheduleSection(schedules = detail.timedSchedules, onSelect = onSelectSchedule)
@@ -259,26 +264,35 @@ private fun AddChip(
 // ────────── Task ──────────
 
 @Composable
-private fun TaskSection(tasks: List<DayTask>, onToggle: (String) -> Unit) {
+private fun TaskSection(
+    tasks: List<DayTask>,
+    onToggle: (String) -> Unit,
+    onSelect: (String) -> Unit,
+) {
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(text = "할 일 ${tasks.size}")
         if (tasks.isEmpty()) return
         Spacer(Modifier.height(4.dp))
         tasks.forEach { task ->
-            TaskRow(task = task, onToggle = { onToggle(task.id) })
+            TaskRow(
+                task = task,
+                onToggle = { onToggle(task.id) },
+                onSelect = { onSelect(task.id) },
+            )
         }
     }
 }
 
 @Composable
-private fun TaskRow(task: DayTask, onToggle: () -> Unit) {
+private fun TaskRow(task: DayTask, onToggle: () -> Unit, onSelect: () -> Unit) {
     val pretendard = LocalPretendardFontFamily.current
-    val interaction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val rowInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+    val checkInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            // 체크박스 뿐 아니라 row 전체가 탭 = 토글. 체크박스가 시각 피드백을 대신하므로 리플은 X.
-            .clickable(interactionSource = interaction, indication = null, onClick = onToggle)
+            // Row 전체 탭 = 편집 진입. 체크박스만 자체 clickable 로 토글을 가로챔 (아래 Box).
+            .clickable(interactionSource = rowInteraction, indication = null, onClick = onSelect)
             .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -292,7 +306,9 @@ private fun TaskRow(task: DayTask, onToggle: () -> Unit) {
                     width = 1.5.dp,
                     color = if (task.isDone) PrimaryBlue else Separator,
                     shape = RoundedCornerShape(6.dp),
-                ),
+                )
+                // 체크박스 탭은 토글 · Row 로 이벤트 안 넘어감. 시각 피드백은 색 변화가 대신하므로 리플 X.
+                .clickable(interactionSource = checkInteraction, indication = null, onClick = onToggle),
             contentAlignment = Alignment.Center,
         ) {
             if (task.isDone) {
