@@ -76,7 +76,9 @@ fun CreateScheduleScreen(
     onDelete: () -> Unit = {},
 ) {
     val today = remember { todayLocalDate() }
-    var draft by rememberSaveable(stateSaver = ScheduleDraftSaver) {
+    // rememberSaveable 을 initial 의 identity 로 key. initial 이 바뀌면 (다른 유형 pill 로 재진입 등)
+    // 이전 세션 값이 restore 되지 않고 새 seed 로 초기화된다.
+    var draft by rememberSaveable(initial, stateSaver = ScheduleDraftSaver) {
         mutableStateOf(initial ?: ScheduleDraft(startDate = today, endDate = today))
     }
 
