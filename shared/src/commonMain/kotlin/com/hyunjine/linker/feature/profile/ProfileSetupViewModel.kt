@@ -5,7 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hyunjine.linker.data.remote.AvatarsRepository
 import com.hyunjine.linker.data.remote.UsersRepository
-import com.hyunjine.linker.platform.encodeToPngBytes
+import com.hyunjine.linker.platform.encodeAvatarJpeg
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,7 +37,7 @@ class ProfileSetupViewModel : ViewModel() {
         viewModelScope.launch {
             runCatching {
                 val finalUrl = pickedImage
-                    ?.let { AvatarsRepository.uploadPng(it.encodeToPngBytes()) }
+                    ?.let { AvatarsRepository.uploadJpeg(it.encodeAvatarJpeg()) }
                     ?: defaultAvatarUrl
                 UsersRepository.completeProfile(
                     nickname = nickname,
