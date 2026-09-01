@@ -40,6 +40,7 @@ object SchedulesRepository {
         @SerialName("start_time") val startTime: String? = null,
         @SerialName("end_time") val endTime: String? = null,
         @SerialName("is_done") val isDone: Boolean,
+        @SerialName("is_private") val isPrivate: Boolean = false,
     )
 
     /**
@@ -60,6 +61,7 @@ object SchedulesRepository {
         @SerialName("all_day") val allDay: Boolean,
         @SerialName("start_time") val startTime: String? = null,
         @SerialName("end_time") val endTime: String? = null,
+        @SerialName("is_private") val isPrivate: Boolean = false,
     )
 
     /** `schedule_repeat_rules` row. 필요한 필드만 nullable — CHECK 제약은 서버가 검증. */
@@ -163,6 +165,7 @@ object SchedulesRepository {
             set("all_day", draft.allDay)
             set("start_time", draft.startTimeForDb())
             set("end_time", draft.endTimeForDb())
+            set("is_private", draft.isPrivate)
         }) {
             filter { eq("id", id) }
         }
@@ -229,6 +232,7 @@ private fun ScheduleDraft.toInsertPayload(coupleId: String, createdBy: String) =
         allDay = allDay,
         startTime = startTimeForDb(),
         endTime = endTimeForDb(),
+        isPrivate = isPrivate,
     )
 
 private fun ScheduleType.toDbValue(): String = when (this) {
@@ -276,6 +280,7 @@ private fun SchedulesRepository.Row.toDraft(rule: RepeatRule, viewerId: String?)
             "partner" -> ScheduleOwner.Partner
             else -> ScheduleOwner.Us
         },
+        isPrivate = isPrivate,
         createdBy = createdBy,
     )
 }
