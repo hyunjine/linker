@@ -12,11 +12,11 @@ DROP POLICY IF EXISTS schedules_all_in_my_couple ON public.schedules;
 CREATE POLICY schedules_all_in_my_couple ON public.schedules
     FOR ALL TO authenticated
     USING (
-        couple_id IN (SELECT public.my_couple_ids())
+        couple_id IN (SELECT private.my_couple_ids())
         AND (NOT is_private OR created_by = auth.uid())
     )
     WITH CHECK (
-        couple_id IN (SELECT public.my_couple_ids())
+        couple_id IN (SELECT private.my_couple_ids())
         AND created_by = auth.uid()
     );
 
@@ -27,14 +27,14 @@ CREATE POLICY repeat_rules_all_in_my_couple ON public.schedule_repeat_rules
     USING (
         schedule_id IN (
             SELECT s.id FROM public.schedules s
-            WHERE s.couple_id IN (SELECT public.my_couple_ids())
+            WHERE s.couple_id IN (SELECT private.my_couple_ids())
               AND (NOT s.is_private OR s.created_by = auth.uid())
         )
     )
     WITH CHECK (
         schedule_id IN (
             SELECT s.id FROM public.schedules s
-            WHERE s.couple_id IN (SELECT public.my_couple_ids())
+            WHERE s.couple_id IN (SELECT private.my_couple_ids())
               AND (NOT s.is_private OR s.created_by = auth.uid())
         )
     );
