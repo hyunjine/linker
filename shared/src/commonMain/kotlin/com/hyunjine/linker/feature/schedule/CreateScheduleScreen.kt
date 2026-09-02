@@ -125,6 +125,20 @@ fun CreateScheduleScreen(
                     onChange = { draft = draft.copy(title = it) },
                 )
 
+                // 비공개는 owner=Me 일 때만 의미. Us 면 논리 모순이라 섹션 자체를 숨긴다.
+                // 자주 손대는 옵션이 아니지만 제목 바로 아래 배치해 저장 전에 잊지 않도록 함.
+                if (draft.owner == ScheduleOwner.Me) {
+                    SectionBlock(label = "공개 범위") {
+                        Card {
+                            PrivateRow(
+                                checked = draft.isPrivate,
+                                enabled = canEdit,
+                                onChange = { draft = draft.copy(isPrivate = it) },
+                            )
+                        }
+                    }
+                }
+
                 SectionBlock(label = "일정 유형") {
                     SegmentedControl(
                         options = ScheduleType.values().toList(),
@@ -176,19 +190,6 @@ fun CreateScheduleScreen(
                         },
                         label = { it.label },
                     )
-                }
-
-                // 비공개는 owner=Me 일 때만 의미. Us 로 두면 논리 모순이라 섹션 자체를 숨긴다.
-                if (draft.owner == ScheduleOwner.Me) {
-                    SectionBlock(label = "공개 범위") {
-                        Card {
-                            PrivateRow(
-                                checked = draft.isPrivate,
-                                enabled = canEdit,
-                                onChange = { draft = draft.copy(isPrivate = it) },
-                            )
-                        }
-                    }
                 }
 
                 if (editing && canEdit) {

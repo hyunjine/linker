@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,15 +35,18 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hyunjine.linker.designsystem.common.AppBottomSheet
 import com.hyunjine.linker.designsystem.common.ConfirmCta
 import com.hyunjine.linker.designsystem.common.PickerSurface
 import com.hyunjine.linker.designsystem.common.WheelPicker
+import com.hyunjine.linker.designsystem.theme.LinkerTheme
 import com.hyunjine.linker.designsystem.theme.SeparatorGrouped
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.designsystem.theme.SurfaceCard
+import com.hyunjine.linker.designsystem.theme.SurfaceGray
 import com.hyunjine.linker.designsystem.theme.TextPrimary
 import com.hyunjine.linker.designsystem.theme.TextSecondary
 import kotlinx.datetime.DayOfWeek
@@ -78,20 +83,45 @@ fun RepeatPickerSheet(
     onDismiss: () -> Unit,
 ) {
     if (!visible) return
-    val font = LocalPretendardFontFamily.current
-
-    // 시트가 다시 열릴 때마다 초기 상태를 draft 값으로 리셋.
-    var draftRule by remember(visible) { mutableStateOf(current) }
-    val defaultEnd = remember(visible) { currentEndDate ?: anchorDate.plus(1, DateTimeUnit.YEAR) }
-    var draftEnd by remember(visible) { mutableStateOf(defaultEnd) }
-
+    // AppBottomSheet 은 내부적으로 Dialog 를 사용해 Compose Preview (layoutlib) 에서 렌더 안 됨.
+    // 실제 sheet body 는 [RepeatPickerSheetContent] 로 분리해 프리뷰 대상은 body 만 그림.
     AppBottomSheet(
         visible = true,
         onDismissRequest = onDismiss,
         fullyExpanded = true,
     ) {
-        // 상단 nav bar. 취소 = onDismiss. 그랩 핸들은 AppBottomSheet 기본 슬롯이 이미 표시.
-        Row(
+        RepeatPickerSheetContent(
+            current = current,
+            currentEndDate = currentEndDate,
+            anchorDate = anchorDate,
+            onConfirm = onConfirm,
+            onDismiss = onDismiss,
+        )
+    }
+}
+
+/**
+ * RepeatPickerSheet 의 body 전용. Dialog 프리뷰 제한 우회로 [RepeatPickerSheet] 에서 분리.
+ * `ColumnScope` 안에서만 호출 가능 — 하단 CTA 가 `weight(1f, fill=false)` 로 시트 하단에
+ * 붙기 위함. 프리뷰는 Column 을 손수 감싸서 재현.
+ */
+@Composable
+internal fun ColumnScope.RepeatPickerSheetContent(
+    current: RepeatRule,
+    currentEndDate: LocalDate?,
+    anchorDate: LocalDate,
+    onConfirm: (RepeatRule, LocalDate?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val font = LocalPretendardFontFamily.current
+
+    // 시트가 다시 열릴 때마다 초기 상태를 draft 값으로 리셋.
+    var draftRule by remember(current) { mutableStateOf(current) }
+    val defaultEnd = remember(currentEndDate, anchorDate) { currentEndDate ?: anchorDate.plus(1, DateTimeUnit.YEAR) }
+    var draftEnd by remember(defaultEnd) { mutableStateOf(defaultEnd) }
+
+    // 상단 nav bar. 취소 = onDismiss. 그랩 핸들은 AppBottomSheet 기본 슬롯이 이미 표시.
+    Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 14.dp),
@@ -190,9 +220,8 @@ fun RepeatPickerSheet(
             Spacer(Modifier.height(8.dp))
         }
 
-        ConfirmCta {
-            onConfirm(draftRule, if (draftRule == RepeatRule.None) null else draftEnd)
-        }
+    ConfirmCta {
+        onConfirm(draftRule, if (draftRule == RepeatRule.None) null else draftEnd)
     }
 }
 
@@ -473,5 +502,104 @@ private enum class RepeatKind {
             is RepeatRule.Monthly -> Monthly
             is RepeatRule.Yearly -> Yearly
         }
+    }
+}
+
+// ────────── Previews ──────────
+// AppBottomSheet 은 Dialog 기반이라 layoutlib 이 렌더 못 함 (AppBottomSheet.kt:106 코멘트 참조).
+// 프리뷰용으로는 sheet body 자체 (RepeatPickerSheetContent) 만 카드로 감싸 각 반복 유형별
+// UI 상태를 확인한다. 실제 앱에서는 [RepeatPickerSheet] 를 쓴다.
+
+/** 프리뷰 프레임: SurfaceGray 배경 + rounded-top 카드 안에 body 렌더. */
+@Composable
+private fun RepeatPickerPreviewFrame(content: @Composable ColumnScope.() -> Unit) {
+    LinkerTheme {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(SurfaceGray),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .align(Alignment.BottomCenter)
+                    .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                    .background(SurfaceCard)
+                    .padding(top = 8.dp),
+                content = content,
+            )
+        }
+    }
+}
+
+private val PreviewAnchor: LocalDate = LocalDate(2026, 3, 15)
+
+@Preview
+@Composable
+private fun RepeatPickerSheetPreview_None() {
+    RepeatPickerPreviewFrame {
+        RepeatPickerSheetContent(
+            current = RepeatRule.None,
+            currentEndDate = null,
+            anchorDate = PreviewAnchor,
+            onConfirm = { _, _ -> },
+            onDismiss = {},
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun RepeatPickerSheetPreview_Daily() {
+    RepeatPickerPreviewFrame {
+        RepeatPickerSheetContent(
+            current = RepeatRule.Daily,
+            currentEndDate = LocalDate(2026, 12, 31),
+            anchorDate = PreviewAnchor,
+            onConfirm = { _, _ -> },
+            onDismiss = {},
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun RepeatPickerSheetPreview_Weekly() {
+    RepeatPickerPreviewFrame {
+        RepeatPickerSheetContent(
+            current = RepeatRule.Weekly(setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY)),
+            currentEndDate = LocalDate(2026, 12, 31),
+            anchorDate = PreviewAnchor,
+            onConfirm = { _, _ -> },
+            onDismiss = {},
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun RepeatPickerSheetPreview_Monthly() {
+    RepeatPickerPreviewFrame {
+        RepeatPickerSheetContent(
+            current = RepeatRule.Monthly(day = 15),
+            currentEndDate = LocalDate(2026, 12, 31),
+            anchorDate = PreviewAnchor,
+            onConfirm = { _, _ -> },
+            onDismiss = {},
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun RepeatPickerSheetPreview_Yearly() {
+    RepeatPickerPreviewFrame {
+        RepeatPickerSheetContent(
+            current = RepeatRule.Yearly(month = 3, day = 15),
+            currentEndDate = LocalDate(2027, 3, 15),
+            anchorDate = PreviewAnchor,
+            onConfirm = { _, _ -> },
+            onDismiss = {},
+        )
     }
 }
