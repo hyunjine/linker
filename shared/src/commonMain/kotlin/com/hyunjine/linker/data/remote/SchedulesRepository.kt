@@ -358,15 +358,38 @@ object SchedulesRepository {
     }
 
     /**
-     * 삭제. 시리즈에 속하면 시리즈 전체 삭제 (사용자의 "일괄 적용" 방침에 맞춤).
+     * 삭제 (단일 row). 시리즈 여부 관계없이 이 row 만 지운다.
      * schedule_repeat_rules 는 FK ON DELETE CASCADE 로 함께 삭제됨.
+     * 시리즈 인스턴스 편집 화면에서는 [deleteOnlyThis] / [deleteThisAndFuture] 로 scope 지정.
      */
     suspend fun delete(id: String) {
+        deleteRowById(id)
+    }
+
+    /** "이 스케줄만 삭제". [delete] 와 동일 — 시리즈에 속해도 이 row 만. */
+    suspend fun deleteOnlyThis(id: String) {
+        deleteRowById(id)
+    }
+
+    /**
+     * "이후 모든 반복 삭제". 시리즈에 속한 row 라면 start_date >= 이 row 이상인 시리즈 rows 를
+     * 모두 삭제. 시리즈에 속하지 않으면 단일 삭제로 폴백.
+     */
+    suspend fun deleteThisAndFuture(id: String) {
         val row = SupabaseProvider.client.from("schedules")
             .select { filter { eq("id", id) } }
-            .decodeSingleOrNull<Row>()
-        val seriesId = row?.seriesId
-        if (seriesId != null) deleteSeriesById(seriesId) else deleteRowById(id)
+            .decodeSingleOrNull<Row>() ?: return
+        val seriesId = row.seriesId
+        if (seriesId == null) {
+            deleteRowById(id)
+            return
+        }
+        SupabaseProvider.client.from("schedules").delete {
+            filter {
+                eq("series_id", seriesId)
+                gte("start_date", row.startDate)
+            }
+        }
     }
 
     /** 할 일 (`type='task'`) 의 `is_done` 만 단일 컬럼 갱신. DayDetailSheet 체크박스 토글에서 사용. */

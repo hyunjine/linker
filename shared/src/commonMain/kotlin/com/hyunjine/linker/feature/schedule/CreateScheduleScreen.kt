@@ -79,7 +79,10 @@ fun CreateScheduleScreen(
      * scope 는 시리즈 인스턴스 편집일 때만 값이 채워진다. 신규 저장 · 단일 스케줄 편집은 null.
      */
     onSave: (ScheduleDraft, SeriesEditScope?) -> Unit = { _, _ -> },
-    onDelete: () -> Unit = {},
+    /**
+     * scope 는 시리즈 인스턴스 삭제일 때만 값이 채워진다. 단일 스케줄 삭제는 null.
+     */
+    onDelete: (SeriesEditScope?) -> Unit = {},
 ) {
     val today = remember { todayLocalDate() }
     // rememberSaveable 을 initial 의 identity 로 key. initial 이 바뀌면 (다른 유형 pill 로 재진입 등)
@@ -93,8 +96,9 @@ fun CreateScheduleScreen(
     var startTimeSheet by remember { mutableStateOf(false) }
     var endTimeSheet by remember { mutableStateOf(false) }
     var repeatSheet by remember { mutableStateOf(false) }
-    // 반복 시리즈 인스턴스 편집일 때 저장 탭 → scope 선택 다이얼로그 노출.
+    // 반복 시리즈 인스턴스 편집일 때 저장 · 삭제 탭 → scope 선택 다이얼로그 노출.
     var scopeChoiceDialog by remember { mutableStateOf(false) }
+    var deleteScopeDialog by remember { mutableStateOf(false) }
     val isSeriesEdit = editing && (initial?.seriesId != null)
 
     // 편집 가능 여부는 "이 화면을 어떤 자격으로 열었나" 로만 정해진다.
@@ -209,7 +213,10 @@ fun CreateScheduleScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable(onClick = onDelete)
+                                .clickable(onClick = {
+                                    if (isSeriesEdit) deleteScopeDialog = true
+                                    else onDelete(null)
+                                })
                                 .padding(vertical = 14.dp),
                             contentAlignment = Alignment.Center,
                         ) {
@@ -312,6 +319,26 @@ fun CreateScheduleScreen(
                 AlertAction("취소", AlertActionStyle.Cancel) { scopeChoiceDialog = false },
             ),
             onDismissRequest = { scopeChoiceDialog = false },
+        )
+    }
+
+    // 반복 시리즈 삭제 시 scope 선택 다이얼로그. 파괴적 액션이라 두 옵션 모두 Destructive 톤.
+    if (deleteScopeDialog) {
+        AppAlertDialog(
+            title = "이 반복 스케줄을 어떻게 삭제할까요?",
+            message = "삭제 범위를 선택하세요.",
+            actions = listOf(
+                AlertAction("이 스케줄만", AlertActionStyle.Destructive) {
+                    deleteScopeDialog = false
+                    onDelete(SeriesEditScope.OnlyThis)
+                },
+                AlertAction("이후 모든 반복", AlertActionStyle.Destructive) {
+                    deleteScopeDialog = false
+                    onDelete(SeriesEditScope.ThisAndFuture)
+                },
+                AlertAction("취소", AlertActionStyle.Cancel) { deleteScopeDialog = false },
+            ),
+            onDismissRequest = { deleteScopeDialog = false },
         )
     }
 }

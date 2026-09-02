@@ -76,22 +76,33 @@ class CreateScheduleViewModel(
         }
     }
 
-    fun delete(onDone: () -> Unit) {
+    /**
+     * 삭제.
+     *
+     * [scope] 는 시리즈 인스턴스일 때만 의미:
+     *  - null · [SeriesEditScope.OnlyThis]: 이 row 만 삭제 (시리즈에 속해도 형제들은 유지)
+     *  - [SeriesEditScope.ThisAndFuture]: 이 row 이후 (start_date >= 현재) 시리즈 rows 를 batch 삭제
+     */
+    fun delete(scope: SeriesEditScope? = null, onDone: () -> Unit) {
         val id = scheduleId ?: return
         if (_uiState.value.saving) return
         _uiState.value = _uiState.value.copy(saving = true)
         viewModelScope.launch {
-            runCatching { SchedulesRepository.delete(id) }
-                .onSuccess {
-                    println("[Schedule] 삭제 성공: $id")
-                    _uiState.value = _uiState.value.copy(saving = false)
-                    refreshTodayWidget()
-                    onDone()
-                }
-                .onFailure {
-                    println("[Schedule] 삭제 실패: $it")
-                    _uiState.value = _uiState.value.copy(saving = false)
-                }
+            val op = when (scope) {
+                SeriesEditScope.ThisAndFuture ->
+                    runCatching { SchedulesRepository.deleteThisAndFuture(id) }
+                else ->
+                    runCatching { SchedulesRepository.deleteOnlyThis(id) }
+            }
+            op.onSuccess {
+                println("[Schedule] 삭제 성공: $id (scope=$scope)")
+                _uiState.value = _uiState.value.copy(saving = false)
+                refreshTodayWidget()
+                onDone()
+            }.onFailure {
+                println("[Schedule] 삭제 실패: $it")
+                _uiState.value = _uiState.value.copy(saving = false)
+            }
         }
     }
 }
