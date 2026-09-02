@@ -23,6 +23,7 @@ object UserPreferencesRepository {
         @SerialName("user_id") val userId: String,
         @SerialName("show_my_calendar") val showMyCalendar: Boolean = true,
         @SerialName("show_partner_calendar") val showPartnerCalendar: Boolean = true,
+        @SerialName("show_shared_calendar") val showSharedCalendar: Boolean = true,
         @SerialName("show_holidays") val showHolidays: Boolean = true,
         @SerialName("show_solar_terms") val showSolarTerms: Boolean = true,
     )
@@ -53,6 +54,7 @@ object UserPreferencesRepository {
 private fun UserPreferencesRepository.Row.toDisplay() = DrawerDisplayState(
     showMyCalendar = showMyCalendar,
     showPartnerCalendar = showPartnerCalendar,
+    showSharedCalendar = showSharedCalendar,
     showHolidays = showHolidays,
     showSolarTerms = showSolarTerms,
 )
@@ -61,6 +63,7 @@ private fun DrawerDisplayState.toRow(uid: String) = UserPreferencesRepository.Ro
     userId = uid,
     showMyCalendar = showMyCalendar,
     showPartnerCalendar = showPartnerCalendar,
+    showSharedCalendar = showSharedCalendar,
     showHolidays = showHolidays,
     showSolarTerms = showSolarTerms,
 )

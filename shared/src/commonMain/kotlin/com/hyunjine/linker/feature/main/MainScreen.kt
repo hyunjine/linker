@@ -259,11 +259,11 @@ fun MainScreen(
         }
     }
 
-    // 표시 토글 반영: 공휴일/절기 는 type 기준, 개인 chip 은 owner 기준으로 각각 필터.
+    // 표시 토글 반영: 공휴일/절기 는 type 기준, 개인 chip 은 owner 기준 (나/상대방/공동) 으로 각각 필터.
     val mergedEntries = remember(
         entries, scheduleEntries, specialDayEntries,
         displayState.showHolidays, displayState.showSolarTerms,
-        displayState.showMyCalendar, displayState.showPartnerCalendar,
+        displayState.showMyCalendar, displayState.showPartnerCalendar, displayState.showSharedCalendar,
     ) {
         val filteredSpecial = specialDayEntries.filterByToggles(
             showHolidays = displayState.showHolidays,
@@ -272,6 +272,7 @@ fun MainScreen(
         val filteredSchedules = scheduleEntries.filterByOwnerToggles(
             showMy = displayState.showMyCalendar,
             showPartner = displayState.showPartnerCalendar,
+            showShared = displayState.showSharedCalendar,
         )
         val withSchedules = mergeEntries(base = filteredSpecial, override = filteredSchedules)
         mergeEntries(base = withSchedules, override = entries)
@@ -301,6 +302,7 @@ fun MainScreen(
                 },
                 onToggleMyCalendar = { onDisplayStateChange(displayState.copy(showMyCalendar = it)) },
                 onTogglePartnerCalendar = { onDisplayStateChange(displayState.copy(showPartnerCalendar = it)) },
+                onToggleSharedCalendar = { onDisplayStateChange(displayState.copy(showSharedCalendar = it)) },
                 onToggleHolidays = { onDisplayStateChange(displayState.copy(showHolidays = it)) },
                 onToggleSolarTerms = { onDisplayStateChange(displayState.copy(showSolarTerms = it)) },
                 onLogout = {
@@ -440,22 +442,23 @@ private fun Map<LocalDate, CalendarDayEntry>.filterByToggles(
 }
 
 /**
- * 스케줄 chip 을 드로워 "내 캘린더" · "상대방 캘린더" 토글로 걸러낸다.
- * `Us` (공동) 는 어느 한쪽이라도 켜져 있으면 노출 — 둘 다 껐을 때만 감춘다.
+ * 스케줄 chip 을 드로워 "내 캘린더" · "상대방 캘린더" · "공동 캘린더" 토글로 걸러낸다.
+ * 세 토글은 서로 독립적이라 owner 별로 대응되는 스위치만 본다.
  * `owner=null` 은 방어적으로 통과 (스케줄 chip 은 모두 owner 를 갖는 게 정상).
  */
 private fun Map<LocalDate, CalendarDayEntry>.filterByOwnerToggles(
     showMy: Boolean,
     showPartner: Boolean,
+    showShared: Boolean,
 ): Map<LocalDate, CalendarDayEntry> {
-    if (showMy && showPartner) return this
+    if (showMy && showPartner && showShared) return this
     val out = mutableMapOf<LocalDate, CalendarDayEntry>()
     for ((date, entry) in this) {
         val kept = entry.events.filter { ev ->
             when (ev.owner) {
                 DayOwner.Me -> showMy
                 DayOwner.Partner -> showPartner
-                DayOwner.Us -> showMy || showPartner
+                DayOwner.Us -> showShared
                 null -> true
             }
         }

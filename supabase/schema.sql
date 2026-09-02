@@ -181,6 +181,7 @@ CREATE TABLE IF NOT EXISTS public.user_preferences (
     user_id                UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
     show_my_calendar       BOOLEAN NOT NULL DEFAULT TRUE,
     show_partner_calendar  BOOLEAN NOT NULL DEFAULT TRUE,
+    show_shared_calendar   BOOLEAN NOT NULL DEFAULT TRUE,
     show_holidays          BOOLEAN NOT NULL DEFAULT TRUE,
     show_solar_terms       BOOLEAN NOT NULL DEFAULT TRUE,
     show_lunar             BOOLEAN NOT NULL DEFAULT FALSE,
