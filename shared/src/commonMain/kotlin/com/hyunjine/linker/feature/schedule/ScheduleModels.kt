@@ -27,6 +27,18 @@ enum class ScheduleOwner(val label: String) {
 }
 
 /**
+ * 반복 시리즈의 인스턴스를 편집할 때 적용 범위 선택.
+ * "취소" 는 저장 자체를 안 하므로 이 enum 에 없다.
+ */
+enum class SeriesEditScope {
+    /** 이 스케줄만: 시리즈에서 인스턴스를 detach 해 단독 row 로 저장. 반복 규칙 변경은 이 케이스에서 무시. */
+    OnlyThis,
+
+    /** 이후 모든 반복: 현재 인스턴스 이후 (start_date >= 현재) 시리즈 rows 에 일괄 반영. */
+    ThisAndFuture,
+}
+
+/**
  * 반복 규칙. 매주는 요일 다중 선택, 매월/매년은 기준 날짜 저장.
  *
  * 종료 날짜는 [ScheduleDraft.repeatEndDate] 로 별도 필드 관리 — 규칙 자체와 분리해서

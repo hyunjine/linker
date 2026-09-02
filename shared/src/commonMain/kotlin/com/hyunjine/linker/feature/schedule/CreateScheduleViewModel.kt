@@ -46,17 +46,26 @@ class CreateScheduleViewModel(
         }
     }
 
-    fun save(draft: ScheduleDraft, onDone: () -> Unit) {
+    /**
+     * 신규 · 편집 겸용 저장.
+     *
+     * [scope] 는 시리즈 인스턴스 편집일 때만 의미. 신규 저장 · 단일 스케줄 편집이면 null 로 오고,
+     * 반복 시리즈 인스턴스를 편집할 때만 UI 다이얼로그가 [SeriesEditScope] 를 채워 넘긴다.
+     */
+    fun save(draft: ScheduleDraft, scope: SeriesEditScope? = null, onDone: () -> Unit) {
         if (_uiState.value.saving) return
         _uiState.value = _uiState.value.copy(saving = true)
         viewModelScope.launch {
-            val op = if (scheduleId != null) {
-                runCatching { SchedulesRepository.update(scheduleId, draft) }
-            } else {
-                runCatching { SchedulesRepository.create(draft) }
+            val op = when {
+                scheduleId == null -> runCatching { SchedulesRepository.create(draft) }
+                scope == SeriesEditScope.OnlyThis ->
+                    runCatching { SchedulesRepository.updateOnlyThis(scheduleId, draft); scheduleId }
+                scope == SeriesEditScope.ThisAndFuture ->
+                    runCatching { SchedulesRepository.updateThisAndFuture(scheduleId, draft) }
+                else -> runCatching { SchedulesRepository.update(scheduleId, draft) }
             }
             op.onSuccess {
-                println("[Schedule] ${if (editing) "수정" else "저장"} 성공")
+                println("[Schedule] ${if (editing) "수정" else "저장"} 성공 (scope=$scope)")
                 _uiState.value = _uiState.value.copy(saving = false)
                 refreshTodayWidget()
                 onDone()

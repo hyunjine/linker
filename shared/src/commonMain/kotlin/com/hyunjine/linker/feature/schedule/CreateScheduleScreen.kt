@@ -36,6 +36,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hyunjine.linker.designsystem.common.AlertAction
+import com.hyunjine.linker.designsystem.common.AlertActionStyle
+import com.hyunjine.linker.designsystem.common.AppAlertDialog
 import com.hyunjine.linker.designsystem.common.AppSwitch
 import com.hyunjine.linker.designsystem.common.AppTopBar
 import com.hyunjine.linker.designsystem.common.SegmentedControl
@@ -72,7 +75,10 @@ fun CreateScheduleScreen(
     initial: ScheduleDraft? = null,
     editing: Boolean = false,
     onBack: () -> Unit = {},
-    onSave: (ScheduleDraft) -> Unit = {},
+    /**
+     * scope 는 시리즈 인스턴스 편집일 때만 값이 채워진다. 신규 저장 · 단일 스케줄 편집은 null.
+     */
+    onSave: (ScheduleDraft, SeriesEditScope?) -> Unit = { _, _ -> },
     onDelete: () -> Unit = {},
 ) {
     val today = remember { todayLocalDate() }
@@ -87,6 +93,9 @@ fun CreateScheduleScreen(
     var startTimeSheet by remember { mutableStateOf(false) }
     var endTimeSheet by remember { mutableStateOf(false) }
     var repeatSheet by remember { mutableStateOf(false) }
+    // 반복 시리즈 인스턴스 편집일 때 저장 탭 → scope 선택 다이얼로그 노출.
+    var scopeChoiceDialog by remember { mutableStateOf(false) }
+    val isSeriesEdit = editing && (initial?.seriesId != null)
 
     // 편집 가능 여부는 "이 화면을 어떤 자격으로 열었나" 로만 정해진다.
     // create 모드에서는 owner 를 자유롭게 지정할 수 있어야 하고, edit 모드에서는 화면 진입 시점의
@@ -108,7 +117,10 @@ fun CreateScheduleScreen(
                 title = if (editing) "일정 수정" else "일정 추가",
                 onBack = onBack,
                 trailing = {
-                    SaveAction(enabled = canEdit) { onSave(draft) }
+                    SaveAction(enabled = canEdit) {
+                        if (isSeriesEdit) scopeChoiceDialog = true
+                        else onSave(draft, null)
+                    }
                 },
             )
 
@@ -282,6 +294,26 @@ fun CreateScheduleScreen(
         },
         onDismiss = { repeatSheet = false },
     )
+
+    // 반복 시리즈 편집 저장 시 scope 선택 다이얼로그 (이 스케줄만 · 이후 모든 반복 · 취소).
+    if (scopeChoiceDialog) {
+        AppAlertDialog(
+            title = "이 반복 스케줄을 어떻게 저장할까요?",
+            message = "변경사항을 어디까지 적용할지 선택하세요.",
+            actions = listOf(
+                AlertAction("이 스케줄만", AlertActionStyle.Default) {
+                    scopeChoiceDialog = false
+                    onSave(draft, SeriesEditScope.OnlyThis)
+                },
+                AlertAction("이후 모든 반복", AlertActionStyle.Default) {
+                    scopeChoiceDialog = false
+                    onSave(draft, SeriesEditScope.ThisAndFuture)
+                },
+                AlertAction("취소", AlertActionStyle.Cancel) { scopeChoiceDialog = false },
+            ),
+            onDismissRequest = { scopeChoiceDialog = false },
+        )
+    }
 }
 
 /** `"HH:MM"` 두 문자열의 시각 순서를 비교. 파싱 실패 시 0 반환 (동일 취급). */

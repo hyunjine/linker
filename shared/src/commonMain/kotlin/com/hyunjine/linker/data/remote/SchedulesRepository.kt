@@ -243,6 +243,121 @@ object SchedulesRepository {
     }
 
     /**
+     * "이 스케줄만" 저장 — 시리즈 인스턴스를 detach 해 단독 row 로 만든다.
+     *
+     * 처리:
+     *  1) 이 row 의 series_id 를 null 로, 반복 규칙 row 제거 (detach)
+     *  2) draft 의 metadata + start/end 날짜 · 시각 등을 UPDATE
+     *  3) draft.repeat 변경은 무시 — "이 스케줄만" 의 의미는 이 인스턴스를 단독 저장이라
+     *     신규 반복 규칙을 걸고 싶다면 별도로 새 스케줄을 만들거나 "이후 모든 반복" 을 써야 함.
+     */
+    suspend fun updateOnlyThis(id: String, draft: ScheduleDraft) {
+        val viewerId = SupabaseProvider.client.auth.currentUserOrNull()?.id
+        val ownerForStorage = ownerKindForStorage(draft.owner.toDbValue(), draft.createdBy, viewerId)
+        SupabaseProvider.client.from("schedules").update({
+            set("type", draft.type.toDbValue())
+            set("owner_kind", ownerForStorage)
+            set("title", draft.title)
+            set("start_date", draft.startDate.toString())
+            set("end_date", draft.endDate.toString())
+            set("all_day", draft.allDay)
+            set("start_time", draft.startTimeForDb())
+            set("end_time", draft.endTimeForDb())
+            set("is_private", draft.isPrivate)
+            set("series_id", null as String?)
+        }) {
+            filter { eq("id", id) }
+        }
+        // detach 후엔 자신만의 규칙도 지운다 — 단독 인스턴스이므로 반복 개념 자체를 벗김.
+        SupabaseProvider.client.from("schedule_repeat_rules").delete {
+            filter { eq("schedule_id", id) }
+        }
+    }
+
+    /**
+     * "이후 모든 반복" 저장 — 현재 인스턴스 시작일 이후의 시리즈 rows 에 일괄 반영.
+     *
+     * 구조적 변경 (규칙 · 종료일 · 시작/종료 날짜) 이 있으면 미래 rows 를 DELETE 하고
+     * 새 draft 로 다시 materialize (같은 series_id 유지). 순수 metadata 변경이면 미래 rows 를
+     * 그 자리에서 batch UPDATE. 시리즈에 속하지 않은 row 면 일반 [update] 로 위임.
+     */
+    suspend fun updateThisAndFuture(id: String, draft: ScheduleDraft): String {
+        val oldRow = SupabaseProvider.client.from("schedules")
+            .select { filter { eq("id", id) } }
+            .decodeSingleOrNull<Row>() ?: return id
+        val seriesId = oldRow.seriesId
+        if (seriesId == null) {
+            // 시리즈가 아닌 row 는 scope 개념 무의미 → 일반 update.
+            return update(id, draft)
+        }
+
+        val coupleId = myCoupleId() ?: error("커플에 속하지 않은 유저가 스케줄 편집 시도")
+        val uid = SupabaseProvider.client.auth.currentUserOrNull()?.id
+            ?: error("세션 없이 스케줄 편집 시도")
+
+        val cutoff = LocalDate.parse(oldRow.startDate)
+        val oldEndDate = LocalDate.parse(oldRow.endDate)
+        val oldRepeat = fetchRepeatRuleForSchedule(id)
+        val oldRepeatEnd = fetchRepeatEndsAt(id)
+
+        val ruleChanged = oldRepeat != draft.repeat || oldRepeatEnd != draft.repeatEndDate
+        val startChanged = cutoff != draft.startDate
+        val endChanged = oldEndDate != draft.endDate
+        val privateTransition = !oldRow.isPrivate && draft.isPrivate
+        val needsRegen = ruleChanged || startChanged || endChanged || privateTransition
+
+        if (!needsRegen) {
+            // Metadata-only → 미래 rows 만 골라 batch UPDATE.
+            val ownerForStorage = ownerKindForStorage(draft.owner.toDbValue(), draft.createdBy, uid)
+            SupabaseProvider.client.from("schedules").update({
+                set("type", draft.type.toDbValue())
+                set("owner_kind", ownerForStorage)
+                set("title", draft.title)
+                set("all_day", draft.allDay)
+                set("start_time", draft.startTimeForDb())
+                set("end_time", draft.endTimeForDb())
+                set("is_private", draft.isPrivate)
+            }) {
+                filter {
+                    eq("series_id", seriesId)
+                    gte("start_date", cutoff.toString())
+                }
+            }
+            return id
+        }
+
+        // 구조 변경 → 미래 rows 삭제 후 재-materialize.
+        SupabaseProvider.client.from("schedules").delete {
+            filter {
+                eq("series_id", seriesId)
+                gte("start_date", cutoff.toString())
+            }
+        }
+
+        if (draft.repeat == RepeatRule.None) {
+            // 반복 해제 → 이 시점 이후는 단발성 row 하나로 재삽입 (series_id 유지 안 함).
+            return insertSingle(draft, coupleId, uid)
+        }
+        // 반복 유지 · 규칙/날짜 변경 → 새 draft 로 미래 부분 materialize, 기존 series_id 재사용.
+        val occurrences = expandOccurrences(draft)
+        require(occurrences.isNotEmpty()) { "반복 규칙이 종료일 안에 생성하는 인스턴스가 없다" }
+        val payloads = occurrences.map { (s, e) ->
+            draft.toInsertPayload(coupleId, uid, seriesId = seriesId).copy(
+                startDate = s.toString(),
+                endDate = e.toString(),
+            )
+        }
+        val inserted = SupabaseProvider.client.from("schedules")
+            .insert(payloads) { select() }
+            .decodeList<Row>()
+        val repeatRows = inserted.mapNotNull { row -> draft.repeat.toRow(row.id, draft.repeatEndDate) }
+        if (repeatRows.isNotEmpty()) {
+            SupabaseProvider.client.from("schedule_repeat_rules").insert(repeatRows)
+        }
+        return inserted.first().id
+    }
+
+    /**
      * 삭제. 시리즈에 속하면 시리즈 전체 삭제 (사용자의 "일괄 적용" 방침에 맞춤).
      * schedule_repeat_rules 는 FK ON DELETE CASCADE 로 함께 삭제됨.
      */

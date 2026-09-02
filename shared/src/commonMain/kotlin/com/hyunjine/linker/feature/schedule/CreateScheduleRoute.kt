@@ -43,7 +43,7 @@ fun CreateScheduleRoute(
             initial = ui.initial,
             editing = true,
             onBack = onBack,
-            onSave = { draft -> viewModel.save(draft, onDone) },
+            onSave = { draft, scope -> viewModel.save(draft, scope, onDone) },
             onDelete = { viewModel.delete(onDone) },
         )
     } else {
@@ -55,7 +55,7 @@ fun CreateScheduleRoute(
             initial = initial,
             editing = false,
             onBack = onBack,
-            onSave = { draft -> viewModel.save(draft, onDone) },
+            onSave = { draft, scope -> viewModel.save(draft, scope, onDone) },
             onDelete = { viewModel.delete(onDone) },
         )
     }
