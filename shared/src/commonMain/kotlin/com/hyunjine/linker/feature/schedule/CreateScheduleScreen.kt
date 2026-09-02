@@ -165,9 +165,30 @@ fun CreateScheduleScreen(
                         // draft.owner 가 Partner 면 (파트너 스케줄 편집 · 읽기 전용) 시각적으로
                         // Me 로 fallback — SegmentedControl 은 options 밖 값이면 아무것도 선택 안 함.
                         selected = if (draft.owner == ScheduleOwner.Partner) ScheduleOwner.Me else draft.owner,
-                        onSelect = { if (canEdit) draft = draft.copy(owner = it) },
+                        // owner=Us 로 바꾸면 비공개 개념이 성립하지 않아 자동으로 isPrivate=false.
+                        onSelect = {
+                            if (canEdit) {
+                                draft = draft.copy(
+                                    owner = it,
+                                    isPrivate = if (it == ScheduleOwner.Us) false else draft.isPrivate,
+                                )
+                            }
+                        },
                         label = { it.label },
                     )
+                }
+
+                // 비공개는 owner=Me 일 때만 의미. Us 로 두면 논리 모순이라 섹션 자체를 숨긴다.
+                if (draft.owner == ScheduleOwner.Me) {
+                    SectionBlock(label = "공개 범위") {
+                        Card {
+                            PrivateRow(
+                                checked = draft.isPrivate,
+                                enabled = canEdit,
+                                onChange = { draft = draft.copy(isPrivate = it) },
+                            )
+                        }
+                    }
                 }
 
                 if (editing && canEdit) {
@@ -368,6 +389,43 @@ private fun DateTimeCard(
     }
 }
 
+/**
+ * 비공개 스위치 행. 라벨 아래 짧은 부제로 의미를 알림.
+ * RLS 가 파트너의 SELECT 를 아예 차단하므로 UI 에는 별도 필터 로직 없음.
+ */
+@Composable
+private fun PrivateRow(checked: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
+    val pretendard = LocalPretendardFontFamily.current
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "비공개",
+                style = TextStyle(
+                    fontFamily = pretendard,
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 17.sp,
+                    color = TextPrimary,
+                ),
+            )
+            Text(
+                text = "나만 볼 수 있어요",
+                style = TextStyle(
+                    fontFamily = pretendard,
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 13.sp,
+                    color = TextSecondary,
+                    lineHeight = 18.sp,
+                ),
+            )
+        }
+        AppSwitch(checked = checked, onCheckedChange = onChange, enabled = enabled)
+    }
+}
+
 @Composable
 private fun AllDayRow(checked: Boolean, enabled: Boolean, onChange: (Boolean) -> Unit) {
     val pretendard = LocalPretendardFontFamily.current
@@ -515,6 +573,7 @@ private val ScheduleDraftSaver = androidx.compose.runtime.saveable.Saver<Schedul
                 RepeatRule.Custom -> "custom"
             },
             d.owner.name,
+            d.isPrivate,
         )
     },
     restore = { list ->
@@ -528,6 +587,7 @@ private val ScheduleDraftSaver = androidx.compose.runtime.saveable.Saver<Schedul
             endTime = list[6] as String?,
             repeat = parseRepeat(list[7] as String),
             owner = ScheduleOwner.valueOf(list[8] as String),
+            isPrivate = (list.getOrNull(9) as? Boolean) ?: false,
         )
     },
 )

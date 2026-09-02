@@ -40,6 +40,7 @@ object SchedulesRepository {
         @SerialName("start_time") val startTime: String? = null,
         @SerialName("end_time") val endTime: String? = null,
         @SerialName("is_done") val isDone: Boolean,
+        @SerialName("is_private") val isPrivate: Boolean = false,
     )
 
     /**
@@ -60,6 +61,7 @@ object SchedulesRepository {
         @SerialName("all_day") val allDay: Boolean,
         @SerialName("start_time") val startTime: String? = null,
         @SerialName("end_time") val endTime: String? = null,
+        @SerialName("is_private") val isPrivate: Boolean = false,
     )
 
     /** `schedule_repeat_rules` row. 필요한 필드만 nullable — CHECK 제약은 서버가 검증. */
@@ -154,6 +156,24 @@ object SchedulesRepository {
     suspend fun update(id: String, draft: ScheduleDraft) {
         val viewerId = SupabaseProvider.client.auth.currentUserOrNull()?.id
         val ownerForStorage = ownerKindForStorage(draft.owner.toDbValue(), draft.createdBy, viewerId)
+
+        // 파트너 캐시 무효화 우회: is_private 이 false → true 로 바뀌는 순간
+        // Supabase Realtime UPDATE 이벤트는 NEW row 의 RLS 로 필터링되고
+        // NEW 가 파트너에게 invisible 이면 이벤트 자체가 전달되지 않는다.
+        // 결과: 파트너 로컬 캐시에 stale row 가 남아 캘린더에 계속 보인다.
+        // → DELETE (OLD 는 visible 이라 이벤트 전달됨) + 새 INSERT 로 처리해
+        // 파트너가 DELETE 이벤트를 받고 refetch → 로컬 row 가 사라진다.
+        // 부작용: id · is_done 이 새로 시작됨. 사용자가 이 전환을 자주 하지 않는다는 전제.
+        val existing = SupabaseProvider.client.from("schedules")
+            .select { filter { eq("id", id) } }
+            .decodeSingleOrNull<Row>()
+        val makingPrivate = existing?.isPrivate == false && draft.isPrivate
+        if (makingPrivate) {
+            SupabaseProvider.client.from("schedules").delete { filter { eq("id", id) } }
+            create(draft)
+            return
+        }
+
         SupabaseProvider.client.from("schedules").update({
             set("type", draft.type.toDbValue())
             set("owner_kind", ownerForStorage)
@@ -163,6 +183,7 @@ object SchedulesRepository {
             set("all_day", draft.allDay)
             set("start_time", draft.startTimeForDb())
             set("end_time", draft.endTimeForDb())
+            set("is_private", draft.isPrivate)
         }) {
             filter { eq("id", id) }
         }
@@ -229,6 +250,7 @@ private fun ScheduleDraft.toInsertPayload(coupleId: String, createdBy: String) =
         allDay = allDay,
         startTime = startTimeForDb(),
         endTime = endTimeForDb(),
+        isPrivate = isPrivate,
     )
 
 private fun ScheduleType.toDbValue(): String = when (this) {
@@ -276,6 +298,7 @@ private fun SchedulesRepository.Row.toDraft(rule: RepeatRule, viewerId: String?)
             "partner" -> ScheduleOwner.Partner
             else -> ScheduleOwner.Us
         },
+        isPrivate = isPrivate,
         createdBy = createdBy,
     )
 }
