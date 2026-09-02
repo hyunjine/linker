@@ -119,6 +119,11 @@ data class CalendarEvent(
      * 병합 시 이 id 로 dedupe 해서 하나만 남긴다.
      */
     val id: String? = null,
+    /**
+     * 스케줄 chip 의 소유자 (뷰어 관점). 드로워의 "내 캘린더" · "상대방 캘린더" 토글로 필터링.
+     * Holiday · Season 처럼 소유자 개념이 없는 chip 은 null.
+     */
+    val owner: DayOwner? = null,
 )
 
 /** 하루 셀에 붙는 부가 정보. `date` 를 키로 [MainScreen.entries] 에 담아 전달. */
@@ -254,13 +259,21 @@ fun MainScreen(
         }
     }
 
-    // 표시 토글 반영: 공휴일/절기 chip 을 옵션대로 걸러 낸 후 스케줄 chip · Preview entries 와 병합.
-    val mergedEntries = remember(entries, scheduleEntries, specialDayEntries, displayState.showHolidays, displayState.showSolarTerms) {
+    // 표시 토글 반영: 공휴일/절기 는 type 기준, 개인 chip 은 owner 기준으로 각각 필터.
+    val mergedEntries = remember(
+        entries, scheduleEntries, specialDayEntries,
+        displayState.showHolidays, displayState.showSolarTerms,
+        displayState.showMyCalendar, displayState.showPartnerCalendar,
+    ) {
         val filteredSpecial = specialDayEntries.filterByToggles(
             showHolidays = displayState.showHolidays,
             showSolarTerms = displayState.showSolarTerms,
         )
-        val withSchedules = mergeEntries(base = filteredSpecial, override = scheduleEntries)
+        val filteredSchedules = scheduleEntries.filterByOwnerToggles(
+            showMy = displayState.showMyCalendar,
+            showPartner = displayState.showPartnerCalendar,
+        )
+        val withSchedules = mergeEntries(base = filteredSpecial, override = filteredSchedules)
         mergeEntries(base = withSchedules, override = entries)
     }
 
@@ -417,6 +430,33 @@ private fun Map<LocalDate, CalendarDayEntry>.filterByToggles(
                 CalendarEventType.Holiday -> showHolidays
                 CalendarEventType.Season -> showSolarTerms
                 CalendarEventType.Personal -> true
+            }
+        }
+        if (kept.isNotEmpty() || entry.lunarLabel != null) {
+            out[date] = entry.copy(events = kept)
+        }
+    }
+    return out
+}
+
+/**
+ * 스케줄 chip 을 드로워 "내 캘린더" · "상대방 캘린더" 토글로 걸러낸다.
+ * `Us` (공동) 는 어느 한쪽이라도 켜져 있으면 노출 — 둘 다 껐을 때만 감춘다.
+ * `owner=null` 은 방어적으로 통과 (스케줄 chip 은 모두 owner 를 갖는 게 정상).
+ */
+private fun Map<LocalDate, CalendarDayEntry>.filterByOwnerToggles(
+    showMy: Boolean,
+    showPartner: Boolean,
+): Map<LocalDate, CalendarDayEntry> {
+    if (showMy && showPartner) return this
+    val out = mutableMapOf<LocalDate, CalendarDayEntry>()
+    for ((date, entry) in this) {
+        val kept = entry.events.filter { ev ->
+            when (ev.owner) {
+                DayOwner.Me -> showMy
+                DayOwner.Partner -> showPartner
+                DayOwner.Us -> showMy || showPartner
+                null -> true
             }
         }
         if (kept.isNotEmpty() || entry.lunarLabel != null) {
