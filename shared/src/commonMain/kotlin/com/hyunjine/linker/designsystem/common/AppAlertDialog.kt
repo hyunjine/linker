@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -129,23 +128,24 @@ internal fun AppAlertDialogContent(
         if (actions.size <= 2) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                actions.forEach { CapsuleActionButton(it) }
+                // 액션 여러 개면 각자 weight(1f) 로 균등 분배. 1개면 알아서 full-width.
+                actions.forEach { CapsuleActionButton(it, Modifier.weight(1f)) }
             }
         } else {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                actions.forEach { CapsuleActionButton(it, fullWidth = true) }
+                actions.forEach { CapsuleActionButton(it, Modifier.fillMaxWidth()) }
             }
         }
     }
 }
 
 @Composable
-private fun CapsuleActionButton(action: AlertAction, fullWidth: Boolean = false) {
+private fun CapsuleActionButton(action: AlertAction, modifier: Modifier = Modifier) {
     val font = LocalPretendardFontFamily.current
     val (bg, fg) = when (action.style) {
         AlertActionStyle.Default -> PrimaryBlue to Color.White
@@ -153,8 +153,7 @@ private fun CapsuleActionButton(action: AlertAction, fullWidth: Boolean = false)
         AlertActionStyle.Destructive -> IosRed to Color.White
     }
     Box(
-        modifier = Modifier
-            .then(if (fullWidth) Modifier.fillMaxWidth() else Modifier.width(96.dp))
+        modifier = modifier
             .height(44.dp)
             .clip(RoundedCornerShape(22.dp))
             .background(bg)
