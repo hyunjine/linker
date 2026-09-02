@@ -93,7 +93,7 @@ fun MainRoute(
 private fun isoToHandleBirthDate(iso: String): String {
     val date = runCatching { LocalDate.parse(iso) }.getOrNull() ?: return ""
     val m = date.monthNumber.toString().padStart(2, '0')
-    val d = date.dayOfMonth.toString().padStart(2, '0')
+    val d = date.day.toString().padStart(2, '0')
     return "${date.year}.$m.$d"
 }
 

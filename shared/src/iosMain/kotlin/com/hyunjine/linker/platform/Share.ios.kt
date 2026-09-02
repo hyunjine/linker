@@ -9,7 +9,7 @@ import platform.UIKit.UIActivityViewController
  * iOS 공유 시트 — `UIActivityViewController` 를 현재 UIViewController 위에 present.
  */
 @Composable
-actual fun rememberShareText(): (String) -> Unit {
+actual fun rememberShareText(): (text: String) -> Unit {
     val viewController = LocalUIViewController.current
     return remember(viewController) {
         { text ->

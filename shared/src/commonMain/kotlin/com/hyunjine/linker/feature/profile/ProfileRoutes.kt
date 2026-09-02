@@ -100,6 +100,6 @@ internal fun String?.toSecureImageUrl(): String? =
 internal fun isoToDisplayBirthDate(iso: String): String {
     val date = runCatching { LocalDate.parse(iso) }.getOrNull() ?: return "2000. 01. 01."
     val m = date.monthNumber.toString().padStart(2, '0')
-    val d = date.dayOfMonth.toString().padStart(2, '0')
+    val d = date.day.toString().padStart(2, '0')
     return "${date.year}. $m. $d."
 }

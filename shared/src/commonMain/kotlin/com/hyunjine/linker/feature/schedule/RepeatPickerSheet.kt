@@ -117,108 +117,115 @@ internal fun ColumnScope.RepeatPickerSheetContent(
 
     // 시트가 다시 열릴 때마다 초기 상태를 draft 값으로 리셋.
     var draftRule by remember(current) { mutableStateOf(current) }
-    val defaultEnd = remember(currentEndDate, anchorDate) { currentEndDate ?: anchorDate.plus(1, DateTimeUnit.YEAR) }
+    // 종료일 기본값은 anchor (시작일) 그 자체. 이전에는 anchor+1year 로 초기화했는데
+    // 사용자가 wheel 에서 월/일만 스크롤하고 연도는 놓치는 케이스가 있어 (기본 표시가
+    // 2027년 9월 30일 인데 그대로 저장) 365개짜리 시리즈가 통째로 만들어지는 사고가
+    // 있었음. anchor 로 둬서 사용자가 명시적으로 스크롤하지 않으면 1일짜리 시리즈만
+    // 생기도록 안전 우선으로 바꿈.
+    val defaultEnd = remember(currentEndDate, anchorDate) { currentEndDate ?: anchorDate }
     var draftEnd by remember(defaultEnd) { mutableStateOf(defaultEnd) }
 
     // 상단 nav bar. 취소 = onDismiss. 그랩 핸들은 AppBottomSheet 기본 슬롯이 이미 표시.
-    Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = "취소",
-                modifier = Modifier
-                    .clickable(onClick = onDismiss)
-                    .padding(vertical = 4.dp, horizontal = 4.dp),
-                style = TextStyle(
-                    fontFamily = font, fontSize = 17.sp,
-                    color = TextPrimary, lineHeight = 22.sp,
-                ),
+//    Row(
+//        modifier = Modifier
+//            .fillMaxWidth()
+//            .padding(horizontal = 16.dp, vertical = 14.dp),
+//        verticalAlignment = Alignment.CenterVertically,
+//    ) {
+//        Text(
+//            text = "취소",
+//            modifier = Modifier
+//                .clickable(onClick = onDismiss)
+//                .padding(vertical = 4.dp, horizontal = 4.dp),
+//            style = TextStyle(
+//                fontFamily = font, fontSize = 17.sp,
+//                color = TextPrimary, lineHeight = 22.sp,
+//            ),
+//        )
+//        Text(
+//            text = "반복",
+//            modifier = Modifier.weight(1f),
+//            textAlign = TextAlign.Center,
+//            style = TextStyle(
+//                fontFamily = font, fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
+//                color = TextPrimary, lineHeight = 22.sp,
+//            ),
+//        )
+//        // 우측 spacer — 취소 라벨과 폭 맞춰 중앙 타이틀 정렬.
+//        Spacer(Modifier.size(width = 32.dp, height = 22.dp))
+//    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .weight(1f, fill = false)
+            .verticalScroll(rememberScrollState()),
+    ) {
+        // 5개 옵션.
+        RepeatRule.Options.forEach { option ->
+            val kind = RepeatKind.of(option)
+            val selected = kind == RepeatKind.of(draftRule)
+            OptionRow(
+                label = option.label,
+                selected = selected,
+                onClick = {
+                    draftRule = kind.toRule(draftRule, anchorDate)
+                },
             )
-            Text(
-                text = "반복",
-                modifier = Modifier.weight(1f),
-                textAlign = TextAlign.Center,
-                style = TextStyle(
-                    fontFamily = font, fontSize = 17.sp, fontWeight = FontWeight.SemiBold,
-                    color = TextPrimary, lineHeight = 22.sp,
-                ),
-            )
-            // 우측 spacer — 취소 라벨과 폭 맞춰 중앙 타이틀 정렬.
-            Spacer(Modifier.size(width = 32.dp, height = 22.dp))
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f, fill = false)
-                .verticalScroll(rememberScrollState()),
-        ) {
-            // 5개 옵션.
-            RepeatRule.Options.forEach { option ->
-                val kind = RepeatKind.of(option)
-                val selected = kind == RepeatKind.of(draftRule)
-                OptionRow(
-                    label = option.label,
-                    selected = selected,
-                    onClick = {
-                        draftRule = kind.toRule(draftRule, anchorDate)
+        // Sub-config (선택된 kind 에 따라 다른 UI).
+        when (val rule = draftRule) {
+            RepeatRule.None -> Unit
+            RepeatRule.Daily -> Unit
+            is RepeatRule.Weekly -> {
+                SectionDivider()
+                SubHeader("반복 요일")
+                WeeklyChips(
+                    selected = rule.days,
+                    onToggle = { day ->
+                        val next = if (day in rule.days) rule.days - day else rule.days + day
+                        draftRule = RepeatRule.Weekly(next)
                     },
                 )
             }
 
-            // Sub-config (선택된 kind 에 따라 다른 UI).
-            when (val rule = draftRule) {
-                RepeatRule.None -> Unit
-                RepeatRule.Daily -> Unit
-                is RepeatRule.Weekly -> {
-                    SectionDivider()
-                    SubHeader("반복 요일")
-                    WeeklyChips(
-                        selected = rule.days,
-                        onToggle = { day ->
-                            val next = if (day in rule.days) rule.days - day else rule.days + day
-                            draftRule = RepeatRule.Weekly(next)
-                        },
-                    )
-                }
-                is RepeatRule.Monthly -> {
-                    SectionDivider()
-                    SubHeader("반복 날짜")
-                    MonthDayGrid(
-                        selected = rule.day,
-                        onSelect = { draftRule = RepeatRule.Monthly(it) },
-                    )
-                }
-                is RepeatRule.Yearly -> {
-                    SectionDivider()
-                    SubHeader("반복 월")
-                    YearMonthGrid(
-                        selected = rule.month,
-                        onSelect = { draftRule = RepeatRule.Yearly(month = it, day = rule.day) },
-                    )
-                    SubHeader("반복 일")
-                    MonthDayGrid(
-                        selected = rule.day,
-                        onSelect = { draftRule = RepeatRule.Yearly(month = rule.month, day = it) },
-                    )
-                }
-            }
-
-            // 종료 날짜 (rule != None 일 때만 노출; 없음이면 종료일 개념 자체 무의미).
-            if (draftRule != RepeatRule.None) {
+            is RepeatRule.Monthly -> {
                 SectionDivider()
-                SubHeader("종료 날짜")
-                EndDateWheels(
-                    date = draftEnd,
-                    minDate = anchorDate,
-                    onChange = { draftEnd = it },
+                SubHeader("반복 날짜")
+                MonthDayGrid(
+                    selected = rule.day,
+                    onSelect = { draftRule = RepeatRule.Monthly(it) },
                 )
             }
-            Spacer(Modifier.height(8.dp))
+
+            is RepeatRule.Yearly -> {
+                SectionDivider()
+                SubHeader("반복 월")
+                YearMonthGrid(
+                    selected = rule.month,
+                    onSelect = { draftRule = RepeatRule.Yearly(month = it, day = rule.day) },
+                )
+                SubHeader("반복 일")
+                MonthDayGrid(
+                    selected = rule.day,
+                    onSelect = { draftRule = RepeatRule.Yearly(month = rule.month, day = it) },
+                )
+            }
         }
+
+        // 종료 날짜 (rule != None 일 때만 노출; 없음이면 종료일 개념 자체 무의미).
+        if (draftRule != RepeatRule.None) {
+            SectionDivider()
+            SubHeader("종료 날짜")
+            EndDateWheels(
+                date = draftEnd,
+                minDate = anchorDate,
+                onChange = { draftEnd = it },
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+    }
 
     ConfirmCta {
         onConfirm(draftRule, if (draftRule == RepeatRule.None) null else draftEnd)
@@ -408,7 +415,8 @@ private fun RectChip(label: String, selected: Boolean, onClick: () -> Unit, widt
             .clip(shape)
             .then(
                 if (selected) Modifier.background(TextPrimary)
-                else Modifier.background(SurfaceCard).border(BorderStroke(1.dp, SeparatorGrouped), shape),
+                else Modifier.background(SurfaceCard)
+                    .border(BorderStroke(1.dp, SeparatorGrouped), shape),
             )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
@@ -431,7 +439,7 @@ private fun EndDateWheels(date: LocalDate, minDate: LocalDate, onChange: (LocalD
     val maxYear = minDate.year + 10
     var draftYear by remember(date) { mutableStateOf(date.year.coerceIn(minDate.year, maxYear)) }
     var draftMonth by remember(date) { mutableStateOf(date.monthNumber) }
-    var draftDay by remember(date) { mutableStateOf(date.dayOfMonth) }
+    var draftDay by remember(date) { mutableStateOf(date.day) }
 
     val years = (minDate.year..maxYear).map { "${it}년" }
     val minMonth = if (draftYear == minDate.year) minDate.monthNumber else 1
@@ -440,7 +448,8 @@ private fun EndDateWheels(date: LocalDate, minDate: LocalDate, onChange: (LocalD
     if (draftMonth < minMonth) draftMonth = minMonth
 
     val monthCap = daysInMonth(draftYear, draftMonth)
-    val minDay = if (draftYear == minDate.year && draftMonth == minDate.monthNumber) minDate.dayOfMonth else 1
+    val minDay =
+        if (draftYear == minDate.year && draftMonth == minDate.monthNumber) minDate.day else 1
     val days = (minDay..monthCap).map { "${it}일" }
     if (draftDay < minDay) draftDay = minDay
     if (draftDay > monthCap) draftDay = monthCap
@@ -488,10 +497,12 @@ private enum class RepeatKind {
         Daily -> RepeatRule.Daily
         Weekly -> if (current is RepeatRule.Weekly) current
         else RepeatRule.Weekly(setOf(anchor.dayOfWeek))
+
         Monthly -> if (current is RepeatRule.Monthly) current
-        else RepeatRule.Monthly(anchor.dayOfMonth)
+        else RepeatRule.Monthly(anchor.day)
+
         Yearly -> if (current is RepeatRule.Yearly) current
-        else RepeatRule.Yearly(anchor.monthNumber, anchor.dayOfMonth)
+        else RepeatRule.Yearly(anchor.monthNumber, anchor.day)
     }
 
     companion object {
@@ -567,7 +578,13 @@ private fun RepeatPickerSheetPreview_Daily() {
 private fun RepeatPickerSheetPreview_Weekly() {
     RepeatPickerPreviewFrame {
         RepeatPickerSheetContent(
-            current = RepeatRule.Weekly(setOf(DayOfWeek.MONDAY, DayOfWeek.WEDNESDAY, DayOfWeek.FRIDAY)),
+            current = RepeatRule.Weekly(
+                setOf(
+                    DayOfWeek.MONDAY,
+                    DayOfWeek.WEDNESDAY,
+                    DayOfWeek.FRIDAY
+                )
+            ),
             currentEndDate = LocalDate(2026, 12, 31),
             anchorDate = PreviewAnchor,
             onConfirm = { _, _ -> },

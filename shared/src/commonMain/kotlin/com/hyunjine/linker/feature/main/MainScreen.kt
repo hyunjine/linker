@@ -139,7 +139,7 @@ data class YearMonth(val year: Int, val month: Int) {
     fun plusMonths(months: Int): YearMonth {
         val total = year * 12L + (month - 1) + months
         val newYear = total.floorDiv(12).toInt()
-        val newMonth = total.mod(12).toInt() + 1
+        val newMonth = total.mod(12) + 1
         return YearMonth(newYear, newMonth)
     }
 

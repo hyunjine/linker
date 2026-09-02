@@ -418,14 +418,14 @@ internal fun expandOccurrences(draft: ScheduleDraft): List<Pair<LocalDate, Local
         is RepeatRule.Monthly -> {
             var cursor = start
             while (cursor <= until && result.size < 1000) {
-                if (cursor.dayOfMonth == rule.day) emit(cursor)
+                if (cursor.day == rule.day) emit(cursor)
                 cursor = cursor.plus(1, DateTimeUnit.DAY)
             }
         }
         is RepeatRule.Yearly -> {
             var cursor = start
             while (cursor <= until && result.size < 1000) {
-                if (cursor.monthNumber == rule.month && cursor.dayOfMonth == rule.day) emit(cursor)
+                if (cursor.monthNumber == rule.month && cursor.day == rule.day) emit(cursor)
                 cursor = cursor.plus(1, DateTimeUnit.DAY)
             }
         }
