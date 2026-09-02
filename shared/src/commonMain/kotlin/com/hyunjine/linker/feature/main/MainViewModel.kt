@@ -78,10 +78,11 @@ class MainViewModel : ViewModel() {
             val mine = runCatching { UsersRepository.myProfile() }
                 .onFailure { println("[Main] myProfile 실패: $it") }
                 .getOrNull()
-            val partner = runCatching { UsersRepository.partnerProfile()?.calendarColor }.getOrNull()
+            val partnerProfile = runCatching { UsersRepository.partnerProfile() }.getOrNull()
+            val partnerColor = partnerProfile?.calendarColor
             val nextColors = OwnerColors(
                 me = calendarColorFor(mine?.calendarColor),
-                partner = calendarColorFor(partner ?: "pink"),
+                partner = calendarColorFor(partnerColor ?: "pink"),
                 us = CalendarPurple,
             )
             val previousColors = _uiState.value.ownerColors
@@ -93,6 +94,7 @@ class MainViewModel : ViewModel() {
                 it.copy(
                     myProfile = mine,
                     ownerColors = nextColors,
+                    hasPartner = partnerProfile != null,
                 )
             }
             val needsReload = previousColors != nextColors || (previousViewerId == null && mine?.id != null)
@@ -199,4 +201,6 @@ data class MainUiState(
     val myProfile: com.hyunjine.linker.data.remote.UsersRepository.Profile? = null,
     val ownerColors: OwnerColors = OwnerColors.Default,
     val entriesByMonth: Map<YearMonth, Map<LocalDate, CalendarDayEntry>> = emptyMap(),
+    /** 파트너 조인 여부. 드로워의 "상대방 캘린더" 토글 노출 · 캘린더 필터에 사용. */
+    val hasPartner: Boolean = false,
 )

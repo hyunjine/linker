@@ -17,14 +17,22 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
+import com.hyunjine.linker.designsystem.common.AlertAction
+import com.hyunjine.linker.designsystem.common.AlertActionStyle
+import com.hyunjine.linker.designsystem.common.AppAlertDialog
 import com.hyunjine.linker.designsystem.common.AppTopBar
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.designsystem.theme.ProvidePretendard
@@ -36,7 +44,12 @@ import com.hyunjine.linker.designsystem.theme.TextSecondary
 private val TOP_BAR_HEIGHT = 54.dp
 
 /**
- * 커플 연결 진입 chooser. 두 옵션 중 하나로 분기:
+ * 커플 연결 진입 화면. [state] 에 따라 세 갈래로 분기:
+ *  - [CoupleLinkUiState.Loading]: 옵션 카드 자리를 비워둠 (로딩 중).
+ *  - [CoupleLinkUiState.NotPaired]: 두 옵션 (내 초대코드 · 상대 코드) 노출.
+ *  - [CoupleLinkUiState.Paired]: 옵션 감추고 "이미 파트너와 연결됨" 안내 카드만.
+ *
+ * NotPaired 옵션:
  *  - "내 초대코드 만들기" → [CoupleInviteCodeScreen] (내 커플 자동 생성 + 코드 공유)
  *  - "상대 코드로 연결" → [CoupleJoinScreen] (파트너 코드 입력 · 자기 커플은 안 만듦)
  *
@@ -44,10 +57,13 @@ private val TOP_BAR_HEIGHT = 54.dp
  */
 @Composable
 fun CoupleLinkScreen(
+    state: CoupleLinkUiState = CoupleLinkUiState.NotPaired,
     onBack: () -> Unit = {},
     onCreateInvite: () -> Unit = {},
     onEnterPartnerCode: () -> Unit = {},
+    onUnlink: () -> Unit = {},
 ) {
+    var confirmUnlink by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -59,24 +75,25 @@ fun CoupleLinkScreen(
                 .windowInsetsPadding(WindowInsets.safeDrawing),
         ) {
             Spacer(Modifier.height(TOP_BAR_HEIGHT))
-            Description(
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
-            )
-            Spacer(Modifier.height(24.dp))
-            ChoiceCard(
-                title = "내 초대코드 만들기",
-                subtitle = "코드를 상대에게 공유해 연결합니다",
-                onClick = onCreateInvite,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
-            Spacer(Modifier.height(12.dp))
-            ChoiceCard(
-                title = "상대 코드로 연결하기",
-                subtitle = "상대가 준 6자 코드를 입력해 연결합니다",
-                onClick = onEnterPartnerCode,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
+            when (state) {
+                is CoupleLinkUiState.Paired -> PairedContent(onUnlinkClick = { confirmUnlink = true })
+                is CoupleLinkUiState.NotPaired -> NotPairedContent(
+                    onCreateInvite = onCreateInvite,
+                    onEnterPartnerCode = onEnterPartnerCode,
+                )
+                is CoupleLinkUiState.Loading -> Spacer(Modifier.height(24.dp))
+            }
             Spacer(Modifier.weight(1f))
+        }
+
+        if (confirmUnlink) {
+            UnlinkConfirmDialog(
+                onConfirm = {
+                    confirmUnlink = false
+                    onUnlink()
+                },
+                onDismiss = { confirmUnlink = false },
+            )
         }
 
         AppTopBar(
@@ -87,6 +104,105 @@ fun CoupleLinkScreen(
                 .windowInsetsPadding(WindowInsets.safeDrawing),
         )
     }
+}
+
+@Composable
+private fun NotPairedContent(
+    onCreateInvite: () -> Unit,
+    onEnterPartnerCode: () -> Unit,
+) {
+    Description(
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+    )
+    Spacer(Modifier.height(24.dp))
+    ChoiceCard(
+        title = "내 초대코드 만들기",
+        subtitle = "코드를 상대에게 공유해 연결합니다",
+        onClick = onCreateInvite,
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
+    Spacer(Modifier.height(12.dp))
+    ChoiceCard(
+        title = "상대 코드로 연결하기",
+        subtitle = "상대가 준 6자 코드를 입력해 연결합니다",
+        onClick = onEnterPartnerCode,
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
+}
+
+/** 이미 파트너와 연결된 상태 안내 + 연결 해제 진입. 옵션 카드는 감춘다. */
+@Composable
+private fun PairedContent(onUnlinkClick: () -> Unit) {
+    val font = LocalPretendardFontFamily.current
+    Spacer(Modifier.height(24.dp))
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(SurfaceCard)
+            .padding(horizontal = 20.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = "이미 파트너와 연결됨",
+            style = TextStyle(
+                fontFamily = font,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 17.sp,
+                color = TextPrimary,
+            ),
+        )
+        Text(
+            text = "새 파트너를 연결하려면 먼저 연결을 해제하세요.",
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            style = TextStyle(
+                fontFamily = font,
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                color = TextSecondary,
+            ),
+        )
+    }
+    Spacer(Modifier.height(12.dp))
+    UnlinkButton(onClick = onUnlinkClick, modifier = Modifier.padding(horizontal = 16.dp))
+}
+
+/** 파괴적 액션 (Row 전체 탭 → 확인 다이얼로그). 톤: 흰 카드 + 빨간 텍스트. */
+@Composable
+private fun UnlinkButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val font = LocalPretendardFontFamily.current
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 16.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "커플 연결 해제",
+            style = TextStyle(
+                fontFamily = font,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp,
+                color = Color(0xFFFF3B30),
+            ),
+        )
+    }
+}
+
+@Composable
+private fun UnlinkConfirmDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AppAlertDialog(
+        title = "커플 연결 해제",
+        message = "연결을 해제하면 파트너 스케줄은 더 이상 보이지 않습니다. 내가 만든 스케줄은 유지돼요.",
+        actions = listOf(
+            AlertAction("취소", AlertActionStyle.Cancel, onClick = onDismiss),
+            AlertAction("해제", AlertActionStyle.Destructive, onClick = onConfirm),
+        ),
+        onDismissRequest = onDismiss,
+    )
 }
 
 @Composable
@@ -157,6 +273,12 @@ private fun ChoiceCard(
 
 @Preview
 @Composable
-private fun CoupleLinkScreenPreview() {
-    ProvidePretendard { CoupleLinkScreen() }
+private fun CoupleLinkScreenPreview_NotPaired() {
+    ProvidePretendard { CoupleLinkScreen(state = CoupleLinkUiState.NotPaired) }
+}
+
+@Preview
+@Composable
+private fun CoupleLinkScreenPreview_Paired() {
+    ProvidePretendard { CoupleLinkScreen(state = CoupleLinkUiState.Paired) }
 }

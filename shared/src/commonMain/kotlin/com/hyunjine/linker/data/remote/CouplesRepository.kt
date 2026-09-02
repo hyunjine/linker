@@ -24,6 +24,16 @@ object CouplesRepository {
     )
 
     /**
+     * 파트너 조인 여부까지 포함한 full couple row. [linkedAt] 이 non-null 이면 두 명 매칭 완료.
+     */
+    @Serializable
+    data class CoupleFull(
+        val id: String,
+        @SerialName("invite_code") val inviteCode: String,
+        @SerialName("linked_at") val linkedAt: String? = null,
+    )
+
+    /**
      * 현재 유저의 커플을 조회한다. 없으면 새 커플을 만들고 자신을 첫 멤버로 join.
      * 재진입 시 같은 커플이 반환되어 idempotent.
      */
@@ -31,6 +41,12 @@ object CouplesRepository {
         val result = SupabaseProvider.client.postgrest.rpc("create_my_couple")
         return result.decodeList<MyCouple>().first()
     }
+
+    /** id 로 couple row 조회. RLS 로 내가 속한 커플만 반환됨. 없으면 null. */
+    suspend fun getCoupleById(id: String): CoupleFull? =
+        SupabaseProvider.client.from("couples")
+            .select { filter { eq("id", id) } }
+            .decodeSingleOrNull<CoupleFull>()
 
     /**
      * 현재 유저의 couple_id 만 조회. **생성하지 않음** — 부트스트랩 라우팅에서
@@ -47,6 +63,17 @@ object CouplesRepository {
 
     @Serializable
     private data class CoupleMemberRow(@SerialName("couple_id") val coupleId: String)
+
+    /**
+     * 커플 연결 해제. 현재 커플에서 leave 하고 새 solo 커플로 옮겨간다.
+     * 내가 만든 스케줄은 새 couple 로 함께 이관되고, 파트너 스케줄은 옛 couple 에 남는다.
+     *
+     * @return 새 solo couple id
+     */
+    suspend fun unlinkCouple(): String {
+        val result = SupabaseProvider.client.postgrest.rpc(function = "unlink_couple")
+        return result.decodeAs<String>()
+    }
 
     /**
      * 초대코드로 상대방 커플에 합류한다. 기존 소속 커플에서 자동 leave.

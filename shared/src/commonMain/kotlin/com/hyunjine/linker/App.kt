@@ -1,6 +1,5 @@
 package com.hyunjine.linker
 
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -52,7 +51,7 @@ import androidx.compose.ui.graphics.Color
 import com.hyunjine.linker.platform.rememberCopyToClipboard
 import com.hyunjine.linker.platform.rememberShareText
 import com.hyunjine.linker.designsystem.theme.CalendarPurple
-import com.hyunjine.linker.designsystem.theme.ProvidePretendard
+import com.hyunjine.linker.designsystem.theme.LinkerTheme
 import com.hyunjine.linker.designsystem.theme.calendarColorFor
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserInfo
@@ -257,9 +256,8 @@ private fun profileDefaults(user: UserInfo?): ProfileDefaults {
 
 @Composable
 fun App() {
-    MaterialTheme {
-        ProvidePretendard {
-            val backStack = rememberNavBackStack(NavConfig, SplashRoute)
+    LinkerTheme {
+        val backStack = rememberNavBackStack(NavConfig, SplashRoute)
             val scope = rememberCoroutineScope()
             // 온보딩 완료(커플 연결) 시점에 로그인·프로필·연결 스택을 전부 비우고 Main 만 남긴다.
             // 홈에서 뒤로가기로 로그인 화면이 다시 뜨면 안 되므로 clear + push 조합.
@@ -334,10 +332,15 @@ fun App() {
                         )
                     }
                     entry<CoupleLinkRoute> {
-                        CoupleLinkScreen(
+                        com.hyunjine.linker.feature.couple.CoupleLinkRoute(
                             onBack = { backStack.removeLastOrNull() },
                             onCreateInvite = { backStack.add(CoupleInviteCodeRoute) },
                             onEnterPartnerCode = { backStack.add(CoupleJoinRoute) },
+                            onUnlinked = {
+                                // Unlink 성공 → 새 solo couple 로 옮겨감. Main 이 프로필 · 색 · chip
+                                // · realtime 채널을 새 couple 기준으로 다시 잡도록 tick 올림.
+                                coupleRefreshTick++
+                            },
                         )
                     }
                     entry<CoupleInviteCodeRoute> {
@@ -420,6 +423,5 @@ fun App() {
                     }
                 },
             )
-        }
     }
 }
