@@ -97,7 +97,7 @@ internal fun AppAlertDialogContent(
         modifier = Modifier
             .padding(horizontal = 32.dp)
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(32.dp))
             .background(SurfaceCard)
             .padding(horizontal = 20.dp, vertical = 20.dp),
     ) {
@@ -112,7 +112,7 @@ internal fun AppAlertDialogContent(
             ),
         )
         if (message != null) {
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(10.dp))
             Text(
                 text = message,
                 style = TextStyle(
@@ -124,7 +124,7 @@ internal fun AppAlertDialogContent(
                 ),
             )
         }
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(24.dp))
         if (actions.size <= 2) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -154,10 +154,10 @@ private fun CapsuleActionButton(action: AlertAction, modifier: Modifier = Modifi
     }
     Box(
         modifier = modifier
-            .height(44.dp)
             .clip(RoundedCornerShape(22.dp))
             .background(bg)
-            .clickable(onClick = action.onClick),
+            .clickable(onClick = action.onClick)
+            .padding(horizontal = 10.dp, vertical = 16.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
