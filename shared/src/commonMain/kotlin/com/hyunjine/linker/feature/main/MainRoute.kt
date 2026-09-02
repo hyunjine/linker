@@ -37,6 +37,7 @@ fun MainRoute(
 ) {
     val viewModel: MainViewModel = viewModel { MainViewModel() }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val displayState by viewModel.drawerDisplay.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
 
     // profileRefreshTick 이 바뀔 때마다 (프로필 편집 후) 다시 로드.
@@ -82,6 +83,8 @@ fun MainRoute(
         profileName = uiState.myProfile?.nickname.orEmpty(),
         profileHandle = uiState.myProfile?.birthDate?.let(::isoToHandleBirthDate).orEmpty(),
         profileImageUrl = uiState.myProfile?.profileImageUrl?.toSecureImageUrl(),
+        displayState = displayState,
+        onDisplayStateChange = viewModel::updateDrawerDisplay,
     )
 }
 

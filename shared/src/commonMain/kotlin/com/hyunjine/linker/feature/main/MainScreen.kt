@@ -200,6 +200,13 @@ fun MainScreen(
     profileName: String = "",
     profileHandle: String = "",
     profileImageUrl: String? = null,
+    /**
+     * 드로워 표시 옵션 (일정/달력 정보). 상위 (VM) 가 서버에서 로드해 관리.
+     * Preview 등 상위가 없는 컨텍스트에서는 기본값으로 렌더.
+     */
+    displayState: DrawerDisplayState = DrawerDisplayState(),
+    /** 드로워 토글 변경 콜백. VM 이 옵티미스틱 반영 + 서버 upsert. */
+    onDisplayStateChange: (DrawerDisplayState) -> Unit = {},
 ) {
     // Int.MAX_VALUE 크기의 pager 로 사실상 무한 좌우 스와이프. 중간에서 시작해 양쪽으로 무제한 이동.
     val anchorPage = remember { Int.MAX_VALUE / 2 }
@@ -236,9 +243,8 @@ fun MainScreen(
             dayDetail = onLoadDayDetail(selectedDate)
         }
     }
-    // 사이드 드로워 상태 + 표시 옵션 (MVP: 로컬 state, 저장·연동은 후속 이슈).
+    // 사이드 드로워 표시 옵션은 상위 (VM) 가 소유 · 서버에 영구 저장.
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    var displayState by remember { mutableStateOf(DrawerDisplayState()) }
 
     // 현재 보이는 달이 바뀌면 상위에 알림 → ViewModel 이 캐시에 없으면 lazy fetch.
     LaunchedEffect(currentYearMonth) { onMonthVisible(currentYearMonth) }
@@ -280,10 +286,10 @@ fun MainScreen(
                     scope.launch { drawerState.close() }
                     onAnniversaryClick()
                 },
-                onToggleMyCalendar = { displayState = displayState.copy(showMyCalendar = it) },
-                onTogglePartnerCalendar = { displayState = displayState.copy(showPartnerCalendar = it) },
-                onToggleHolidays = { displayState = displayState.copy(showHolidays = it) },
-                onToggleSolarTerms = { displayState = displayState.copy(showSolarTerms = it) },
+                onToggleMyCalendar = { onDisplayStateChange(displayState.copy(showMyCalendar = it)) },
+                onTogglePartnerCalendar = { onDisplayStateChange(displayState.copy(showPartnerCalendar = it)) },
+                onToggleHolidays = { onDisplayStateChange(displayState.copy(showHolidays = it)) },
+                onToggleSolarTerms = { onDisplayStateChange(displayState.copy(showSolarTerms = it)) },
                 onLogout = {
                     scope.launch { drawerState.close() }
                     onLogout()
