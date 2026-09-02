@@ -16,6 +16,7 @@ fun CoupleLinkRoute(
     onBack: () -> Unit,
     onCreateInvite: () -> Unit,
     onEnterPartnerCode: () -> Unit,
+    onUnlinked: () -> Unit = {},
 ) {
     val viewModel: CoupleLinkViewModel = viewModel { CoupleLinkViewModel() }
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -24,6 +25,7 @@ fun CoupleLinkRoute(
         onBack = onBack,
         onCreateInvite = onCreateInvite,
         onEnterPartnerCode = onEnterPartnerCode,
+        onUnlink = { viewModel.unlink(onUnlinked) },
     )
 }
 

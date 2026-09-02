@@ -85,6 +85,7 @@ fun MainRoute(
         profileImageUrl = uiState.myProfile?.profileImageUrl?.toSecureImageUrl(),
         displayState = displayState,
         onDisplayStateChange = viewModel::updateDrawerDisplay,
+        hasPartner = uiState.hasPartner,
     )
 }
 

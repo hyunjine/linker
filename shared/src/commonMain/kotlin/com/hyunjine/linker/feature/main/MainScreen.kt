@@ -212,6 +212,8 @@ fun MainScreen(
     displayState: DrawerDisplayState = DrawerDisplayState(),
     /** 드로워 토글 변경 콜백. VM 이 옵티미스틱 반영 + 서버 upsert. */
     onDisplayStateChange: (DrawerDisplayState) -> Unit = {},
+    /** 파트너 조인 여부. 드로워의 "상대방 캘린더" 토글 노출 · 스케줄 필터에 사용. */
+    hasPartner: Boolean = false,
 ) {
     // Int.MAX_VALUE 크기의 pager 로 사실상 무한 좌우 스와이프. 중간에서 시작해 양쪽으로 무제한 이동.
     val anchorPage = remember { Int.MAX_VALUE / 2 }
@@ -286,6 +288,7 @@ fun MainScreen(
                 profileHandle = profileHandle,
                 profileImageUrl = profileImageUrl,
                 displayState = displayState,
+                hasPartner = hasPartner,
                 onCoupleLinkClick = {
                     scope.launch { drawerState.close() }
                     onCoupleLinkClick()

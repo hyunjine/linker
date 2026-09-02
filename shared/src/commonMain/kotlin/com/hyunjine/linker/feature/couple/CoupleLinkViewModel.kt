@@ -24,7 +24,9 @@ class CoupleLinkViewModel : ViewModel() {
     private val _state = MutableStateFlow<CoupleLinkUiState>(CoupleLinkUiState.Loading)
     val state: StateFlow<CoupleLinkUiState> = _state.asStateFlow()
 
-    init {
+    init { refresh() }
+
+    private fun refresh() {
         viewModelScope.launch {
             runCatching {
                 val id = CouplesRepository.myCoupleIdOrNull() ?: return@runCatching null
@@ -39,6 +41,22 @@ class CoupleLinkViewModel : ViewModel() {
                 println("[Couple] link status 조회 실패: $it")
                 _state.value = CoupleLinkUiState.NotPaired
             }
+        }
+    }
+
+    /**
+     * 커플 연결 해제. 서버 RPC 로 새 solo couple 로 옮긴다. 성공하면 상태를 NotPaired 로 갱신하고
+     * [onDone] 호출 (상위가 tick 을 올려 Main · Drawer 도 재조회하도록).
+     */
+    fun unlink(onDone: () -> Unit) {
+        viewModelScope.launch {
+            runCatching { CouplesRepository.unlinkCouple() }
+                .onSuccess {
+                    println("[Couple] unlink 성공. 새 couple=$it")
+                    _state.value = CoupleLinkUiState.NotPaired
+                    onDone()
+                }
+                .onFailure { println("[Couple] unlink 실패: $it") }
         }
     }
 }

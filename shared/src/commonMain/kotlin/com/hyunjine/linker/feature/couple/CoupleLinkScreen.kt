@@ -15,11 +15,18 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -53,7 +60,9 @@ fun CoupleLinkScreen(
     onBack: () -> Unit = {},
     onCreateInvite: () -> Unit = {},
     onEnterPartnerCode: () -> Unit = {},
+    onUnlink: () -> Unit = {},
 ) {
+    var confirmUnlink by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -66,7 +75,7 @@ fun CoupleLinkScreen(
         ) {
             Spacer(Modifier.height(TOP_BAR_HEIGHT))
             when (state) {
-                is CoupleLinkUiState.Paired -> PairedContent()
+                is CoupleLinkUiState.Paired -> PairedContent(onUnlinkClick = { confirmUnlink = true })
                 is CoupleLinkUiState.NotPaired -> NotPairedContent(
                     onCreateInvite = onCreateInvite,
                     onEnterPartnerCode = onEnterPartnerCode,
@@ -74,6 +83,16 @@ fun CoupleLinkScreen(
                 is CoupleLinkUiState.Loading -> Spacer(Modifier.height(24.dp))
             }
             Spacer(Modifier.weight(1f))
+        }
+
+        if (confirmUnlink) {
+            UnlinkConfirmDialog(
+                onConfirm = {
+                    confirmUnlink = false
+                    onUnlink()
+                },
+                onDismiss = { confirmUnlink = false },
+            )
         }
 
         AppTopBar(
@@ -110,9 +129,9 @@ private fun NotPairedContent(
     )
 }
 
-/** 이미 파트너와 연결된 상태 안내. 옵션 진입 자체를 감춘다. */
+/** 이미 파트너와 연결된 상태 안내 + 연결 해제 진입. 옵션 카드는 감춘다. */
 @Composable
-private fun PairedContent() {
+private fun PairedContent(onUnlinkClick: () -> Unit) {
     val font = LocalPretendardFontFamily.current
     Spacer(Modifier.height(24.dp))
     Column(
@@ -135,7 +154,7 @@ private fun PairedContent() {
             ),
         )
         Text(
-            text = "파트너 연결이 해제된 후에 새로 연결할 수 있어요.",
+            text = "새 파트너를 연결하려면 먼저 연결을 해제하세요.",
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             style = TextStyle(
                 fontFamily = font,
@@ -145,6 +164,55 @@ private fun PairedContent() {
             ),
         )
     }
+    Spacer(Modifier.height(12.dp))
+    UnlinkButton(onClick = onUnlinkClick, modifier = Modifier.padding(horizontal = 16.dp))
+}
+
+/** 파괴적 액션 (Row 전체 탭 → 확인 다이얼로그). 톤: 흰 카드 + 빨간 텍스트. */
+@Composable
+private fun UnlinkButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val font = LocalPretendardFontFamily.current
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(SurfaceCard)
+            .clickable(onClick = onClick)
+            .padding(vertical = 16.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = "커플 연결 해제",
+            style = TextStyle(
+                fontFamily = font,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp,
+                color = Color(0xFFFF3B30),
+            ),
+        )
+    }
+}
+
+@Composable
+private fun UnlinkConfirmDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("커플 연결 해제") },
+        text = {
+            Text(
+                "연결을 해제하면 파트너 스케줄은 더 이상 보이지 않습니다. " +
+                    "내가 만든 스케줄은 유지돼요. 계속할까요?",
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text("해제", color = Color(0xFFFF3B30))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("취소") }
+        },
+    )
 }
 
 @Composable

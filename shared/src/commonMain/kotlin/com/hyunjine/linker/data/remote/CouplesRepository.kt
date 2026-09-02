@@ -65,6 +65,17 @@ object CouplesRepository {
     private data class CoupleMemberRow(@SerialName("couple_id") val coupleId: String)
 
     /**
+     * 커플 연결 해제. 현재 커플에서 leave 하고 새 solo 커플로 옮겨간다.
+     * 내가 만든 스케줄은 새 couple 로 함께 이관되고, 파트너 스케줄은 옛 couple 에 남는다.
+     *
+     * @return 새 solo couple id
+     */
+    suspend fun unlinkCouple(): String {
+        val result = SupabaseProvider.client.postgrest.rpc(function = "unlink_couple")
+        return result.decodeAs<String>()
+    }
+
+    /**
      * 초대코드로 상대방 커플에 합류한다. 기존 소속 커플에서 자동 leave.
      * 서버가 코드 정규화 (upper + trim) 하므로 클라이언트는 raw 값 그대로 전달해도 됨.
      *

@@ -338,6 +338,11 @@ fun App() {
                             onBack = { backStack.removeLastOrNull() },
                             onCreateInvite = { backStack.add(CoupleInviteCodeRoute) },
                             onEnterPartnerCode = { backStack.add(CoupleJoinRoute) },
+                            onUnlinked = {
+                                // Unlink 성공 → 새 solo couple 로 옮겨감. Main 이 프로필 · 색 · chip
+                                // · realtime 채널을 새 couple 기준으로 다시 잡도록 tick 올림.
+                                coupleRefreshTick++
+                            },
                         )
                     }
                     entry<CoupleInviteCodeRoute> {
