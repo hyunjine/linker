@@ -7,6 +7,26 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hyunjine.linker.platform.rememberCopyToClipboard
 import com.hyunjine.linker.platform.rememberShareText
 
+/**
+ * 커플 연결 chooser 라우트. VM 이 파트너 조인 여부를 미리 조회해 Screen state 에 반영.
+ * Paired 면 옵션 카드를 감추고 안내 UI 로 대체.
+ */
+@Composable
+fun CoupleLinkRoute(
+    onBack: () -> Unit,
+    onCreateInvite: () -> Unit,
+    onEnterPartnerCode: () -> Unit,
+) {
+    val viewModel: CoupleLinkViewModel = viewModel { CoupleLinkViewModel() }
+    val state by viewModel.state.collectAsStateWithLifecycle()
+    CoupleLinkScreen(
+        state = state,
+        onBack = onBack,
+        onCreateInvite = onCreateInvite,
+        onEnterPartnerCode = onEnterPartnerCode,
+    )
+}
+
 /** 초대코드 발급 · 공유 · 이미 파트너 있음 안내 화면 라우트. */
 @Composable
 fun CoupleInviteCodeRoute(onBack: () -> Unit) {

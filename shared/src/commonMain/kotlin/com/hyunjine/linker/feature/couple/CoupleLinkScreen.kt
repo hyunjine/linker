@@ -36,7 +36,12 @@ import com.hyunjine.linker.designsystem.theme.TextSecondary
 private val TOP_BAR_HEIGHT = 54.dp
 
 /**
- * 커플 연결 진입 chooser. 두 옵션 중 하나로 분기:
+ * 커플 연결 진입 화면. [state] 에 따라 세 갈래로 분기:
+ *  - [CoupleLinkUiState.Loading]: 옵션 카드 자리를 비워둠 (로딩 중).
+ *  - [CoupleLinkUiState.NotPaired]: 두 옵션 (내 초대코드 · 상대 코드) 노출.
+ *  - [CoupleLinkUiState.Paired]: 옵션 감추고 "이미 파트너와 연결됨" 안내 카드만.
+ *
+ * NotPaired 옵션:
  *  - "내 초대코드 만들기" → [CoupleInviteCodeScreen] (내 커플 자동 생성 + 코드 공유)
  *  - "상대 코드로 연결" → [CoupleJoinScreen] (파트너 코드 입력 · 자기 커플은 안 만듦)
  *
@@ -44,6 +49,7 @@ private val TOP_BAR_HEIGHT = 54.dp
  */
 @Composable
 fun CoupleLinkScreen(
+    state: CoupleLinkUiState = CoupleLinkUiState.NotPaired,
     onBack: () -> Unit = {},
     onCreateInvite: () -> Unit = {},
     onEnterPartnerCode: () -> Unit = {},
@@ -59,23 +65,14 @@ fun CoupleLinkScreen(
                 .windowInsetsPadding(WindowInsets.safeDrawing),
         ) {
             Spacer(Modifier.height(TOP_BAR_HEIGHT))
-            Description(
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
-            )
-            Spacer(Modifier.height(24.dp))
-            ChoiceCard(
-                title = "내 초대코드 만들기",
-                subtitle = "코드를 상대에게 공유해 연결합니다",
-                onClick = onCreateInvite,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
-            Spacer(Modifier.height(12.dp))
-            ChoiceCard(
-                title = "상대 코드로 연결하기",
-                subtitle = "상대가 준 6자 코드를 입력해 연결합니다",
-                onClick = onEnterPartnerCode,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
+            when (state) {
+                is CoupleLinkUiState.Paired -> PairedContent()
+                is CoupleLinkUiState.NotPaired -> NotPairedContent(
+                    onCreateInvite = onCreateInvite,
+                    onEnterPartnerCode = onEnterPartnerCode,
+                )
+                is CoupleLinkUiState.Loading -> Spacer(Modifier.height(24.dp))
+            }
             Spacer(Modifier.weight(1f))
         }
 
@@ -85,6 +82,67 @@ fun CoupleLinkScreen(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .windowInsetsPadding(WindowInsets.safeDrawing),
+        )
+    }
+}
+
+@Composable
+private fun NotPairedContent(
+    onCreateInvite: () -> Unit,
+    onEnterPartnerCode: () -> Unit,
+) {
+    Description(
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+    )
+    Spacer(Modifier.height(24.dp))
+    ChoiceCard(
+        title = "내 초대코드 만들기",
+        subtitle = "코드를 상대에게 공유해 연결합니다",
+        onClick = onCreateInvite,
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
+    Spacer(Modifier.height(12.dp))
+    ChoiceCard(
+        title = "상대 코드로 연결하기",
+        subtitle = "상대가 준 6자 코드를 입력해 연결합니다",
+        onClick = onEnterPartnerCode,
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
+}
+
+/** 이미 파트너와 연결된 상태 안내. 옵션 진입 자체를 감춘다. */
+@Composable
+private fun PairedContent() {
+    val font = LocalPretendardFontFamily.current
+    Spacer(Modifier.height(24.dp))
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(SurfaceCard)
+            .padding(horizontal = 20.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = "이미 파트너와 연결됨",
+            style = TextStyle(
+                fontFamily = font,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 17.sp,
+                color = TextPrimary,
+            ),
+        )
+        Text(
+            text = "파트너 연결이 해제된 후에 새로 연결할 수 있어요.",
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            style = TextStyle(
+                fontFamily = font,
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                color = TextSecondary,
+            ),
         )
     }
 }
@@ -157,6 +215,12 @@ private fun ChoiceCard(
 
 @Preview
 @Composable
-private fun CoupleLinkScreenPreview() {
-    ProvidePretendard { CoupleLinkScreen() }
+private fun CoupleLinkScreenPreview_NotPaired() {
+    ProvidePretendard { CoupleLinkScreen(state = CoupleLinkUiState.NotPaired) }
+}
+
+@Preview
+@Composable
+private fun CoupleLinkScreenPreview_Paired() {
+    ProvidePretendard { CoupleLinkScreen(state = CoupleLinkUiState.Paired) }
 }

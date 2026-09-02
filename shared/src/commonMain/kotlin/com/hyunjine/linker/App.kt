@@ -334,7 +334,7 @@ fun App() {
                         )
                     }
                     entry<CoupleLinkRoute> {
-                        CoupleLinkScreen(
+                        com.hyunjine.linker.feature.couple.CoupleLinkRoute(
                             onBack = { backStack.removeLastOrNull() },
                             onCreateInvite = { backStack.add(CoupleInviteCodeRoute) },
                             onEnterPartnerCode = { backStack.add(CoupleJoinRoute) },
