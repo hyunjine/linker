@@ -23,6 +23,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
@@ -40,17 +41,20 @@ import com.hyunjine.linker.designsystem.theme.TextSecondary
 private val TOP_BAR_HEIGHT = 54.dp
 
 /**
- * 내 초대코드 발급 · 공유 전용 화면. 파트너에게 코드를 넘겨줄 유저가 진입.
- * 코드는 서버가 발급 (6자 대문자) · 진입 시 자동 조회/생성 (App.kt).
+ * 내 초대코드 발급 · 공유 · 이미 조인된 경우 안내 화면.
  *
- * @param myCode 서버 발급 코드. null 이면 로딩 중 (플레이스홀더 "…" 표시).
+ * 세 상태를 [state] 로 분기:
+ *  - [InviteCodeUiState.Loading]: 로딩 placeholder ("…").
+ *  - [InviteCodeUiState.Solo]: 코드 카드 + 공유 액션.
+ *  - [InviteCodeUiState.Paired]: 코드 대신 "이미 파트너 있음" 안내.
+ *
  * @param onBack 좌상단 back.
- * @param onCopy "내 초대코드" 행 탭 → 클립보드 복사 (#58 후속).
- * @param onShare "공유하기" 행 탭 → 시스템 공유 시트 (#58 후속).
+ * @param onCopy Solo 상태에서 "내 초대코드" 행 탭 → 클립보드 복사.
+ * @param onShare Solo 상태에서 "공유하기" 행 탭 → 시스템 공유 시트.
  */
 @Composable
 fun CoupleInviteCodeScreen(
-    myCode: String? = "ABC123",
+    state: InviteCodeUiState = InviteCodeUiState.Loading,
     onBack: () -> Unit = {},
     onCopy: () -> Unit = {},
     onShare: () -> Unit = {},
@@ -66,21 +70,11 @@ fun CoupleInviteCodeScreen(
                 .windowInsetsPadding(WindowInsets.safeDrawing),
         ) {
             Spacer(Modifier.height(TOP_BAR_HEIGHT))
-            DescriptionText(
-                text = "아래 코드를 상대에게 공유하면\n상대가 입력해 연결할 수 있습니다.",
-                modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
-            )
-            Spacer(Modifier.height(24.dp))
-
-            SectionLabel(text = "내 초대코드", horizontalPadding = 20.dp)
-            Spacer(Modifier.height(8.dp))
-            MyCodeCard(
-                code = myCode ?: "…",
-                onCopy = onCopy,
-                onShare = onShare,
-                modifier = Modifier.padding(horizontal = 16.dp),
-            )
-
+            when (state) {
+                is InviteCodeUiState.Paired -> PairedContent()
+                is InviteCodeUiState.Loading -> InviteCodeContent(code = "…", onCopy = onCopy, onShare = onShare)
+                is InviteCodeUiState.Solo -> InviteCodeContent(code = state.code, onCopy = onCopy, onShare = onShare)
+            }
             Spacer(Modifier.weight(1f))
         }
 
@@ -90,6 +84,61 @@ fun CoupleInviteCodeScreen(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .windowInsetsPadding(WindowInsets.safeDrawing),
+        )
+    }
+}
+
+@Composable
+private fun InviteCodeContent(code: String, onCopy: () -> Unit, onShare: () -> Unit) {
+    DescriptionText(
+        text = "아래 코드를 상대에게 공유하면\n상대가 입력해 연결할 수 있습니다.",
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp),
+    )
+    Spacer(Modifier.height(24.dp))
+
+    SectionLabel(text = "내 초대코드", horizontalPadding = 20.dp)
+    Spacer(Modifier.height(8.dp))
+    MyCodeCard(
+        code = code,
+        onCopy = onCopy,
+        onShare = onShare,
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
+}
+
+/** 이미 파트너와 연결된 상태 안내. 코드 · 공유 액션은 감춤. */
+@Composable
+private fun PairedContent() {
+    val font = LocalPretendardFontFamily.current
+    Spacer(Modifier.height(24.dp))
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(SurfaceCard)
+            .padding(horizontal = 20.dp, vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = "이미 파트너와 연결됨",
+            style = TextStyle(
+                fontFamily = font,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 17.sp,
+                color = TextPrimary,
+            ),
+        )
+        Text(
+            text = "새 초대코드는 파트너 연결이 해제된 후에만 발급받을 수 있습니다.",
+            textAlign = TextAlign.Center,
+            style = TextStyle(
+                fontFamily = font,
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                color = TextSecondary,
+            ),
         )
     }
 }
@@ -186,12 +235,18 @@ private fun InsetSeparator() {
 
 @Preview
 @Composable
-private fun CoupleInviteCodeScreenPreview_Loaded() {
-    ProvidePretendard { CoupleInviteCodeScreen(myCode = "AB12CD") }
+private fun CoupleInviteCodeScreenPreview_Solo() {
+    ProvidePretendard { CoupleInviteCodeScreen(state = InviteCodeUiState.Solo("AB12CD")) }
 }
 
 @Preview
 @Composable
 private fun CoupleInviteCodeScreenPreview_Loading() {
-    ProvidePretendard { CoupleInviteCodeScreen(myCode = null) }
+    ProvidePretendard { CoupleInviteCodeScreen(state = InviteCodeUiState.Loading) }
+}
+
+@Preview
+@Composable
+private fun CoupleInviteCodeScreenPreview_Paired() {
+    ProvidePretendard { CoupleInviteCodeScreen(state = InviteCodeUiState.Paired) }
 }
