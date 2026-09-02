@@ -15,9 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,6 +30,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
+import com.hyunjine.linker.designsystem.common.AlertAction
+import com.hyunjine.linker.designsystem.common.AlertActionStyle
+import com.hyunjine.linker.designsystem.common.AppAlertDialog
 import com.hyunjine.linker.designsystem.common.AppTopBar
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.designsystem.theme.ProvidePretendard
@@ -195,23 +196,14 @@ private fun UnlinkButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
 
 @Composable
 private fun UnlinkConfirmDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    AlertDialog(
+    AppAlertDialog(
+        title = "커플 연결 해제",
+        message = "연결을 해제하면 파트너 스케줄은 더 이상 보이지 않습니다. 내가 만든 스케줄은 유지돼요.",
+        actions = listOf(
+            AlertAction("취소", AlertActionStyle.Cancel, onClick = onDismiss),
+            AlertAction("해제", AlertActionStyle.Destructive, onClick = onConfirm),
+        ),
         onDismissRequest = onDismiss,
-        title = { Text("커플 연결 해제") },
-        text = {
-            Text(
-                "연결을 해제하면 파트너 스케줄은 더 이상 보이지 않습니다. " +
-                    "내가 만든 스케줄은 유지돼요. 계속할까요?",
-            )
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text("해제", color = Color(0xFFFF3B30))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("취소") }
-        },
     )
 }
 
