@@ -70,6 +70,11 @@ data class ScheduleDraft(
     val repeatEndDate: LocalDate? = null,
     val owner: ScheduleOwner = ScheduleOwner.Me,
     /**
+     * 비공개 여부. `true` 면 파트너에게 SELECT 자체가 안 되도록 RLS 가 감춘다.
+     * `owner = Us` (공동) 와는 논리적 모순이라 UI 가 상호 배제한다.
+     */
+    val isPrivate: Boolean = false,
+    /**
      * 원본 row 의 created_by. 신규는 null. 편집 시 UPDATE 에서 owner 를 creator 관점으로 되돌릴 때 사용.
      * DB `owner_kind` 는 creator 관점으로 저장되므로, 파트너가 만든 걸 내가 편집해서 owner 를
      * 바꿔 저장할 때 me<->partner 스왑이 필요하다.

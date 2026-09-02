@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hyunjine.linker.data.remote.CoupleRealtimeSubscription
 import com.hyunjine.linker.data.remote.SchedulesRepository
+import com.hyunjine.linker.data.remote.UserPreferencesRepository
 import com.hyunjine.linker.data.remote.UsersRepository
 import com.hyunjine.linker.data.remote.subscribeCoupleRealtime
 import com.hyunjine.linker.designsystem.theme.CalendarPurple
@@ -34,6 +35,39 @@ class MainViewModel : ViewModel() {
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
 
     /**
+     * 드로워 표시 옵션. 서버 (`user_preferences`) 에서 로드해 재실행 후에도 유지.
+     * 첫 로드 전에는 기본값 (모두 true) 을 노출해 UI 는 즉시 렌더 가능.
+     */
+    private val _drawerDisplay = MutableStateFlow(DrawerDisplayState())
+    val drawerDisplay: StateFlow<DrawerDisplayState> = _drawerDisplay.asStateFlow()
+
+    init { loadDrawerDisplay() }
+
+    /**
+     * 서버에서 표시 옵션 로드. 세션 없거나 조회 실패 시 기본값 유지 (사용자 UX 방해 최소화).
+     * 로그인 성공 후 · 프로필 변경 후에는 [refreshProfile] 이 이미 호출되므로 여기선 추가 트리거 없음.
+     */
+    private fun loadDrawerDisplay() {
+        viewModelScope.launch {
+            runCatching { UserPreferencesRepository.myDisplay() }
+                .onSuccess { it?.let { _drawerDisplay.value = it } }
+                .onFailure { println("[Prefs] loadDrawerDisplay 실패: $it") }
+        }
+    }
+
+    /**
+     * 드로워 토글 반영. UI 는 옵티미스틱으로 즉시 반영 후 서버 upsert. 실패는 로그만.
+     * (네트워크 실패 시 다음 앱 실행에서 서버값 로드로 복구됨 — 로컬 캐시 별도 안 씀.)
+     */
+    fun updateDrawerDisplay(next: DrawerDisplayState) {
+        _drawerDisplay.value = next
+        viewModelScope.launch {
+            runCatching { UserPreferencesRepository.upsertMyDisplay(next) }
+                .onFailure { println("[Prefs] upsertMyDisplay 실패: $it") }
+        }
+    }
+
+    /**
      * 앱 진입 · 프로필 편집 후에 호출. 내 · 파트너 프로필을 다시 조회하고 owner 색이 바뀌었으면
      * 기존 chip 캐시를 무효화한 뒤 즉시 재fetch — 앱 시작 시 [loadMonthIfNeeded] 와의 race 로
      * chip 이 사라지는 문제를 방지 (프로필 fetch 가 늦게 끝나면 default 색으로 채워진 chip 을
@@ -44,10 +78,11 @@ class MainViewModel : ViewModel() {
             val mine = runCatching { UsersRepository.myProfile() }
                 .onFailure { println("[Main] myProfile 실패: $it") }
                 .getOrNull()
-            val partner = runCatching { UsersRepository.partnerProfile()?.calendarColor }.getOrNull()
+            val partnerProfile = runCatching { UsersRepository.partnerProfile() }.getOrNull()
+            val partnerColor = partnerProfile?.calendarColor
             val nextColors = OwnerColors(
                 me = calendarColorFor(mine?.calendarColor),
-                partner = calendarColorFor(partner ?: "pink"),
+                partner = calendarColorFor(partnerColor ?: "pink"),
                 us = CalendarPurple,
             )
             val previousColors = _uiState.value.ownerColors
@@ -59,6 +94,7 @@ class MainViewModel : ViewModel() {
                 it.copy(
                     myProfile = mine,
                     ownerColors = nextColors,
+                    hasPartner = partnerProfile != null,
                 )
             }
             val needsReload = previousColors != nextColors || (previousViewerId == null && mine?.id != null)
@@ -165,4 +201,6 @@ data class MainUiState(
     val myProfile: com.hyunjine.linker.data.remote.UsersRepository.Profile? = null,
     val ownerColors: OwnerColors = OwnerColors.Default,
     val entriesByMonth: Map<YearMonth, Map<LocalDate, CalendarDayEntry>> = emptyMap(),
+    /** 파트너 조인 여부. 드로워의 "상대방 캘린더" 토글 노출 · 캘린더 필터에 사용. */
+    val hasPartner: Boolean = false,
 )

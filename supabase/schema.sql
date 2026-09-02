@@ -128,6 +128,8 @@ CREATE TABLE IF NOT EXISTS public.schedules (
     end_time    TIME,
 
     is_done     BOOLEAN NOT NULL DEFAULT FALSE,
+    -- 비공개: 파트너에게 SELECT 조차 안 보이는 개인 일정. RLS 에서 강제.
+    is_private  BOOLEAN NOT NULL DEFAULT FALSE,
     -- 반복 시리즈 그룹핑. 같은 반복 규칙으로 생성된 인스턴스들은 동일 값을 공유.
     -- 편집 · 삭제 시 series_id 로 batch 처리 → 시리즈 전체 일괄 적용.
     series_id   UUID,
@@ -184,6 +186,7 @@ CREATE TABLE IF NOT EXISTS public.user_preferences (
     user_id                UUID PRIMARY KEY REFERENCES public.users(id) ON DELETE CASCADE,
     show_my_calendar       BOOLEAN NOT NULL DEFAULT TRUE,
     show_partner_calendar  BOOLEAN NOT NULL DEFAULT TRUE,
+    show_shared_calendar   BOOLEAN NOT NULL DEFAULT TRUE,
     show_holidays          BOOLEAN NOT NULL DEFAULT TRUE,
     show_solar_terms       BOOLEAN NOT NULL DEFAULT TRUE,
     show_lunar             BOOLEAN NOT NULL DEFAULT FALSE,
@@ -289,17 +292,21 @@ CREATE POLICY couple_members_delete_self ON public.couple_members
     FOR DELETE TO authenticated
     USING (user_id = auth.uid());
 
--- schedules: 내가 속한 커플의 스케줄만 접근. INSERT 는 created_by 가 나여야 함.
+-- schedules: 내가 속한 커플의 스케줄만 접근. is_private 인 row 는 creator 만 SELECT.
+-- INSERT 는 created_by 가 나여야 함.
 DROP POLICY IF EXISTS schedules_all_in_my_couple ON public.schedules;
 CREATE POLICY schedules_all_in_my_couple ON public.schedules
     FOR ALL TO authenticated
-    USING (couple_id IN (SELECT public.my_couple_ids()))
+    USING (
+        couple_id IN (SELECT public.my_couple_ids())
+        AND (NOT is_private OR created_by = auth.uid())
+    )
     WITH CHECK (
         couple_id IN (SELECT public.my_couple_ids())
         AND created_by = auth.uid()
     );
 
--- schedule_repeat_rules: 스케줄 owner 와 동일 접근 규칙 (join 으로 검증).
+-- schedule_repeat_rules: 부모 schedule 이 파트너의 비공개면 접근 불가 (join 으로 검증).
 DROP POLICY IF EXISTS repeat_rules_all_in_my_couple ON public.schedule_repeat_rules;
 CREATE POLICY repeat_rules_all_in_my_couple ON public.schedule_repeat_rules
     FOR ALL TO authenticated
@@ -307,12 +314,14 @@ CREATE POLICY repeat_rules_all_in_my_couple ON public.schedule_repeat_rules
         schedule_id IN (
             SELECT s.id FROM public.schedules s
             WHERE s.couple_id IN (SELECT public.my_couple_ids())
+              AND (NOT s.is_private OR s.created_by = auth.uid())
         )
     )
     WITH CHECK (
         schedule_id IN (
             SELECT s.id FROM public.schedules s
             WHERE s.couple_id IN (SELECT public.my_couple_ids())
+              AND (NOT s.is_private OR s.created_by = auth.uid())
         )
     );
 

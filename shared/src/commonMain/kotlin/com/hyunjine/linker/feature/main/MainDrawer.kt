@@ -50,6 +50,8 @@ import org.jetbrains.compose.resources.painterResource
 data class DrawerDisplayState(
     val showMyCalendar: Boolean = true,
     val showPartnerCalendar: Boolean = true,
+    /** 공동 (Us) 일정 · 할일 표시. 내 · 상대방과 독립적으로 켤/끌 수 있음. */
+    val showSharedCalendar: Boolean = true,
     val showHolidays: Boolean = true,
     val showSolarTerms: Boolean = true,
 )
@@ -76,9 +78,12 @@ fun MainDrawerContent(
     onCoupleLinkClick: () -> Unit = {},
     onToggleMyCalendar: (Boolean) -> Unit = {},
     onTogglePartnerCalendar: (Boolean) -> Unit = {},
+    onToggleSharedCalendar: (Boolean) -> Unit = {},
     onToggleHolidays: (Boolean) -> Unit = {},
     onToggleSolarTerms: (Boolean) -> Unit = {},
     onLogout: () -> Unit = {},
+    /** 파트너 조인 여부. false 면 "상대방 캘린더" · "공동 캘린더" 토글 자체를 감춘다. */
+    hasPartner: Boolean = true,
 ) {
     Column(
         modifier = Modifier
@@ -110,11 +115,19 @@ fun MainDrawerContent(
             checked = displayState.showMyCalendar,
             onCheckedChange = onToggleMyCalendar,
         )
-        ToggleRow(
-            text = "상대방 캘린더",
-            checked = displayState.showPartnerCalendar,
-            onCheckedChange = onTogglePartnerCalendar,
-        )
+        if (hasPartner) {
+            // 상대방 · 공동 개념은 파트너가 있을 때만 의미. Solo 상태에선 감춰서 사용자 혼란 방지.
+            ToggleRow(
+                text = "상대방 캘린더",
+                checked = displayState.showPartnerCalendar,
+                onCheckedChange = onTogglePartnerCalendar,
+            )
+            ToggleRow(
+                text = "공동 캘린더",
+                checked = displayState.showSharedCalendar,
+                onCheckedChange = onToggleSharedCalendar,
+            )
+        }
         SectionLabel(text = "달력 정보 표시")
         ToggleRow(
             text = "공휴일",

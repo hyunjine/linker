@@ -50,6 +50,7 @@ object SchedulesRepository {
         @SerialName("start_time") val startTime: String? = null,
         @SerialName("end_time") val endTime: String? = null,
         @SerialName("is_done") val isDone: Boolean,
+        @SerialName("is_private") val isPrivate: Boolean = false,
         @SerialName("series_id") val seriesId: String? = null,
     )
 
@@ -71,6 +72,7 @@ object SchedulesRepository {
         @SerialName("all_day") val allDay: Boolean,
         @SerialName("start_time") val startTime: String? = null,
         @SerialName("end_time") val endTime: String? = null,
+        @SerialName("is_private") val isPrivate: Boolean = false,
         @SerialName("series_id") val seriesId: String? = null,
     )
 
@@ -185,12 +187,25 @@ object SchedulesRepository {
         val oldSeriesId = draft.seriesId
         val oldRepeat = oldSeriesId?.let { fetchRepeatRuleForSchedule(id) } ?: RepeatRule.None
         val oldEndDate = oldSeriesId?.let { fetchRepeatEndsAt(id) }
+        // 공개 → 비공개 전환은 Supabase Realtime UPDATE 이벤트가 NEW row RLS 로
+        // 필터돼 파트너에게 안 감. 파트너 로컬 캐시 stale 방지 위해 DELETE + 새 INSERT
+        // 로 재생성해 파트너가 DELETE 이벤트를 받도록 (#161 과 동일 취지).
+        val oldRow = SupabaseProvider.client.from("schedules")
+            .select { filter { eq("id", id) } }
+            .decodeSingleOrNull<Row>()
+        val oldIsPrivate = oldRow?.isPrivate ?: false
         val ruleChanged = oldRepeat != draft.repeat || oldEndDate != draft.repeatEndDate
+        val privateTransition = !oldIsPrivate && draft.isPrivate
 
         return when {
-            oldSeriesId == null && draft.repeat == RepeatRule.None -> {
+            oldSeriesId == null && draft.repeat == RepeatRule.None && !privateTransition -> {
                 updateSingleRow(id, draft, uid)
                 id
+            }
+            oldSeriesId == null && draft.repeat == RepeatRule.None && privateTransition -> {
+                // 단일 row + 비공개 전환 → DELETE + 새 INSERT
+                deleteRowById(id)
+                insertSingle(draft, coupleId, uid)
             }
             oldSeriesId == null && draft.repeat != RepeatRule.None -> {
                 deleteRowById(id)
@@ -198,17 +213,14 @@ object SchedulesRepository {
             }
             oldSeriesId != null && draft.repeat == RepeatRule.None -> {
                 deleteSeriesById(oldSeriesId)
-                val inserted = SupabaseProvider.client.from("schedules")
-                    .insert(draft.toInsertPayload(coupleId, uid, seriesId = null)) { select() }
-                    .decodeSingle<Row>()
-                inserted.id
+                insertSingle(draft, coupleId, uid)
             }
-            oldSeriesId != null && !ruleChanged -> {
+            oldSeriesId != null && !ruleChanged && !privateTransition -> {
                 updateSeriesMetadata(oldSeriesId, draft, uid)
                 id
             }
             else -> {
-                // 시리즈 · 규칙 변경 → 전체 재생성
+                // 시리즈 · 규칙 변경 or 비공개 전환 → 전체 재생성
                 deleteSeriesById(oldSeriesId!!)
                 insertSeries(draft, coupleId, uid)
             }
@@ -287,15 +299,25 @@ object SchedulesRepository {
             set("all_day", draft.allDay)
             set("start_time", draft.startTimeForDb())
             set("end_time", draft.endTimeForDb())
+            set("is_private", draft.isPrivate)
         }) {
             filter { eq("id", id) }
         }
         applyRepeatRule(id, draft.repeat, draft.repeatEndDate)
     }
 
+    /** 단일 row INSERT. 시리즈에서 단일로 downgrade · 비공개 재생성 등에서 재사용. 반환값: 새 id. */
+    private suspend fun insertSingle(draft: ScheduleDraft, coupleId: String, uid: String): String {
+        val inserted = SupabaseProvider.client.from("schedules")
+            .insert(draft.toInsertPayload(coupleId, uid, seriesId = null)) { select() }
+            .decodeSingle<Row>()
+        applyRepeatRule(inserted.id, draft.repeat, draft.repeatEndDate)
+        return inserted.id
+    }
+
     /**
      * 시리즈 전체 metadata batch UPDATE. 규칙 · 날짜는 그대로 두고 (start_date/end_date 는
-     * 인스턴스마다 다르므로) title/type/times/owner/allDay 만 반영.
+     * 인스턴스마다 다르므로) title/type/times/owner/allDay/is_private 만 반영.
      */
     private suspend fun updateSeriesMetadata(seriesId: String, draft: ScheduleDraft, viewerId: String) {
         val ownerForStorage = ownerKindForStorage(draft.owner.toDbValue(), draft.createdBy, viewerId)
@@ -306,6 +328,7 @@ object SchedulesRepository {
             set("all_day", draft.allDay)
             set("start_time", draft.startTimeForDb())
             set("end_time", draft.endTimeForDb())
+            set("is_private", draft.isPrivate)
         }) {
             filter { eq("series_id", seriesId) }
         }
@@ -426,6 +449,7 @@ private fun ScheduleDraft.toInsertPayload(
     allDay = allDay,
     startTime = startTimeForDb(),
     endTime = endTimeForDb(),
+    isPrivate = isPrivate,
     seriesId = seriesId,
 )
 
@@ -479,6 +503,7 @@ private fun SchedulesRepository.Row.toDraft(
             "partner" -> ScheduleOwner.Partner
             else -> ScheduleOwner.Us
         },
+        isPrivate = isPrivate,
         createdBy = createdBy,
         seriesId = seriesId,
     )

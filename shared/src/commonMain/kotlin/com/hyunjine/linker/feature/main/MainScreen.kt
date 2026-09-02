@@ -119,6 +119,11 @@ data class CalendarEvent(
      * 병합 시 이 id 로 dedupe 해서 하나만 남긴다.
      */
     val id: String? = null,
+    /**
+     * 스케줄 chip 의 소유자 (뷰어 관점). 드로워의 "내 캘린더" · "상대방 캘린더" 토글로 필터링.
+     * Holiday · Season 처럼 소유자 개념이 없는 chip 은 null.
+     */
+    val owner: DayOwner? = null,
 )
 
 /** 하루 셀에 붙는 부가 정보. `date` 를 키로 [MainScreen.entries] 에 담아 전달. */
@@ -200,6 +205,15 @@ fun MainScreen(
     profileName: String = "",
     profileHandle: String = "",
     profileImageUrl: String? = null,
+    /**
+     * 드로워 표시 옵션 (일정/달력 정보). 상위 (VM) 가 서버에서 로드해 관리.
+     * Preview 등 상위가 없는 컨텍스트에서는 기본값으로 렌더.
+     */
+    displayState: DrawerDisplayState = DrawerDisplayState(),
+    /** 드로워 토글 변경 콜백. VM 이 옵티미스틱 반영 + 서버 upsert. */
+    onDisplayStateChange: (DrawerDisplayState) -> Unit = {},
+    /** 파트너 조인 여부. 드로워의 "상대방 캘린더" 토글 노출 · 스케줄 필터에 사용. */
+    hasPartner: Boolean = false,
 ) {
     // Int.MAX_VALUE 크기의 pager 로 사실상 무한 좌우 스와이프. 중간에서 시작해 양쪽으로 무제한 이동.
     val anchorPage = remember { Int.MAX_VALUE / 2 }
@@ -221,26 +235,23 @@ fun MainScreen(
     // 타이틀 탭 시 년/월 피커 시트 오픈. dismiss 시 선택 값으로 pager 를 해당 월까지 스크롤.
     var pickerVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-    // 셀 탭 시 날짜 상세 시트 오픈. dummy 데이터는 임시 (후속 이슈에서 실제 소스 연결).
-    // 선택된 날짜(=진짜 payload)와 시트 visible 을 분리해서 관리한다:
-    //  - `selectedDateString` (rememberSaveable): CreateSchedule 등 다른 nav 목적지에서 돌아왔을 때
-    //    이전 선택 날짜를 유지하기 위함.
-    //  - `sheetVisible` (remember): chip 탭으로 CreateSchedule 진입 직전에만 false 로 만들어 시트
-    //    slide-down 애니메이션 없이 즉시 사라지게 하기 위함. 최초 진입 or pop 재진입 시
-    //    LaunchedEffect 로 selectedDate 가 있으면 true 로 자동 복원.
+    // 셀 탭 시 날짜 상세 시트 오픈.
+    //  - `selectedDateString` · `sheetVisible` 둘 다 rememberSaveable. peek 로 재composition 돼도
+    //    이전 상태 그대로 복원 · LaunchedEffect 에 의한 자동 재오픈 없음 (#156).
+    //  - dayDetail 은 sheetVisible=true 로 전환될 때만 fetch.
+    //  - chip 탭으로 편집 화면 진입 시엔 sheetVisible=false 로 명시 dismiss → 저장 상태도 false 라
+    //    편집 pop 후에도 시트 안 뜸. 사용자가 원하면 셀 다시 탭.
     var selectedDateString by rememberSaveable { mutableStateOf<String?>(null) }
     val selectedDate = remember(selectedDateString) { selectedDateString?.let { LocalDate.parse(it) } }
+    var sheetVisible by rememberSaveable { mutableStateOf(false) }
     var dayDetail by remember(selectedDate) { mutableStateOf<DayDetail?>(null) }
-    var sheetVisible by remember { mutableStateOf(false) }
-    LaunchedEffect(selectedDate) {
-        if (selectedDate != null) {
+    LaunchedEffect(selectedDate, sheetVisible) {
+        if (sheetVisible && selectedDate != null && dayDetail == null) {
             dayDetail = onLoadDayDetail(selectedDate)
-            sheetVisible = dayDetail != null
         }
     }
-    // 사이드 드로워 상태 + 표시 옵션 (MVP: 로컬 state, 저장·연동은 후속 이슈).
+    // 사이드 드로워 표시 옵션은 상위 (VM) 가 소유 · 서버에 영구 저장.
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    var displayState by remember { mutableStateOf(DrawerDisplayState()) }
 
     // 현재 보이는 달이 바뀌면 상위에 알림 → ViewModel 이 캐시에 없으면 lazy fetch.
     LaunchedEffect(currentYearMonth) { onMonthVisible(currentYearMonth) }
@@ -250,13 +261,22 @@ fun MainScreen(
         }
     }
 
-    // 표시 토글 반영: 공휴일/절기 chip 을 옵션대로 걸러 낸 후 스케줄 chip · Preview entries 와 병합.
-    val mergedEntries = remember(entries, scheduleEntries, specialDayEntries, displayState.showHolidays, displayState.showSolarTerms) {
+    // 표시 토글 반영: 공휴일/절기 는 type 기준, 개인 chip 은 owner 기준 (나/상대방/공동) 으로 각각 필터.
+    val mergedEntries = remember(
+        entries, scheduleEntries, specialDayEntries,
+        displayState.showHolidays, displayState.showSolarTerms,
+        displayState.showMyCalendar, displayState.showPartnerCalendar, displayState.showSharedCalendar,
+    ) {
         val filteredSpecial = specialDayEntries.filterByToggles(
             showHolidays = displayState.showHolidays,
             showSolarTerms = displayState.showSolarTerms,
         )
-        val withSchedules = mergeEntries(base = filteredSpecial, override = scheduleEntries)
+        val filteredSchedules = scheduleEntries.filterByOwnerToggles(
+            showMy = displayState.showMyCalendar,
+            showPartner = displayState.showPartnerCalendar,
+            showShared = displayState.showSharedCalendar,
+        )
+        val withSchedules = mergeEntries(base = filteredSpecial, override = filteredSchedules)
         mergeEntries(base = withSchedules, override = entries)
     }
 
@@ -268,6 +288,7 @@ fun MainScreen(
                 profileHandle = profileHandle,
                 profileImageUrl = profileImageUrl,
                 displayState = displayState,
+                hasPartner = hasPartner,
                 onCoupleLinkClick = {
                     scope.launch { drawerState.close() }
                     onCoupleLinkClick()
@@ -282,10 +303,11 @@ fun MainScreen(
                     scope.launch { drawerState.close() }
                     onAnniversaryClick()
                 },
-                onToggleMyCalendar = { displayState = displayState.copy(showMyCalendar = it) },
-                onTogglePartnerCalendar = { displayState = displayState.copy(showPartnerCalendar = it) },
-                onToggleHolidays = { displayState = displayState.copy(showHolidays = it) },
-                onToggleSolarTerms = { displayState = displayState.copy(showSolarTerms = it) },
+                onToggleMyCalendar = { onDisplayStateChange(displayState.copy(showMyCalendar = it)) },
+                onTogglePartnerCalendar = { onDisplayStateChange(displayState.copy(showPartnerCalendar = it)) },
+                onToggleSharedCalendar = { onDisplayStateChange(displayState.copy(showSharedCalendar = it)) },
+                onToggleHolidays = { onDisplayStateChange(displayState.copy(showHolidays = it)) },
+                onToggleSolarTerms = { onDisplayStateChange(displayState.copy(showSolarTerms = it)) },
                 onLogout = {
                     scope.launch { drawerState.close() }
                     onLogout()
@@ -371,11 +393,10 @@ fun MainScreen(
             scope.launch { runCatching { onToggleTaskDone(taskId, newValue) } }
         },
         onAdd = { type ->
-            // 시트 안 pill (할 일 / 일정) 탭 → 일정 생성 진입. type 은 어느 pill 을 눌렀는지.
-            //  - `sheetVisible = false` 로 시트를 즉시 composition 에서 빼 CreateSchedule 이
-            //    slide-down 애니메이션 지연 없이 곧바로 포그라운드에 올라오게 한다.
-            //  - `selectedDateString` 은 유지해서 pop 으로 돌아오면 위 LaunchedEffect 가
-            //    같은 날짜 시트를 다시 열어 준다.
+            // 시트 안 pill (할 일 / 일정) 탭 → 일정 생성 진입.
+            //  - sheetVisible = false 로 즉시 dismiss (slide-down 애니 없이 편집 화면이 올라옴).
+            //  - selectedDateString 은 유지하되 sheetVisible=false 는 saveable 로 저장돼
+            //    pop 후에도 시트 안 뜸 (#156 · peek 재오픈 방지). 원하면 사용자가 셀 다시 탭.
             val date = selectedDate ?: return@DayDetailSheet
             sheetVisible = false
             onAddSchedule(date, type)
@@ -414,6 +435,34 @@ private fun Map<LocalDate, CalendarDayEntry>.filterByToggles(
                 CalendarEventType.Holiday -> showHolidays
                 CalendarEventType.Season -> showSolarTerms
                 CalendarEventType.Personal -> true
+            }
+        }
+        if (kept.isNotEmpty() || entry.lunarLabel != null) {
+            out[date] = entry.copy(events = kept)
+        }
+    }
+    return out
+}
+
+/**
+ * 스케줄 chip 을 드로워 "내 캘린더" · "상대방 캘린더" · "공동 캘린더" 토글로 걸러낸다.
+ * 세 토글은 서로 독립적이라 owner 별로 대응되는 스위치만 본다.
+ * `owner=null` 은 방어적으로 통과 (스케줄 chip 은 모두 owner 를 갖는 게 정상).
+ */
+private fun Map<LocalDate, CalendarDayEntry>.filterByOwnerToggles(
+    showMy: Boolean,
+    showPartner: Boolean,
+    showShared: Boolean,
+): Map<LocalDate, CalendarDayEntry> {
+    if (showMy && showPartner && showShared) return this
+    val out = mutableMapOf<LocalDate, CalendarDayEntry>()
+    for ((date, entry) in this) {
+        val kept = entry.events.filter { ev ->
+            when (ev.owner) {
+                DayOwner.Me -> showMy
+                DayOwner.Partner -> showPartner
+                DayOwner.Us -> showShared
+                null -> true
             }
         }
         if (kept.isNotEmpty() || entry.lunarLabel != null) {
