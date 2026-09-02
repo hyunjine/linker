@@ -20,10 +20,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.hyunjine.linker.designsystem.theme.LinkerTheme
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.designsystem.theme.PrimaryBlue
 import com.hyunjine.linker.designsystem.theme.SurfaceCard
@@ -151,6 +153,22 @@ private fun CapsuleActionButton(action: AlertAction, fullWidth: Boolean = false)
                 fontSize = 15.sp,
                 color = fg,
             ),
+        )
+    }
+}
+
+@Composable
+@Preview(showBackground = true)
+private fun AppAlertDialogPreview() {
+    LinkerTheme {
+        AppAlertDialog(
+            title = "커플 연결 해제",
+            message = "연결을 해제하면 파트너 스케줄은 더 이상 보이지 않습니다. 내가 만든 스케줄은 유지돼요.",
+            actions = listOf(
+                AlertAction("취소", AlertActionStyle.Cancel) {},
+                AlertAction("해제", AlertActionStyle.Destructive) {},
+            ),
+            onDismissRequest = {},
         )
     }
 }
