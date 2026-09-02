@@ -50,6 +50,8 @@ import org.jetbrains.compose.resources.painterResource
 data class DrawerDisplayState(
     val showMyCalendar: Boolean = true,
     val showPartnerCalendar: Boolean = true,
+    /** 공동 (Us) 일정 · 할일 표시. 내 · 상대방과 독립적으로 켤/끌 수 있음. */
+    val showSharedCalendar: Boolean = true,
     val showHolidays: Boolean = true,
     val showSolarTerms: Boolean = true,
 )
@@ -76,6 +78,7 @@ fun MainDrawerContent(
     onCoupleLinkClick: () -> Unit = {},
     onToggleMyCalendar: (Boolean) -> Unit = {},
     onTogglePartnerCalendar: (Boolean) -> Unit = {},
+    onToggleSharedCalendar: (Boolean) -> Unit = {},
     onToggleHolidays: (Boolean) -> Unit = {},
     onToggleSolarTerms: (Boolean) -> Unit = {},
     onLogout: () -> Unit = {},
@@ -114,6 +117,11 @@ fun MainDrawerContent(
             text = "상대방 캘린더",
             checked = displayState.showPartnerCalendar,
             onCheckedChange = onTogglePartnerCalendar,
+        )
+        ToggleRow(
+            text = "공동 캘린더",
+            checked = displayState.showSharedCalendar,
+            onCheckedChange = onToggleSharedCalendar,
         )
         SectionLabel(text = "달력 정보 표시")
         ToggleRow(

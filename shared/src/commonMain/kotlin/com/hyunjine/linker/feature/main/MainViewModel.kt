@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hyunjine.linker.data.remote.CoupleRealtimeSubscription
 import com.hyunjine.linker.data.remote.SchedulesRepository
+import com.hyunjine.linker.data.remote.UserPreferencesRepository
 import com.hyunjine.linker.data.remote.UsersRepository
 import com.hyunjine.linker.data.remote.subscribeCoupleRealtime
 import com.hyunjine.linker.designsystem.theme.CalendarPurple
@@ -32,6 +33,39 @@ class MainViewModel : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainUiState())
     val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
+
+    /**
+     * 드로워 표시 옵션. 서버 (`user_preferences`) 에서 로드해 재실행 후에도 유지.
+     * 첫 로드 전에는 기본값 (모두 true) 을 노출해 UI 는 즉시 렌더 가능.
+     */
+    private val _drawerDisplay = MutableStateFlow(DrawerDisplayState())
+    val drawerDisplay: StateFlow<DrawerDisplayState> = _drawerDisplay.asStateFlow()
+
+    init { loadDrawerDisplay() }
+
+    /**
+     * 서버에서 표시 옵션 로드. 세션 없거나 조회 실패 시 기본값 유지 (사용자 UX 방해 최소화).
+     * 로그인 성공 후 · 프로필 변경 후에는 [refreshProfile] 이 이미 호출되므로 여기선 추가 트리거 없음.
+     */
+    private fun loadDrawerDisplay() {
+        viewModelScope.launch {
+            runCatching { UserPreferencesRepository.myDisplay() }
+                .onSuccess { it?.let { _drawerDisplay.value = it } }
+                .onFailure { println("[Prefs] loadDrawerDisplay 실패: $it") }
+        }
+    }
+
+    /**
+     * 드로워 토글 반영. UI 는 옵티미스틱으로 즉시 반영 후 서버 upsert. 실패는 로그만.
+     * (네트워크 실패 시 다음 앱 실행에서 서버값 로드로 복구됨 — 로컬 캐시 별도 안 씀.)
+     */
+    fun updateDrawerDisplay(next: DrawerDisplayState) {
+        _drawerDisplay.value = next
+        viewModelScope.launch {
+            runCatching { UserPreferencesRepository.upsertMyDisplay(next) }
+                .onFailure { println("[Prefs] upsertMyDisplay 실패: $it") }
+        }
+    }
 
     /**
      * 앱 진입 · 프로필 편집 후에 호출. 내 · 파트너 프로필을 다시 조회하고 owner 색이 바뀌었으면

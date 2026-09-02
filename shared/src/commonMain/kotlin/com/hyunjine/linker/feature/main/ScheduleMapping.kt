@@ -76,10 +76,11 @@ internal fun List<SchedulesRepository.Row>.toCalendarEntries(
         val end = LocalDate.parse(row.endDate)
         val resolved = resolveOwnerForViewer(row.ownerKind, row.createdBy, viewerId)
         val tint = ownerColors.forOwner(resolved)
+        val ownerTag = resolved.toDayOwner()
         var d = start
         while (d <= end) {
             out.getOrPut(d) { mutableListOf() }
-                .add(CalendarEvent(row.title, CalendarEventType.Personal, tintColor = tint, id = row.id))
+                .add(CalendarEvent(row.title, CalendarEventType.Personal, tintColor = tint, id = row.id, owner = ownerTag))
             d = d.plus(1, DateTimeUnit.DAY)
         }
     }
