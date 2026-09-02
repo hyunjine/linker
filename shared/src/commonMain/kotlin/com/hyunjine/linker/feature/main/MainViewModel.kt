@@ -9,6 +9,7 @@ import com.hyunjine.linker.data.remote.UsersRepository
 import com.hyunjine.linker.data.remote.subscribeCoupleRealtime
 import com.hyunjine.linker.designsystem.theme.CalendarPurple
 import com.hyunjine.linker.designsystem.theme.calendarColorFor
+import com.hyunjine.linker.platform.AppScope
 import com.hyunjine.linker.platform.refreshTodayWidget
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -57,12 +58,17 @@ class MainViewModel : ViewModel() {
 
     /**
      * 드로워 토글 반영. UI 는 옵티미스틱으로 즉시 반영 후 서버 upsert. 실패는 로그만.
-     * (네트워크 실패 시 다음 앱 실행에서 서버값 로드로 복구됨 — 로컬 캐시 별도 안 씀.)
+     *
+     * upsert 는 [AppScope] 로 띄운다 — viewModelScope 로 띄우면 사용자가 토글 직후
+     * 화면을 벗어나거나 Nav pop 으로 VM 이 사라질 때 in-flight HTTP 요청까지 함께
+     * 캔슬되어 서버 반영이 유실됐음 (#167). AppScope 는 앱 프로세스 수명을 따르므로
+     * 짧은 write 는 안전하게 완료.
      */
     fun updateDrawerDisplay(next: DrawerDisplayState) {
         _drawerDisplay.value = next
-        viewModelScope.launch {
+        AppScope.launch {
             runCatching { UserPreferencesRepository.upsertMyDisplay(next) }
+                .onSuccess { println("[Prefs] upsertMyDisplay ok: $next") }
                 .onFailure { println("[Prefs] upsertMyDisplay 실패: $it") }
         }
     }

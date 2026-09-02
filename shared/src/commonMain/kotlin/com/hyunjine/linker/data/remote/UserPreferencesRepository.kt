@@ -42,12 +42,14 @@ object UserPreferencesRepository {
 
     /**
      * 내 표시 옵션 upsert. PK 가 user_id 라 idempotent.
+     * `onConflict = "user_id"` 를 명시해 supabase-kt 가 항상 merge-duplicates 로 동작하도록 강제.
      * 실패는 상위 (VM) 에서 로그만 남기고 옵티미스틱 UI 유지.
      */
     suspend fun upsertMyDisplay(display: DrawerDisplayState) {
         val uid = SupabaseProvider.client.auth.currentUserOrNull()?.id
             ?: error("세션 없이 표시 옵션 저장 시도")
-        SupabaseProvider.client.from("user_preferences").upsert(display.toRow(uid))
+        SupabaseProvider.client.from("user_preferences")
+            .upsert(display.toRow(uid)) { onConflict = "user_id" }
     }
 }
 
