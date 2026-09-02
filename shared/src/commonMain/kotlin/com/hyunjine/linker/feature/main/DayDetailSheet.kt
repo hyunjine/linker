@@ -139,19 +139,17 @@ fun DayDetailSheet(
             Spacer(Modifier.height(12.dp))
             AddChips(onAdd = onAdd)
             Spacer(Modifier.height(20.dp))
+            // 항목 유무와 무관하게 세 섹션 헤더 (할 일 · 하루 일정 · 종일 일정) 는 항상 노출.
+            // 항목 없으면 카운트는 0 으로 표시되고 리스트 부분만 비어 있음.
             TaskSection(
                 tasks = detail.tasks,
                 onToggle = onToggleTask,
                 onSelect = onSelectTask,
             )
-            if (detail.timedSchedules.isNotEmpty()) {
-                Spacer(Modifier.height(16.dp))
-                TimedScheduleSection(schedules = detail.timedSchedules, onSelect = onSelectSchedule)
-            }
-            if (detail.allDaySchedules.isNotEmpty()) {
-                Spacer(Modifier.height(16.dp))
-                AllDayScheduleSection(schedules = detail.allDaySchedules, onSelect = onSelectSchedule)
-            }
+            Spacer(Modifier.height(16.dp))
+            TimedScheduleSection(schedules = detail.timedSchedules, onSelect = onSelectSchedule)
+            Spacer(Modifier.height(16.dp))
+            AllDayScheduleSection(schedules = detail.allDaySchedules, onSelect = onSelectSchedule)
         }
     }
 }
@@ -344,6 +342,7 @@ private fun TaskRow(task: DayTask, onToggle: () -> Unit, onSelect: () -> Unit) {
 private fun TimedScheduleSection(schedules: List<TimedSchedule>, onSelect: (String) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(text = "하루 일정 ${schedules.size}")
+        if (schedules.isEmpty()) return
         Spacer(Modifier.height(4.dp))
         schedules.forEach { TimedRow(it, onSelect) }
     }
@@ -402,6 +401,7 @@ private fun TimedRow(schedule: TimedSchedule, onSelect: (String) -> Unit) {
 private fun AllDayScheduleSection(schedules: List<AllDaySchedule>, onSelect: (String) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(text = "종일 일정 ${schedules.size}")
+        if (schedules.isEmpty()) return
         Spacer(Modifier.height(4.dp))
         schedules.forEach { AllDayRow(it, onSelect) }
     }
