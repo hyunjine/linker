@@ -65,7 +65,7 @@ struct TodayScheduleWidget: Widget {
                 .containerBackground(.background, for: .widget)
         }
         .configurationDisplayName("오늘 일정")
-        .description("링커의 오늘 스케줄과 할 일을 한눈에.")
+        .description("현진이랑민교의 오늘 스케줄과 할 일을 한눈에.")
         .supportedFamilies([
             .systemSmall,
             .systemMedium,

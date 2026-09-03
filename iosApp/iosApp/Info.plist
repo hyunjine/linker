@@ -2,6 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- 홈스크린에 노출되는 앱 이름. PRODUCT_NAME (Linker) 은 빌드 산출물 이름으로만 유지하고
+	     사용자에게 보이는 이름은 이 키로 오버라이드. -->
+	<key>CFBundleDisplayName</key>
+	<string>현진이랑민교</string>
+
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 
