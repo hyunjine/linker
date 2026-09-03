@@ -26,7 +26,6 @@ import com.hyunjine.linker.feature.anniversary.AnniversaryUi
 import com.hyunjine.linker.feature.couple.CoupleInviteCodeScreen
 import com.hyunjine.linker.feature.couple.CoupleJoinScreen
 import com.hyunjine.linker.feature.couple.CoupleLinkScreen
-import com.hyunjine.linker.feature.login.LoginScreen
 import com.hyunjine.linker.feature.main.AllDaySchedule
 import com.hyunjine.linker.feature.main.CalendarDayEntry
 import com.hyunjine.linker.feature.main.CalendarEvent
@@ -42,7 +41,8 @@ import com.hyunjine.linker.feature.search.SearchAnniversaryItem
 import com.hyunjine.linker.feature.search.SearchResults
 import com.hyunjine.linker.feature.search.SearchScheduleItem
 import com.hyunjine.linker.feature.search.SearchScreen
-import com.hyunjine.linker.feature.splash.SplashScreen
+import com.hyunjine.linker.feature.auth.AuthGateMode
+import com.hyunjine.linker.feature.auth.AuthGateScreen
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
@@ -69,11 +69,14 @@ import kotlinx.serialization.modules.subclass
  * 각 목적지 [NavKey] 는 `@Serializable` 이고, [NavConfig] 의 polymorphic 서브클래스로 등록해야
  * saved state 복원이 가능하다 (KMP 는 리플렉션이 없어 명시 등록 필수).
  */
+/**
+ * 스플래시 · 로그인을 하나의 컴포저블 안에서 애니메이션으로 이어주기 위해 두 라우트를 통합.
+ * `SessionStatus` 값에 따라 [AuthGateScreen] 내부에서 mode 를 전환:
+ *  - Initializing → splash 시각 상태 유지
+ *  - NotAuthenticated / RefreshFailure → login 시각으로 슬라이드 + 카카오 버튼 fade-in
+ */
 @Serializable
-private data object SplashRoute : NavKey
-
-@Serializable
-private data object LoginRoute : NavKey
+private data object AuthRoute : NavKey
 
 @Serializable
 private data object MainRoute : NavKey
@@ -115,8 +118,7 @@ private data object SearchRoute : NavKey
 private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
     serializersModule = SerializersModule {
         polymorphic(NavKey::class) {
-            subclass(SplashRoute::class, SplashRoute.serializer())
-            subclass(LoginRoute::class, LoginRoute.serializer())
+            subclass(AuthRoute::class, AuthRoute.serializer())
             subclass(MainRoute::class, MainRoute.serializer())
             subclass(ProfileSetupRoute::class, ProfileSetupRoute.serializer())
             subclass(ProfileEditRoute::class, ProfileEditRoute.serializer())
@@ -257,7 +259,7 @@ private fun profileDefaults(user: UserInfo?): ProfileDefaults {
 @Composable
 fun App() {
     LinkerTheme {
-        val backStack = rememberNavBackStack(NavConfig, SplashRoute)
+        val backStack = rememberNavBackStack(NavConfig, AuthRoute)
             val scope = rememberCoroutineScope()
             // 온보딩 완료(커플 연결) 시점에 로그인·프로필·연결 스택을 전부 비우고 Main 만 남긴다.
             // 홈에서 뒤로가기로 로그인 화면이 다시 뜨면 안 되므로 clear + push 조합.
@@ -278,9 +280,9 @@ fun App() {
             var coupleRefreshTick by remember { mutableStateOf(0) }
 
             // 세션 상태 기반 부트스트랩 라우팅.
-            //  - Initializing: SplashRoute 유지 (세션 storage 로드 중)
+            //  - Initializing / NotAuthenticated / RefreshFailure: AuthRoute 유지
+            //    (내부 AuthGateScreen 이 mode 로 splash ↔ login 시각 전환)
             //  - Authenticated: 프로필/커플 상태 조회 → 미완성 단계로 자동 진입 (재로그인 시 온보딩 스킵)
-            //  - NotAuthenticated / RefreshFailure: 로그인 화면으로 스택 초기화
             val status by sessionStatus.collectAsState()
             LaunchedEffect(status) {
                 println("[Auth] sessionStatus = ${status::class.simpleName}")
@@ -295,13 +297,15 @@ fun App() {
                     }
                     is SessionStatus.NotAuthenticated,
                     is SessionStatus.RefreshFailure -> {
-                        if (backStack.lastOrNull() != LoginRoute) {
-                            println("[Auth] 세션 없음 → LoginRoute 로 리셋")
+                        // AuthRoute 이 이미 최상단이면 유지 (내부에서 login mode 로 자동 전환).
+                        // 다른 화면에서 로그아웃 상황 (RefreshFailure 등) 이면 AuthRoute 로 리셋.
+                        if (backStack.lastOrNull() != AuthRoute) {
+                            println("[Auth] 세션 없음 → AuthRoute 로 리셋")
                             backStack.clear()
-                            backStack.add(LoginRoute)
+                            backStack.add(AuthRoute)
                         }
                     }
-                    is SessionStatus.Initializing -> Unit  // SplashRoute 그대로 유지
+                    is SessionStatus.Initializing -> Unit  // AuthRoute 그대로 유지 (splash mode)
                 }
             }
 
@@ -309,9 +313,14 @@ fun App() {
                 backStack = backStack,
                 onBack = { backStack.removeLastOrNull() },
                 entryProvider = entryProvider {
-                    entry<SplashRoute> { SplashScreen() }
-                    entry<LoginRoute> {
-                        com.hyunjine.linker.feature.login.LoginRoute()
+                    entry<AuthRoute> {
+                        // 세션 로딩 중 splash, 로그인 필요 시 login. 로고 · 타이틀은 유지된 채 슬라이드.
+                        val mode = if (status is SessionStatus.Initializing) {
+                            AuthGateMode.Splash
+                        } else {
+                            AuthGateMode.Login
+                        }
+                        com.hyunjine.linker.feature.login.LoginRoute(mode = mode)
                     }
                     entry<ProfileSetupRoute> {
                         val currentUser = (status as? SessionStatus.Authenticated)?.session?.user
