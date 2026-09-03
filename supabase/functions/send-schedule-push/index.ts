@@ -12,7 +12,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { create as jwtCreate, getNumericDate } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
 
 interface Payload {
-  type: "INSERT" | "UPDATE" | "DELETE";
+  type: "INSERT" | "UPDATE" | "DELETE" | "START_REMINDER";
   table: string;
   record: {
     id: string;
@@ -21,6 +21,10 @@ interface Payload {
     title: string;
     start_date: string;
     type: string; // 'task' | 'schedule'
+    // START_REMINDER 에서만 채워짐 (pg_cron send_schedule_start_reminders 가 payload 조립).
+    start_time?: string;   // 'HH:MM:SS'
+    is_private?: boolean;
+    owner_kind?: string;   // 'me' | 'partner' | 'us'
   };
 }
 
@@ -124,17 +128,96 @@ async function sendFcmMessage(
   }
 }
 
+/**
+ * pg_cron 이 매 분 fire — 이번 분 (Asia/Seoul) 에 시작하는 시간 있는 스케줄에 대해 이 함수가 호출된다.
+ *
+ * 발송 대상:
+ *  - 항상 creator (본인 예약)
+ *  - 비공개 (is_private=true) 가 아니면 같은 커플 파트너들도 함께 (owner=us · me · partner 모두 동일 규칙)
+ *  이 규칙은 RLS 가 "볼 수 있는 사람" 을 결정하는 규칙과 정확히 일치.
+ */
+async function handleStartReminder(
+  payload: Payload,
+  supabase: ReturnType<typeof createClient>,
+): Promise<Response> {
+  const rec = payload.record;
+  const targetIds: string[] = [rec.created_by];
+
+  if (!rec.is_private) {
+    const { data: partners, error } = await supabase
+      .from("couple_members")
+      .select("user_id")
+      .eq("couple_id", rec.couple_id)
+      .neq("user_id", rec.created_by);
+    if (error) throw error;
+    (partners ?? []).forEach((p: { user_id: string }) => targetIds.push(p.user_id));
+  }
+
+  const { data: devices, error: dErr } = await supabase
+    .from("user_devices")
+    .select("fcm_token")
+    .in("user_id", targetIds);
+  if (dErr) throw dErr;
+  if (!devices || devices.length === 0) {
+    return new Response("no devices for reminder", { status: 200 });
+  }
+
+  const projectId = Deno.env.get("FCM_PROJECT_ID")!;
+  const saJson = Deno.env.get("FCM_SERVICE_ACCOUNT_JSON")!;
+  const sa = JSON.parse(saJson) as ServiceAccount;
+  const accessToken = await getFcmAccessToken(sa);
+
+  const timeLabel = formatKoreanClock(rec.start_time ?? "");
+  const title = (rec.title || "일정").trim();
+  const body = timeLabel ? `${timeLabel} 시작` : "곧 시작";
+
+  for (const dev of devices) {
+    await sendFcmMessage(
+      accessToken,
+      projectId,
+      (dev as { fcm_token: string }).fcm_token,
+      title,
+      body,
+      {
+        schedule_id: rec.id,
+        couple_id: rec.couple_id,
+        reason: "start_reminder",
+      },
+    );
+  }
+  return new Response(
+    JSON.stringify({ sent: devices.length, reason: "start_reminder" }),
+    { headers: { "Content-Type": "application/json" }, status: 200 },
+  );
+}
+
+/** "HH:MM:SS" → "오전 10:00" 스타일. 파싱 실패면 빈 문자열. */
+function formatKoreanClock(hhmmss: string): string {
+  const parts = hhmmss.split(":");
+  if (parts.length < 2) return "";
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  if (Number.isNaN(h) || Number.isNaN(m)) return "";
+  const ampm = h < 12 ? "오전" : "오후";
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${ampm} ${h12}:${String(m).padStart(2, "0")}`;
+}
+
 serve(async (req) => {
   try {
     const payload: Payload = await req.json();
-    if (payload.type !== "INSERT") {
-      return new Response("skipped (not INSERT)", { status: 200 });
+    if (payload.type !== "INSERT" && payload.type !== "START_REMINDER") {
+      return new Response(`skipped (${payload.type})`, { status: 200 });
     }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+
+    if (payload.type === "START_REMINDER") {
+      return await handleStartReminder(payload, supabase);
+    }
 
     // 1. 같은 커플 · 창작자 아닌 유저 조회.
     const { data: partnerUsers, error: pErr } = await supabase

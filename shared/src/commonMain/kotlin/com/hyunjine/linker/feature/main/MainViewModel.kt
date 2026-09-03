@@ -138,11 +138,6 @@ class MainViewModel : ViewModel() {
      */
     fun refreshSchedules() {
         _uiState.value.entriesByMonth.keys.toSet().forEach { fetchAndReplaceMonth(it) }
-        // 파트너 CRUD · realtime 변경도 시작 시각 로컬 알림에 반영.
-        viewModelScope.launch {
-            runCatching { com.hyunjine.linker.feature.reminder.ReminderScheduler.rebuild() }
-                .onFailure { println("[Reminder] rebuild after refresh 실패: $it") }
-        }
     }
 
     // ────────── Realtime ──────────

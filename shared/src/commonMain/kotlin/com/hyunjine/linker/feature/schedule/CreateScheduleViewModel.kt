@@ -3,7 +3,6 @@ package com.hyunjine.linker.feature.schedule
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hyunjine.linker.data.remote.SchedulesRepository
-import com.hyunjine.linker.feature.reminder.ReminderScheduler
 import com.hyunjine.linker.platform.refreshTodayWidget
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -69,8 +68,6 @@ class CreateScheduleViewModel(
                 println("[Schedule] ${if (editing) "수정" else "저장"} 성공 (scope=$scope)")
                 _uiState.value = _uiState.value.copy(saving = false)
                 refreshTodayWidget()
-                runCatching { ReminderScheduler.rebuild() }
-                    .onFailure { println("[Reminder] rebuild after save 실패: $it") }
                 onDone()
             }.onFailure {
                 println("[Schedule] ${if (editing) "수정" else "저장"} 실패: $it")
@@ -101,8 +98,6 @@ class CreateScheduleViewModel(
                 println("[Schedule] 삭제 성공: $id (scope=$scope)")
                 _uiState.value = _uiState.value.copy(saving = false)
                 refreshTodayWidget()
-                runCatching { ReminderScheduler.rebuild() }
-                    .onFailure { println("[Reminder] rebuild after delete 실패: $it") }
                 onDone()
             }.onFailure {
                 println("[Schedule] 삭제 실패: $it")
