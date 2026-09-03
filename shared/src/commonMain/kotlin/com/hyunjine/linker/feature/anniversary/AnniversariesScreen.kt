@@ -137,7 +137,6 @@ fun AnniversariesScreen(
     AppBottomSheet(
         visible = showAddSheet,
         onDismissRequest = { showAddSheet = false },
-        fullyExpanded = true,
         dragHandle = null,
     ) {
         AddAnniversarySheet(

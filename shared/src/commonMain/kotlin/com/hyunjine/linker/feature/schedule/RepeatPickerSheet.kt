@@ -88,7 +88,6 @@ fun RepeatPickerSheet(
     AppBottomSheet(
         visible = true,
         onDismissRequest = onDismiss,
-        fullyExpanded = true,
     ) {
         RepeatPickerSheetContent(
             current = current,

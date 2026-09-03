@@ -123,7 +123,6 @@ fun DayDetailSheet(
     AppBottomSheet(
         visible = visible,
         onDismissRequest = onDismiss,
-        fullyExpanded = true,
     ) {
         if (detail == null) return@AppBottomSheet
         // fillMaxSize 를 안 주면 ModalBottomSheet 이 콘텐츠 높이만큼만 표시됨. skipPartiallyExpanded
