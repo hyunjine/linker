@@ -23,6 +23,7 @@ interface Payload {
     type: string; // 'task' | 'schedule'
     // START_REMINDER 에서만 채워짐 (pg_cron send_schedule_start_reminders 가 payload 조립).
     start_time?: string;   // 'HH:MM:SS'
+    all_day?: boolean;
     is_private?: boolean;
     owner_kind?: string;   // 'me' | 'partner' | 'us'
   };
@@ -167,9 +168,21 @@ async function handleStartReminder(
   const sa = JSON.parse(saJson) as ServiceAccount;
   const accessToken = await getFcmAccessToken(sa);
 
-  const timeLabel = formatKoreanClock(rec.start_time ?? "");
   const title = (rec.title || "일정").trim();
-  const body = timeLabel ? `${timeLabel} 시작` : "곧 시작";
+  // 케이스별 본문:
+  //  - 시간 있는 일정: "오전 10:00 시작"
+  //  - 종일 일정:     "오늘 종일"
+  //  - 할 일:         "오늘의 할 일"
+  //  - 폴백:          "곧 시작"
+  let body: string;
+  if (rec.type === "task") {
+    body = "오늘의 할 일";
+  } else if (rec.all_day) {
+    body = "오늘 종일";
+  } else {
+    const timeLabel = formatKoreanClock(rec.start_time ?? "");
+    body = timeLabel ? `${timeLabel} 시작` : "곧 시작";
+  }
 
   for (const dev of devices) {
     await sendFcmMessage(
