@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      런처 어댑티브 아이콘 배경. 로고 그라디언트의 중간 톤 (#008AFF) 을 단색으로 사용.
+      Android 어댑티브 아이콘 background 는 vector 그라디언트가 런처 마스킹과 충돌해
+      톤이 튀는 케이스가 많아 안정적인 solid 로.
+    -->
+    <color name="ic_launcher_background">#008AFF</color>
+</resources>
