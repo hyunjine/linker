@@ -15,4 +15,7 @@ expect object LocalStorage {
 
     /** 즉시 반영 (Android 는 SharedPreferences.Editor.apply — 실제 write 는 비동기지만 read 는 즉시 새 값). */
     fun putBoolean(key: String, value: Boolean)
+
+    fun getString(key: String, default: String): String
+    fun putString(key: String, value: String)
 }
