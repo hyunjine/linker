@@ -42,14 +42,16 @@ import com.hyunjine.linker.designsystem.theme.TextSecondary
  * 스크림/슬라이드 애니메이션/드래그-다운 dismiss/시스템 백 처리는 모두 material 기본
  * 동작을 그대로 위임한다.
  *
+ * partial peek 상태는 항상 건너뛴다 (`skipPartiallyExpanded = true`). Material3 의
+ * `PartiallyExpanded` 는 콘텐츠 높이에 따라 anchor 에서 제외되지만 state 는 여전히
+ * 그 값을 target 으로 잡아 `AnchoredDraggableUninitializedException` 크래시를 유발.
+ * 앱의 모든 시트는 pickers · lists · detail 처럼 처음부터 fully expanded 가 자연스러움.
+ *
  * @param visible 시트를 표시할지 여부. `false`가 되면 컴포지션에서 완전히 빠지고
  * material 쪽 dismiss 애니메이션이 재생된다.
  * @param onDismissRequest 사용자가 드래그 다운, 스크림 탭, 시스템 백 등으로 닫으려 할 때
  * 호출. 상위에서 [visible] 을 `false` 로 바꿔야 실제 닫힌다.
  * @param modifier 시트 컨테이너에 적용할 [Modifier].
- * @param fullyExpanded `true` 이면 partial peek 상태를 건너뛰고 처음부터 전체 높이로 펼침.
- * 텍스트 입력 시트처럼 콘텐츠가 화면 대부분을 차지해야 하는 경우 사용.
- * 실제로 콘텐츠가 세로를 다 채우려면 컨텐츠에도 `Modifier.fillMaxSize()` 등이 필요.
  * @param dragHandle 상단 드래그 핸들 슬롯. 기본은 [AppDragHandle]. `null` 을 넘기면
  * 핸들이 표시되지 않는다 (예: 자체 X/✓ 툴바를 갖는 편집 시트).
  * @param content 시트 안에 그릴 컨텐츠 슬롯. [ColumnScope] 로 제공된다.
@@ -60,12 +62,11 @@ fun AppBottomSheet(
     visible: Boolean,
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
-    fullyExpanded: Boolean = false,
     dragHandle: @Composable (() -> Unit)? = { AppDragHandle() },
     content: @Composable ColumnScope.() -> Unit,
 ) {
     if (!visible) return
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = fullyExpanded)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         // 시트 컨테이너 자체를 status bar 만큼 아래로 밀어 상단 corner 가 노출되게 한다.

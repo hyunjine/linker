@@ -23,4 +23,11 @@ actual object LocalStorage {
     actual fun putBoolean(key: String, value: Boolean) {
         prefs?.edit()?.putBoolean(key, value)?.apply()
     }
+
+    actual fun getString(key: String, default: String): String =
+        prefs?.getString(key, default) ?: default
+
+    actual fun putString(key: String, value: String) {
+        prefs?.edit()?.putString(key, value)?.apply()
+    }
 }

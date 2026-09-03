@@ -2,6 +2,10 @@ package com.hyunjine.linker.feature.schedule
 
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 /**
  * 일정의 성격. Figma 세그먼트 UI 는 두 항목 (`할 일` / `일정`) 만 노출한다.
@@ -76,8 +80,8 @@ data class ScheduleDraft(
     val endDate: LocalDate,
     val type: ScheduleType = ScheduleType.Schedule,
     val allDay: Boolean = false,
-    val startTime: String? = "10:00",
-    val endTime: String? = "11:00",
+    val startTime: String? = defaultStartTimeNow(),
+    val endTime: String? = defaultEndTimeNow(),
     val repeat: RepeatRule = RepeatRule.None,
     val repeatEndDate: LocalDate? = null,
     val owner: ScheduleOwner = ScheduleOwner.Me,
@@ -104,4 +108,32 @@ data class ScheduleDraft(
 
     /** 종일 토글 UI 를 노출할지 (할 일 유형에서는 개념상 필요 없음). */
     val showsAllDayToggle: Boolean get() = type == ScheduleType.Schedule
+}
+
+/**
+ * 신규 draft 의 시작 시각 기본값. 현재 시각을 5분 단위로 올림해 "HH:MM" 로 반환.
+ * 예: 14:15 → "14:15", 14:16~14:19 → "14:20". picker 가 5분 스텝이라 사용자가
+ * 실제 스크롤 없이 첫 노출 값이 그대로 유효.
+ */
+@OptIn(ExperimentalTime::class)
+internal fun defaultStartTimeNow(): String {
+    val now = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).time
+    val total = now.hour * 60 + now.minute
+    val rounded = ((total + 4) / 5) * 5 % (24 * 60)
+    return formatHhMm(rounded)
+}
+
+/** 신규 draft 의 종료 시각 기본값. 시작 시각 + 1시간 (24시간 wrap). */
+internal fun defaultEndTimeNow(): String = plusOneHourHhMm(defaultStartTimeNow())
+
+private fun plusOneHourHhMm(hhmm: String): String {
+    val p = hhmm.split(':')
+    val total = (p[0].toInt() * 60 + p[1].toInt() + 60) % (24 * 60)
+    return formatHhMm(total)
+}
+
+private fun formatHhMm(totalMinutes: Int): String {
+    val h = totalMinutes / 60
+    val m = totalMinutes % 60
+    return h.toString().padStart(2, '0') + ":" + m.toString().padStart(2, '0')
 }

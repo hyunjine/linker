@@ -238,7 +238,6 @@ fun ProfileSetupScreen(
     AppBottomSheet(
         visible = showNicknameSheet,
         onDismissRequest = { showNicknameSheet = false },
-        fullyExpanded = true, // 텍스트 입력 시트는 화면을 거의 채우도록 초기부터 fully expanded
         dragHandle = null,    // 자체 X/✓ 툴바를 그리므로 드래그 핸들 숨김
     ) {
         NicknameEditSheet(
