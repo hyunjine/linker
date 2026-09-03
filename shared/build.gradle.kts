@@ -104,6 +104,10 @@ kotlin {
             implementation(libs.compose.uiTooling)
             implementation(libs.ktor.client.okhttp)
             implementation(libs.kakao.user)
+            // 로그인 실패 등 non-fatal 예외를 Crashlytics 로 원격 보고 (CrashReporter.android.kt).
+            // KMP 소스셋 dependencies 블록에서는 platform() 이 직접 노출되지 않아 project.dependencies 경유.
+            implementation(project.dependencies.platform(libs.firebase.bom))
+            implementation(libs.firebase.crashlytics)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)

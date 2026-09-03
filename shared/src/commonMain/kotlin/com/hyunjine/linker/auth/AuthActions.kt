@@ -1,6 +1,7 @@
 package com.hyunjine.linker.auth
 
 import com.hyunjine.linker.data.remote.SupabaseProvider
+import com.hyunjine.linker.platform.CrashReporter
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Kakao
 import io.github.jan.supabase.auth.providers.builtin.Email
@@ -16,25 +17,39 @@ import kotlinx.coroutines.flow.StateFlow
  * 3. Supabase 서버가 JWKS 로 서명 · 만료 · aud 검증 → 세션 발급
  *
  * 취소는 조용히 무시. 실패/예외는 UI 층에서 catch 해 처리.
+ * 원격 진단을 위해 실패 · Supabase 예외는 [CrashReporter.recordException] 으로 남긴다.
  *
  * @throws IllegalStateException Kakao 결과가 Failure 인 경우 (reason 을 메시지로).
  */
 suspend fun signInWithKakao(client: KakaoLoginClient) {
     println("[Auth] signInWithKakao: enter")
+    CrashReporter.log("signInWithKakao: enter")
     when (val result = client.login()) {
         is KakaoLoginResult.Success -> {
             println("[Auth] Kakao 로그인 성공 → Supabase signInWithIdToken")
-            SupabaseProvider.client.auth.signInWith(IDToken) {
-                idToken = result.idToken
-                provider = Kakao
+            CrashReporter.log("Kakao SDK ok → Supabase signInWithIdToken")
+            try {
+                SupabaseProvider.client.auth.signInWith(IDToken) {
+                    idToken = result.idToken
+                    provider = Kakao
+                }
+            } catch (t: Throwable) {
+                println("[Auth] Supabase signInWithIdToken 실패: $t")
+                CrashReporter.recordException(t, "Supabase signInWithIdToken(Kakao) failed")
+                throw t
             }
             println("[Auth] Supabase 세션 발급 완료")
         }
         KakaoLoginResult.Cancelled -> {
             println("[Auth] Kakao 로그인 사용자 취소")
+            CrashReporter.log("Kakao 로그인 사용자 취소")
         }
         is KakaoLoginResult.Failure -> {
             println("[Auth] Kakao 로그인 실패: ${result.reason}")
+            CrashReporter.recordException(
+                KakaoLoginFailedException(result.reason),
+                "Kakao SDK login Failure",
+            )
             error(result.reason)
         }
     }
@@ -77,3 +92,9 @@ suspend fun signOut(client: KakaoLoginClient) {
     SupabaseProvider.client.auth.signOut()
     println("[Auth] Supabase signOut 완료")
 }
+
+/**
+ * 카카오 SDK 로그인 실패를 Crashlytics 로 보내기 위한 마커 예외.
+ * [reason] 은 SDK/네트워크/서버가 준 원문 메시지 (예: "id_token 없음 …", KakaoSDKError, HTTP 오류 등).
+ */
+private class KakaoLoginFailedException(reason: String) : RuntimeException(reason)

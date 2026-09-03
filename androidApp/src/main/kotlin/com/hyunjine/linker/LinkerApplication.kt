@@ -6,6 +6,7 @@ import android.util.Log
 import com.google.firebase.messaging.FirebaseMessaging
 import com.hyunjine.linker.auth.initKakaoSdk
 import com.hyunjine.linker.data.remote.SupabaseProvider
+import com.hyunjine.linker.platform.CrashReporter
 import com.hyunjine.linker.platform.DebugConfig
 import com.hyunjine.linker.platform.FcmTokenBridge
 import com.hyunjine.linker.platform.LocalStorage
@@ -33,5 +34,12 @@ class LinkerApplication : Application() {
                 FcmTokenBridge.onTokenRefreshedAsync(token, platform = "android")
             }
             .addOnFailureListener { Log.w("Linker", "FCM token 획득 실패", it) }
+
+        // TODO(#176): 배포 전 제거. Crashlytics 연동 확인용 non-fatal.
+        // 앱 시작 후 1~2분 뒤 Crashlytics 콘솔 → Non-fatal issues 에 "AppStartupSmokeTest" 이 뜨면 OK.
+        CrashReporter.recordException(
+            RuntimeException("AppStartupSmokeTest"),
+            "Android 앱 시작 시 Crashlytics 연동 확인용 non-fatal",
+        )
     }
 }

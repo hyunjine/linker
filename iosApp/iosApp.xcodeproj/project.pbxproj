@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		BD6748AA30454ABF001737E5 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = BD6748A930454ABF001737E5 /* FirebaseCore */; };
 		BD6748AC30454ABF001737E5 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = BD6748AB30454ABF001737E5 /* FirebaseMessaging */; };
+		BD6748AE30454ABF001737E5 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = BD6748AD30454ABF001737E5 /* FirebaseCrashlytics */; };
 		BD8F01D1303BF1B8000751CF /* KakaoSDKAuth in Frameworks */ = {isa = PBXBuildFile; productRef = BD8F01D0303BF1B8000751CF /* KakaoSDKAuth */; };
 		BD8F01D3303BF1B8000751CF /* KakaoSDKCommon in Frameworks */ = {isa = PBXBuildFile; productRef = BD8F01D2303BF1B8000751CF /* KakaoSDKCommon */; };
 		BD8F01D5303BF1B8000751CF /* KakaoSDKUser in Frameworks */ = {isa = PBXBuildFile; productRef = BD8F01D4303BF1B8000751CF /* KakaoSDKUser */; };
@@ -98,6 +99,7 @@
 				BD8F01D1303BF1B8000751CF /* KakaoSDKAuth in Frameworks */,
 				BD6748AC30454ABF001737E5 /* FirebaseMessaging in Frameworks */,
 				BD6748AA30454ABF001737E5 /* FirebaseCore in Frameworks */,
+				BD6748AE30454ABF001737E5 /* FirebaseCrashlytics in Frameworks */,
 				BD8F01D5303BF1B8000751CF /* KakaoSDKUser in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -171,6 +173,7 @@
 				BD8F01D4303BF1B8000751CF /* KakaoSDKUser */,
 				BD6748A930454ABF001737E5 /* FirebaseCore */,
 				BD6748AB30454ABF001737E5 /* FirebaseMessaging */,
+				BD6748AD30454ABF001737E5 /* FirebaseCrashlytics */,
 			);
 			productName = iosApp;
 			productReference = CAA19F5C0767436843DE3BCB /* Linker.app */;
@@ -315,10 +318,11 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_ASSET_PATHS = "\"iosApp/Preview Content\"";
-				DEVELOPMENT_TEAM = "${TEAM_ID}";
+				DEVELOPMENT_TEAM = YCCX589JXZ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = iosApp/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -328,6 +332,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 1.0.1;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -353,7 +358,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hyunjine.linker.LinkerWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -385,7 +390,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 1.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.hyunjine.linker.LinkerWidget;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -408,10 +413,11 @@
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_ASSET_PATHS = "\"iosApp/Preview Content\"";
-				DEVELOPMENT_TEAM = "${TEAM_ID}";
+				DEVELOPMENT_TEAM = YCCX589JXZ;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = iosApp/Info.plist;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.social-networking";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -421,6 +427,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 1.0.1;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -611,6 +618,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = BD6748A830454A46001737E5 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseMessaging;
+		};
+		BD6748AD30454ABF001737E5 /* FirebaseCrashlytics */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BD6748A830454A46001737E5 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCrashlytics;
 		};
 		BD8F01D0303BF1B8000751CF /* KakaoSDKAuth */ = {
 			isa = XCSwiftPackageProductDependency;

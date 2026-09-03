@@ -21,6 +21,19 @@ struct iOSApp: App {
         // 실제 알림 권한 요청은 아래 onAppear 에서 (앱 UI 뜬 뒤에 물어보는 게 UX 상 자연스러움).
         LinkerPushBridge.shared.configure()
 
+        // Crashlytics: FirebaseApp.configure() 이후에 shared → Crashlytics 브리지 세팅.
+        // shared 의 CrashReporter.recordException(...) 이 여기 등록된 handler 를 통해 Crashlytics 로 전송.
+        CrashReporterInstaller.configure()
+
+        // TODO(#176): 배포 전 제거. Crashlytics 연동 확인용 테스트 non-fatal.
+        // 앱 시작 후 1~2분 뒤 Crashlytics 콘솔 → Non-fatal issues 에 "AppStartupSmokeTest" 이 뜨면 OK.
+        let smokeError = NSError(
+            domain: "AppStartupSmokeTest",
+            code: 1076,
+            userInfo: [NSLocalizedDescriptionKey: "iOS 앱 시작 시 Crashlytics 연동 확인용 non-fatal"],
+        )
+        CrashReporterInstaller.recordKakaoLoginError(smokeError, breadcrumb: "iOSApp.init smoke test")
+
         // 카카오 SDK 초기화. 네이티브 앱 키는 Config.xcconfig → Info.plist (KAKAO_NATIVE_APP_KEY).
         let appKey = Bundle.main.object(forInfoDictionaryKey: "KAKAO_NATIVE_APP_KEY") as? String ?? ""
         print("[KakaoLogin] init — appKey='\(appKey)' length=\(appKey.count)")
@@ -45,6 +58,13 @@ struct iOSApp: App {
                     if let idToken = token.idToken, !idToken.isEmpty {
                         result = KakaoLoginResultSuccess(idToken: idToken)
                     } else {
+                        // OIDC 활성화 안 됐거나 openid scope 미포함 — Crashlytics 로 원격 기록.
+                        let err = NSError(
+                            domain: "KakaoLogin",
+                            code: -1,
+                            userInfo: [NSLocalizedDescriptionKey: "id_token missing (OIDC off?)"],
+                        )
+                        CrashReporterInstaller.recordKakaoLoginError(err, breadcrumb: "id_token nil after login")
                         result = KakaoLoginResultFailure(
                             reason: "id_token 없음 — 콘솔에서 OpenID Connect 활성화 확인",
                         )
@@ -55,9 +75,17 @@ struct iOSApp: App {
                     if msg.contains("Cancelled") || msg.contains("cancelled") {
                         result = KakaoLoginResultCancelled.shared
                     } else {
+                        // 원본 NSError 를 Crashlytics 에 그대로 남겨야 카카오 SDK 응답 코드 · 서버 메시지가 유실되지 않음.
+                        CrashReporterInstaller.recordKakaoLoginError(error, breadcrumb: "onComplete error path")
                         result = KakaoLoginResultFailure(reason: msg)
                     }
                 } else {
+                    let err = NSError(
+                        domain: "KakaoLogin",
+                        code: -2,
+                        userInfo: [NSLocalizedDescriptionKey: "no token, no error"],
+                    )
+                    CrashReporterInstaller.recordKakaoLoginError(err, breadcrumb: "onComplete both nil")
                     result = KakaoLoginResultFailure(reason: "no token, no error")
                 }
                 callback(result)
@@ -67,6 +95,11 @@ struct iOSApp: App {
                 UserApi.shared.loginWithKakaoTalk { token, error in
                     if let error = error {
                         print("[KakaoLogin] talk login failed, falling back to account: \(error)")
+                        // 톡 로그인 실패 자체도 별도 non-fatal 로 남김 (폴백이 성공하더라도 원인 추적용).
+                        CrashReporterInstaller.recordKakaoLoginError(
+                            error,
+                            breadcrumb: "loginWithKakaoTalk failed → falling back to KakaoAccount",
+                        )
                         UserApi.shared.loginWithKakaoAccount(completion: onComplete)
                     } else {
                         onComplete(token, nil)

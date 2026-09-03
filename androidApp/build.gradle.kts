@@ -27,9 +27,10 @@ dependencies {
     implementation(libs.compose.uiToolingPreview)
     debugImplementation(libs.compose.uiTooling)
 
-    // Firebase Cloud Messaging (파트너 스케줄 알림 수신)
+    // Firebase Cloud Messaging (파트너 스케줄 알림 수신) + Crashlytics (원격 예외 리포트)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.messaging)
+    implementation(libs.firebase.crashlytics)
 }
 
 android {
@@ -40,8 +41,8 @@ android {
         applicationId = "com.hyunjine.linker"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.1"
 
         // Kakao SDK 콜백 스킴 kakao{키}://oauth 의 {키} 자리에 주입.
         manifestPlaceholders["KAKAO_NATIVE_APP_KEY"] = kakaoNativeAppKey

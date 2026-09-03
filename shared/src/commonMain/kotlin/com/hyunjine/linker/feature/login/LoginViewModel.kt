@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.hyunjine.linker.auth.KakaoLoginClient
 import com.hyunjine.linker.auth.signInWithEmail
 import com.hyunjine.linker.auth.signInWithKakao
+import com.hyunjine.linker.platform.CrashReporter
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,9 +20,13 @@ class LoginViewModel : ViewModel() {
 
     fun onKakaoLoginClick(client: KakaoLoginClient) {
         println("[Auth] 카카오 버튼 click")
+        CrashReporter.log("LoginViewModel.onKakaoLoginClick")
         viewModelScope.launch {
             runCatching { signInWithKakao(client) }
-                .onFailure { println("[Auth] signInWithKakao 실패: $it") }
+                .onFailure {
+                    println("[Auth] signInWithKakao 실패: $it")
+                    CrashReporter.recordException(it, "onKakaoLoginClick top-level failure")
+                }
         }
     }
 
