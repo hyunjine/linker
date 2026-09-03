@@ -407,14 +407,12 @@ private fun CircleTextButton(symbol: String, onClick: () -> Unit, modifier: Modi
 }
 
 private fun formatDate(d: LocalDate): String =
-    "${d.year}. ${d.monthNumber().toString().padStart(2, '0')}. ${d.day.toString().padStart(2, '0')}."
+    "${d.year}. ${d.monthNumber.toString().padStart(2, '0')}. ${d.day.toString().padStart(2, '0')}."
 
 private fun formatDateWithRepeat(d: LocalDate, repeatYearly: Boolean): String {
     val base = formatDate(d)
     return if (repeatYearly) "$base · 매년" else base
 }
-
-private fun LocalDate.monthNumber(): Int = month.ordinal + 1
 
 @OptIn(ExperimentalTime::class)
 private fun today(): LocalDate =

@@ -27,7 +27,22 @@ enum class ScheduleOwner(val label: String) {
 }
 
 /**
+ * 반복 시리즈의 인스턴스를 편집할 때 적용 범위 선택.
+ * "취소" 는 저장 자체를 안 하므로 이 enum 에 없다.
+ */
+enum class SeriesEditScope {
+    /** 이 스케줄만: 시리즈에서 인스턴스를 detach 해 단독 row 로 저장. 반복 규칙 변경은 이 케이스에서 무시. */
+    OnlyThis,
+
+    /** 이후 모든 반복: 현재 인스턴스 이후 (start_date >= 현재) 시리즈 rows 에 일괄 반영. */
+    ThisAndFuture,
+}
+
+/**
  * 반복 규칙. 매주는 요일 다중 선택, 매월/매년은 기준 날짜 저장.
+ *
+ * 종료 날짜는 [ScheduleDraft.repeatEndDate] 로 별도 필드 관리 — 규칙 자체와 분리해서
+ * 다루면 "규칙 유지 + 종료일만 변경" 같은 편집 시나리오도 자연스럽게 처리된다.
  */
 sealed interface RepeatRule {
     val label: String
@@ -38,14 +53,9 @@ sealed interface RepeatRule {
     data class Monthly(val day: Int) : RepeatRule { override val label = "매월" }
     data class Yearly(val month: Int, val day: Int) : RepeatRule { override val label = "매년" }
 
-    /**
-     * 사용자 정의 반복. 세부 규칙 편집 UI 는 후속 이슈 (예: N주마다 · 종료 조건 등).
-     * 현재는 라벨 노출용 마커 값으로만 사용.
-     */
-    object Custom : RepeatRule { override val label = "사용자 설정" }
-
     companion object {
-        val Options: List<RepeatRule> = listOf(None, Daily, Weekly(emptySet()), Monthly(1), Yearly(1, 1), Custom)
+        /** RepeatPickerSheet 상단 5개 옵션. */
+        val Options: List<RepeatRule> = listOf(None, Daily, Weekly(emptySet()), Monthly(1), Yearly(1, 1))
     }
 }
 
@@ -55,6 +65,10 @@ sealed interface RepeatRule {
  * [allDay] 는 [type] == [ScheduleType.Schedule] 일 때만 의미. `false` 면 시각 행이 노출된다.
  * [type] == [ScheduleType.Task] 이면 시각 행은 항상 감춤.
  * [startTime]/[endTime] 은 "HH:MM" (24h) 문자열, 5분 스텝. null 이면 기본값 사용.
+ *
+ * [repeat] 가 [RepeatRule.None] 이 아니면 [repeatEndDate] 를 반드시 함께 지정
+ * (RepeatPickerSheet 이 wheel picker 로 강제). 저장 시 이 종료일까지의 인스턴스를
+ * 미리 materialize 해서 시리즈로 삽입한다.
  */
 data class ScheduleDraft(
     val title: String = "",
@@ -65,6 +79,7 @@ data class ScheduleDraft(
     val startTime: String? = "10:00",
     val endTime: String? = "11:00",
     val repeat: RepeatRule = RepeatRule.None,
+    val repeatEndDate: LocalDate? = null,
     val owner: ScheduleOwner = ScheduleOwner.Me,
     /**
      * 비공개 여부. `true` 면 파트너에게 SELECT 자체가 안 되도록 RLS 가 감춘다.
@@ -77,6 +92,10 @@ data class ScheduleDraft(
      * 바꿔 저장할 때 me<->partner 스왑이 필요하다.
      */
     val createdBy: String? = null,
+    /**
+     * 이 draft 가 반복 시리즈의 일원이면 해당 series_id. 편집 저장 시 시리즈 batch 처리 여부 판단에 사용.
+     */
+    val seriesId: String? = null,
 ) {
     val isEditableByCurrentUser: Boolean get() = owner != ScheduleOwner.Partner
 

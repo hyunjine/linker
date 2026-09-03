@@ -10,7 +10,7 @@ import androidx.compose.ui.platform.LocalContext
  * 시작한다. Application 컨텍스트라도 안전하도록 `FLAG_ACTIVITY_NEW_TASK` 를 설정.
  */
 @Composable
-actual fun rememberShareText(): (String) -> Unit {
+actual fun rememberShareText(): (text: String) -> Unit {
     val context = LocalContext.current
     return remember(context) {
         { text ->

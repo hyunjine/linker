@@ -61,6 +61,12 @@ val generateSecrets by tasks.registering {
 }
 
 kotlin {
+    // `expect`/`actual` classes 는 Beta 상태 (KT-61573) — 프로젝트가 이미 다수의 expect 를
+    // 사용 중이라 경고를 통째로 억제. 정식 stabilize 되면 이 플래그 제거.
+    compilerOptions {
+        freeCompilerArgs.add("-Xexpect-actual-classes")
+    }
+
     listOf(
         iosArm64(),
         iosSimulatorArm64()

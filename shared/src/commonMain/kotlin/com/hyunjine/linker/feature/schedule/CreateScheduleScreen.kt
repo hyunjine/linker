@@ -36,6 +36,9 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hyunjine.linker.designsystem.common.AlertAction
+import com.hyunjine.linker.designsystem.common.AlertActionStyle
+import com.hyunjine.linker.designsystem.common.AppAlertDialog
 import com.hyunjine.linker.designsystem.common.AppSwitch
 import com.hyunjine.linker.designsystem.common.AppTopBar
 import com.hyunjine.linker.designsystem.common.SegmentedControl
@@ -72,8 +75,14 @@ fun CreateScheduleScreen(
     initial: ScheduleDraft? = null,
     editing: Boolean = false,
     onBack: () -> Unit = {},
-    onSave: (ScheduleDraft) -> Unit = {},
-    onDelete: () -> Unit = {},
+    /**
+     * scope 는 시리즈 인스턴스 편집일 때만 값이 채워진다. 신규 저장 · 단일 스케줄 편집은 null.
+     */
+    onSave: (ScheduleDraft, SeriesEditScope?) -> Unit = { _, _ -> },
+    /**
+     * scope 는 시리즈 인스턴스 삭제일 때만 값이 채워진다. 단일 스케줄 삭제는 null.
+     */
+    onDelete: (SeriesEditScope?) -> Unit = {},
 ) {
     val today = remember { todayLocalDate() }
     // rememberSaveable 을 initial 의 identity 로 key. initial 이 바뀌면 (다른 유형 pill 로 재진입 등)
@@ -87,6 +96,10 @@ fun CreateScheduleScreen(
     var startTimeSheet by remember { mutableStateOf(false) }
     var endTimeSheet by remember { mutableStateOf(false) }
     var repeatSheet by remember { mutableStateOf(false) }
+    // 반복 시리즈 인스턴스 편집일 때 저장 · 삭제 탭 → scope 선택 다이얼로그 노출.
+    var scopeChoiceDialog by remember { mutableStateOf(false) }
+    var deleteScopeDialog by remember { mutableStateOf(false) }
+    val isSeriesEdit = editing && (initial?.seriesId != null)
 
     // 편집 가능 여부는 "이 화면을 어떤 자격으로 열었나" 로만 정해진다.
     // create 모드에서는 owner 를 자유롭게 지정할 수 있어야 하고, edit 모드에서는 화면 진입 시점의
@@ -108,7 +121,10 @@ fun CreateScheduleScreen(
                 title = if (editing) "일정 수정" else "일정 추가",
                 onBack = onBack,
                 trailing = {
-                    SaveAction(enabled = canEdit) { onSave(draft) }
+                    SaveAction(enabled = canEdit) {
+                        if (isSeriesEdit) scopeChoiceDialog = true
+                        else onSave(draft, null)
+                    }
                 },
             )
 
@@ -124,6 +140,20 @@ fun CreateScheduleScreen(
                     enabled = canEdit,
                     onChange = { draft = draft.copy(title = it) },
                 )
+
+                // 비공개는 owner=Me 일 때만 의미. Us 면 논리 모순이라 섹션 자체를 숨긴다.
+                // 자주 손대는 옵션이 아니지만 제목 바로 아래 배치해 저장 전에 잊지 않도록 함.
+                if (draft.owner == ScheduleOwner.Me) {
+                    SectionBlock(label = "공개 범위") {
+                        Card {
+                            PrivateRow(
+                                checked = draft.isPrivate,
+                                enabled = canEdit,
+                                onChange = { draft = draft.copy(isPrivate = it) },
+                            )
+                        }
+                    }
+                }
 
                 SectionBlock(label = "일정 유형") {
                     SegmentedControl(
@@ -178,25 +208,15 @@ fun CreateScheduleScreen(
                     )
                 }
 
-                // 비공개는 owner=Me 일 때만 의미. Us 로 두면 논리 모순이라 섹션 자체를 숨긴다.
-                if (draft.owner == ScheduleOwner.Me) {
-                    SectionBlock(label = "공개 범위") {
-                        Card {
-                            PrivateRow(
-                                checked = draft.isPrivate,
-                                enabled = canEdit,
-                                onChange = { draft = draft.copy(isPrivate = it) },
-                            )
-                        }
-                    }
-                }
-
                 if (editing && canEdit) {
                     Card {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable(onClick = onDelete)
+                                .clickable(onClick = {
+                                    if (isSeriesEdit) deleteScopeDialog = true
+                                    else onDelete(null)
+                                })
                                 .padding(vertical = 14.dp),
                             contentAlignment = Alignment.Center,
                         ) {
@@ -273,13 +293,54 @@ fun CreateScheduleScreen(
     RepeatPickerSheet(
         visible = repeatSheet,
         current = draft.repeat,
+        currentEndDate = draft.repeatEndDate,
         anchorDate = draft.startDate,
-        onSelect = { rule ->
-            draft = draft.copy(repeat = rule)
+        onConfirm = { rule, endDate ->
+            draft = draft.copy(repeat = rule, repeatEndDate = endDate)
             repeatSheet = false
         },
         onDismiss = { repeatSheet = false },
     )
+
+    // 반복 시리즈 편집 저장 시 scope 선택 다이얼로그 (이 스케줄만 · 이후 모든 반복 · 취소).
+    if (scopeChoiceDialog) {
+        AppAlertDialog(
+            title = "이 반복 스케줄을 어떻게 저장할까요?",
+            message = "변경사항을 어디까지 적용할지 선택하세요.",
+            actions = listOf(
+                AlertAction("이 스케줄만", AlertActionStyle.Default) {
+                    scopeChoiceDialog = false
+                    onSave(draft, SeriesEditScope.OnlyThis)
+                },
+                AlertAction("이후 모든 반복", AlertActionStyle.Default) {
+                    scopeChoiceDialog = false
+                    onSave(draft, SeriesEditScope.ThisAndFuture)
+                },
+                AlertAction("취소", AlertActionStyle.Cancel) { scopeChoiceDialog = false },
+            ),
+            onDismissRequest = { scopeChoiceDialog = false },
+        )
+    }
+
+    // 반복 시리즈 삭제 시 scope 선택 다이얼로그. 파괴적 액션이라 두 옵션 모두 Destructive 톤.
+    if (deleteScopeDialog) {
+        AppAlertDialog(
+            title = "이 반복 스케줄을 어떻게 삭제할까요?",
+            message = "삭제 범위를 선택하세요.",
+            actions = listOf(
+                AlertAction("이 스케줄만", AlertActionStyle.Destructive) {
+                    deleteScopeDialog = false
+                    onDelete(SeriesEditScope.OnlyThis)
+                },
+                AlertAction("이후 모든 반복", AlertActionStyle.Destructive) {
+                    deleteScopeDialog = false
+                    onDelete(SeriesEditScope.ThisAndFuture)
+                },
+                AlertAction("취소", AlertActionStyle.Cancel) { deleteScopeDialog = false },
+            ),
+            onDismissRequest = { deleteScopeDialog = false },
+        )
+    }
 }
 
 /** `"HH:MM"` 두 문자열의 시각 순서를 비교. 파싱 실패 시 0 반환 (동일 취급). */
@@ -570,8 +631,8 @@ private val ScheduleDraftSaver = androidx.compose.runtime.saveable.Saver<Schedul
                 is RepeatRule.Weekly -> "weekly"
                 is RepeatRule.Monthly -> "monthly:${d.repeat.day}"
                 is RepeatRule.Yearly -> "yearly:${d.repeat.month}:${d.repeat.day}"
-                RepeatRule.Custom -> "custom"
             },
+            d.repeatEndDate?.toString(),
             d.owner.name,
             d.isPrivate,
         )
@@ -586,8 +647,9 @@ private val ScheduleDraftSaver = androidx.compose.runtime.saveable.Saver<Schedul
             startTime = list[5] as String?,
             endTime = list[6] as String?,
             repeat = parseRepeat(list[7] as String),
-            owner = ScheduleOwner.valueOf(list[8] as String),
-            isPrivate = (list.getOrNull(9) as? Boolean) ?: false,
+            repeatEndDate = (list[8] as String?)?.let { LocalDate.parse(it) },
+            owner = ScheduleOwner.valueOf(list[9] as String),
+            isPrivate = (list.getOrNull(10) as? Boolean) ?: false,
         )
     },
 )
@@ -601,6 +663,5 @@ private fun parseRepeat(s: String): RepeatRule = when {
         val parts = s.substringAfter(":").split(":")
         RepeatRule.Yearly(parts.getOrNull(0)?.toIntOrNull() ?: 1, parts.getOrNull(1)?.toIntOrNull() ?: 1)
     }
-    s == "custom" -> RepeatRule.Custom
     else -> RepeatRule.None
 }

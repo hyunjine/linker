@@ -324,7 +324,7 @@ private fun AnniversaryRow(item: SearchAnniversaryItem, onClick: () -> Unit) {
 
 private fun formatDate(date: LocalDate): String {
     val m = date.monthNumber.toString().padStart(2, '0')
-    val d = date.dayOfMonth.toString().padStart(2, '0')
+    val d = date.day.toString().padStart(2, '0')
     return "${date.year}. $m. $d"
 }
 
