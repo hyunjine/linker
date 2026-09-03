@@ -55,6 +55,7 @@ import com.hyunjine.linker.designsystem.theme.LinkerTheme
 import com.hyunjine.linker.designsystem.theme.calendarColorFor
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserInfo
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
@@ -314,8 +315,16 @@ fun App() {
                 onBack = { backStack.removeLastOrNull() },
                 entryProvider = entryProvider {
                     entry<AuthRoute> {
-                        // 세션 로딩 중 splash, 로그인 필요 시 login. 로고 · 타이틀은 유지된 채 슬라이드.
-                        val mode = if (status is SessionStatus.Initializing) {
+                        // 스플래시 최소 노출 시간. 세션이 이보다 빠르게 로드돼도 로고 감상 +
+                        // login 슬라이드 애니메이션이 자연스레 재생되도록 유지.
+                        var minSplashElapsed by remember { mutableStateOf(false) }
+                        LaunchedEffect(Unit) {
+                            delay(1500L)
+                            minSplashElapsed = true
+                        }
+                        // 세션 로딩 중이거나 최소 노출시간 미충족이면 splash, 아니면 login.
+                        // 로고 · 타이틀은 유지된 채 위치만 슬라이드.
+                        val mode = if (status is SessionStatus.Initializing || !minSplashElapsed) {
                             AuthGateMode.Splash
                         } else {
                             AuthGateMode.Login
