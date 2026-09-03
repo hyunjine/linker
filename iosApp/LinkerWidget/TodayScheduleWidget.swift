@@ -65,7 +65,7 @@ struct TodayScheduleWidget: Widget {
                 .containerBackground(.background, for: .widget)
         }
         .configurationDisplayName("오늘 일정")
-        .description("링커의 오늘 스케줄과 할 일을 한눈에.")
+        .description("현진이랑민교의 오늘 스케줄과 할 일을 한눈에.")
         .supportedFamilies([
             .systemSmall,
             .systemMedium,
@@ -260,51 +260,100 @@ private struct OwnerDot: View {
 
 // MARK: - Previews
 
-#Preview("Small", as: .systemSmall) {
-    TodayScheduleWidget()
-} timeline: {
-    TodayScheduleEntry(date: Date(), payload: WidgetTodayPayload(
-        date: "2026-08-28",
-        items: [
-            WidgetSchedule(id: "1", title: "병원 예약", timeLabel: "오전 10:00", ownerKind: "me", isTask: false, isDone: false),
-            WidgetSchedule(id: "2", title: "장보기", timeLabel: nil, ownerKind: "us", isTask: true, isDone: false),
-        ],
-    ))
-}
-
-#Preview("Medium", as: .systemMedium) {
-    TodayScheduleWidget()
-} timeline: {
-    TodayScheduleEntry(date: Date(), payload: WidgetTodayPayload(
-        date: "2026-08-28",
+// 프리뷰 샘플 payload. 모든 프리뷰가 재사용하도록 helper 로 뽑음.
+private func samplePayloadFilled() -> WidgetTodayPayload {
+    WidgetTodayPayload(
+        date: dateStringToday(),
         items: [
             WidgetSchedule(id: "1", title: "병원 예약", timeLabel: "오전 10:00", ownerKind: "me", isTask: false, isDone: false),
             WidgetSchedule(id: "2", title: "장보기", timeLabel: nil, ownerKind: "us", isTask: true, isDone: false),
             WidgetSchedule(id: "3", title: "저녁 약속", timeLabel: "오후 7:00", ownerKind: "partner", isTask: false, isDone: false),
         ],
-    ))
+    )
 }
 
-#Preview("Lock Rectangular", as: .accessoryRectangular) {
-    TodayScheduleWidget()
-} timeline: {
-    TodayScheduleEntry(date: Date(), payload: WidgetTodayPayload(
-        date: "2026-08-28",
-        items: [
-            WidgetSchedule(id: "1", title: "병원 예약", timeLabel: "오전 10:00", ownerKind: "me", isTask: false, isDone: false),
-        ],
-    ))
-}
-
-#Preview("Lock Circular", as: .accessoryCircular) {
-    TodayScheduleWidget()
-} timeline: {
-    TodayScheduleEntry(date: Date(), payload: WidgetTodayPayload(
-        date: "2026-08-28",
+private func samplePayloadMany() -> WidgetTodayPayload {
+    WidgetTodayPayload(
+        date: dateStringToday(),
         items: [
             WidgetSchedule(id: "1", title: "병원 예약", timeLabel: "오전 10:00", ownerKind: "me", isTask: false, isDone: false),
             WidgetSchedule(id: "2", title: "장보기", timeLabel: nil, ownerKind: "us", isTask: true, isDone: false),
-            WidgetSchedule(id: "3", title: "저녁 약속", timeLabel: "오후 7:00", ownerKind: "partner", isTask: false, isDone: false),
+            WidgetSchedule(id: "3", title: "점심 미팅", timeLabel: "오후 12:30", ownerKind: "me", isTask: false, isDone: false),
+            WidgetSchedule(id: "4", title: "저녁 약속", timeLabel: "오후 7:00", ownerKind: "partner", isTask: false, isDone: false),
+            WidgetSchedule(id: "5", title: "택배 픽업", timeLabel: nil, ownerKind: "me", isTask: true, isDone: true),
+            WidgetSchedule(id: "6", title: "운동", timeLabel: "오후 9:00", ownerKind: "me", isTask: false, isDone: false),
         ],
-    ))
+    )
+}
+
+private func samplePayloadEmpty() -> WidgetTodayPayload {
+    WidgetTodayPayload(date: dateStringToday(), items: [])
+}
+
+private func dateStringToday() -> String {
+    let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; return f.string(from: Date())
+}
+
+// ── 홈화면 위젯 ──
+
+#Preview("Home / Small · 일정 있음", as: .systemSmall) {
+    TodayScheduleWidget()
+} timeline: {
+    TodayScheduleEntry(date: Date(), payload: samplePayloadFilled())
+}
+
+#Preview("Home / Small · 빈 상태", as: .systemSmall) {
+    TodayScheduleWidget()
+} timeline: {
+    TodayScheduleEntry(date: Date(), payload: samplePayloadEmpty())
+}
+
+#Preview("Home / Medium · 일정 있음", as: .systemMedium) {
+    TodayScheduleWidget()
+} timeline: {
+    TodayScheduleEntry(date: Date(), payload: samplePayloadFilled())
+}
+
+#Preview("Home / Medium · +N개 오버플로", as: .systemMedium) {
+    TodayScheduleWidget()
+} timeline: {
+    TodayScheduleEntry(date: Date(), payload: samplePayloadMany())
+}
+
+#Preview("Home / Medium · 빈 상태", as: .systemMedium) {
+    TodayScheduleWidget()
+} timeline: {
+    TodayScheduleEntry(date: Date(), payload: samplePayloadEmpty())
+}
+
+// ── 잠금화면 액세서리 ──
+
+#Preview("Lock / Rectangular", as: .accessoryRectangular) {
+    TodayScheduleWidget()
+} timeline: {
+    TodayScheduleEntry(date: Date(), payload: samplePayloadFilled())
+}
+
+#Preview("Lock / Rectangular · 빈 상태", as: .accessoryRectangular) {
+    TodayScheduleWidget()
+} timeline: {
+    TodayScheduleEntry(date: Date(), payload: samplePayloadEmpty())
+}
+
+#Preview("Lock / Circular", as: .accessoryCircular) {
+    TodayScheduleWidget()
+} timeline: {
+    TodayScheduleEntry(date: Date(), payload: samplePayloadFilled())
+}
+
+#Preview("Lock / Inline", as: .accessoryInline) {
+    TodayScheduleWidget()
+} timeline: {
+    TodayScheduleEntry(date: Date(), payload: samplePayloadFilled())
+}
+
+#Preview("Lock / Inline · 빈 상태", as: .accessoryInline) {
+    TodayScheduleWidget()
+} timeline: {
+    TodayScheduleEntry(date: Date(), payload: samplePayloadEmpty())
 }

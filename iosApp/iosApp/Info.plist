@@ -2,6 +2,17 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- 홈스크린에 노출되는 앱 이름. PRODUCT_NAME (Linker) 은 빌드 산출물 이름으로만 유지하고
+	     사용자에게 보이는 이름은 이 키로 오버라이드. -->
+	<key>CFBundleDisplayName</key>
+	<string>현진이랑민교</string>
+
+	<!-- Export compliance 자동화. HTTPS · 카카오 SDK · Firebase · Supabase 는 모두 표준
+	     운영체제 암호화만 사용하고 자체 암호 로직 없음 → US EAR 기준 exempt 취급.
+	     이 키가 있으면 매 TestFlight/App Store 업로드마다 "암호화 씀?" 프롬프트 안 뜸. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 
