@@ -7,6 +7,12 @@
 	<key>CFBundleDisplayName</key>
 	<string>현진이랑민교</string>
 
+	<!-- Export compliance 자동화. HTTPS · 카카오 SDK · Firebase · Supabase 는 모두 표준
+	     운영체제 암호화만 사용하고 자체 암호 로직 없음 → US EAR 기준 exempt 취급.
+	     이 키가 있으면 매 TestFlight/App Store 업로드마다 "암호화 씀?" 프롬프트 안 뜸. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 
