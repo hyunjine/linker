@@ -97,6 +97,7 @@ async function sendFcmMessage(
   title: string,
   body: string,
   data: Record<string, string>,
+  supabase: ReturnType<typeof createClient>,
 ): Promise<void> {
   const res = await fetch(
     `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`,
@@ -121,12 +122,28 @@ async function sendFcmMessage(
       }),
     },
   );
-  if (!res.ok) {
-    const text = await res.text();
-    console.error(`[push] FCM send 실패 token=${token.substring(0, 12)}… ${res.status}: ${text}`);
-  } else {
+  if (res.ok) {
     console.log(`[push] FCM 발송 성공 token=${token.substring(0, 12)}…`);
+    return;
   }
+  const text = await res.text();
+  console.error(`[push] FCM send 실패 token=${token.substring(0, 12)}… ${res.status}: ${text}`);
+  // 스테일 토큰 정리: FCM 이 UNREGISTERED (앱 삭제·데이터 초기화·rotate) 또는
+  // INVALID_ARGUMENT (토큰 자체가 malformed) 반환하면 다음 발송 때 또 실패하지 않도록
+  // user_devices 에서 해당 row 삭제. 클라이언트는 다음 앱 실행 시 새 토큰을 upsert 한다.
+  if (isStaleTokenError(res.status, text)) {
+    const { error } = await supabase.from("user_devices").delete().eq("fcm_token", token);
+    if (error) {
+      console.error(`[push] 스테일 토큰 삭제 실패 token=${token.substring(0, 12)}… ${error.message}`);
+    } else {
+      console.log(`[push] 스테일 토큰 삭제 완료 token=${token.substring(0, 12)}…`);
+    }
+  }
+}
+
+function isStaleTokenError(status: number, body: string): boolean {
+  if (status !== 404 && status !== 400) return false;
+  return body.includes("UNREGISTERED") || body.includes("INVALID_ARGUMENT");
 }
 
 /**
@@ -196,6 +213,7 @@ async function handleStartReminder(
         couple_id: rec.couple_id,
         reason: "start_reminder",
       },
+      supabase,
     );
   }
   return new Response(
@@ -282,6 +300,7 @@ serve(async (req) => {
           schedule_id: payload.record.id,
           couple_id: payload.record.couple_id,
         },
+        supabase,
       );
     }
 
