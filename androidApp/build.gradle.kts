@@ -14,11 +14,16 @@ private val kakaoNativeAppKey: String = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }.getProperty("kakao.native.app.key", "")
 
-// 앱 버전은 루트 VERSION 파일 (한 줄, semver `major.minor.patch`) 이 유일 소스.
-// GitHub Actions 릴리즈 워크플로(#184) · Xcode Cloud ci_post_clone.sh 도 이 파일을 읽는다.
+// 앱 버전은 루트 VERSION 파일이 유일 소스. 파일 첫 줄이 semver (`major.minor.patch`),
+// 그 아래 라인들은 GitHub Release 노트 본문 (릴리즈 워크플로 #184 가 사용).
+// Xcode Cloud ci_post_clone.sh 도 첫 줄을 읽어 MARKETING_VERSION 을 세팅한다.
 // versionCode 는 semver 를 정수로 변환 (10000·100·1 자리) — Play Store 는 versionCode 가 항상
 // 증가해야 하므로, VERSION 파일이 항상 올라가는 한 이 정수도 자동으로 증가한다.
-private val appVersionName: String = rootProject.file("VERSION").readText().trim()
+private val appVersionName: String = rootProject.file("VERSION")
+    .readLines()
+    .firstOrNull { it.isNotBlank() }
+    ?.trim()
+    ?: error("VERSION 파일이 비어있음")
 private val appVersionCode: Int = appVersionName
     .split(".")
     .let { parts ->

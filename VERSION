@@ -1,1 +1,14 @@
 1.1.0
+
+## 신규 기능
+- Apple 로그인 (iOS)
+- Google 로그인 (iOS + Android)
+- Firebase Crashlytics 자동 dSYM 업로드
+
+## 개선
+- 소셜 로그인 버튼 공통 컴포넌트 통합
+- 프로필 셋업 온보딩에서 뒤로가기 = 로그아웃
+
+## 기타
+- Xcode Cloud 아카이브 셋업 (`ci_post_clone.sh`)
+- release 브랜치 push 시 태그 · GitHub Release 자동 생성

@@ -35,13 +35,18 @@ VERSION_FILE="$CI_PRIMARY_REPOSITORY_PATH/VERSION"
 
 mkdir -p "$XCCONFIG_DIR"
 
-# 앱 marketing version 은 루트 VERSION 파일 (단일 소스). Android build.gradle.kts ·
-# GitHub Actions 릴리즈 워크플로(#184) 도 동일 파일 읽는다.
+# 앱 marketing version 은 루트 VERSION 파일 (단일 소스). 파일 첫 줄이 semver,
+# 그 이하는 릴리즈 노트 본문 (GitHub Actions #184 가 사용). 여기선 첫 줄만 읽음.
+# Android build.gradle.kts 도 동일 파일 첫 줄을 읽는다.
 if [ ! -f "$VERSION_FILE" ]; then
   echo "error: $VERSION_FILE 없음"
   exit 1
 fi
-APP_VERSION=$(tr -d '[:space:]' < "$VERSION_FILE")
+APP_VERSION=$(grep -v '^\s*$' "$VERSION_FILE" | head -n 1 | tr -d '[:space:]')
+if [ -z "$APP_VERSION" ]; then
+  echo "error: VERSION 파일 첫 줄이 비어있음"
+  exit 1
+fi
 
 # 하드코딩 값은 저장소에 노출되어도 무해한 공개 식별자 (TEAM_ID, Bundle ID, 앱 이름).
 # 시크릿은 오직 KAKAO_NATIVE_APP_KEY 뿐이며 환경변수에서 주입.
