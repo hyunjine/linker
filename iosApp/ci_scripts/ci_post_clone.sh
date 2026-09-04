@@ -20,10 +20,28 @@ set -eu
 : "${CI_PRIMARY_REPOSITORY_PATH:?CI_PRIMARY_REPOSITORY_PATH 미설정 — Xcode Cloud 외부 실행 아님?}"
 : "${KAKAO_NATIVE_APP_KEY:?KAKAO_NATIVE_APP_KEY 미설정 — App Store Connect Xcode Cloud 환경변수에 secret 으로 등록 필요}"
 
+# Xcode Cloud 러너에는 Java 가 기본으로 없어 `Compile Kotlin Framework` Run Script
+# (JAVA_HOME 자동 탐색) 가 실패한다. Homebrew 는 Xcode Cloud 에 pre-installed
+# 되어 있으므로 openjdk@21 만 설치하면 됨. 이후 Run Script 가
+# /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home 를 자동 발견.
+if ! [ -x "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/java" ]; then
+  echo "[ci_post_clone] openjdk@21 설치 중..."
+  brew install openjdk@21
+fi
+
 XCCONFIG_DIR="$CI_PRIMARY_REPOSITORY_PATH/iosApp/Configuration"
 XCCONFIG_PATH="$XCCONFIG_DIR/Config.xcconfig"
+VERSION_FILE="$CI_PRIMARY_REPOSITORY_PATH/VERSION"
 
 mkdir -p "$XCCONFIG_DIR"
+
+# 앱 marketing version 은 루트 VERSION 파일 (단일 소스). Android build.gradle.kts ·
+# GitHub Actions 릴리즈 워크플로(#184) 도 동일 파일 읽는다.
+if [ ! -f "$VERSION_FILE" ]; then
+  echo "error: $VERSION_FILE 없음"
+  exit 1
+fi
+APP_VERSION=$(tr -d '[:space:]' < "$VERSION_FILE")
 
 # 하드코딩 값은 저장소에 노출되어도 무해한 공개 식별자 (TEAM_ID, Bundle ID, 앱 이름).
 # 시크릿은 오직 KAKAO_NATIVE_APP_KEY 뿐이며 환경변수에서 주입.
@@ -34,9 +52,9 @@ PRODUCT_NAME=Linker
 PRODUCT_BUNDLE_IDENTIFIER=com.hyunjine.linker
 
 CURRENT_PROJECT_VERSION=${CI_BUILD_NUMBER:-1}
-MARKETING_VERSION=1.0.0
+MARKETING_VERSION=$APP_VERSION
 
 KAKAO_NATIVE_APP_KEY=$KAKAO_NATIVE_APP_KEY
 EOF
 
-echo "[ci_post_clone] Config.xcconfig 생성 완료 (build=${CI_BUILD_NUMBER:-1})"
+echo "[ci_post_clone] Config.xcconfig 생성 완료 (version=$APP_VERSION build=${CI_BUILD_NUMBER:-1})"

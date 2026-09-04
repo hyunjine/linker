@@ -1,0 +1,107 @@
+# release 브랜치에 push 되면 루트 VERSION 파일 (semver) 을 읽어 `vX.Y.Z` 태그와
+# GitHub Release 를 자동 생성한다. 릴리즈 노트는 Claude 로 이전 태그 이후 커밋을
+# 요약해서 채운다.
+#
+# 필요 secret:
+#   ANTHROPIC_API_KEY   Claude API 호출용 (repo Settings → Secrets)
+#
+# 정책:
+#   - VERSION 이 이전 릴리즈와 동일하면 skip (중복 방지)
+#   - 첫 릴리즈면 (선행 태그 없음) 저장소 전체 커밋을 요약
+#   - Xcode Cloud 는 이 워크플로와 무관하게 별도로 아카이브를 만든다 — 두 흐름은 독립적
+name: Release Automation
+
+on:
+  push:
+    branches: [release]
+
+concurrency:
+  group: release-automation
+  cancel-in-progress: false
+
+jobs:
+  tag-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout (full history for tags/commits)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version from VERSION file
+        id: version
+        run: |
+          if [ ! -f VERSION ]; then
+            echo "::error::VERSION file missing at repo root"
+            exit 1
+          fi
+          VERSION=$(tr -d '[:space:]' < VERSION)
+          if [ -z "$VERSION" ]; then
+            echo "::error::VERSION file is empty"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Detected version: $VERSION"
+
+      - name: Check if tag already exists (skip if yes)
+        id: tag_check
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag $TAG already exists — skipping release"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Collect commits since previous tag
+        if: steps.tag_check.outputs.exists == 'false'
+        id: commits
+        run: |
+          # 이전 태그 (없으면 저장소 첫 커밋). tag--sort=-v:refname 은 v10.0.0 > v2.0.0
+          # 을 정상 정렬 (사전순 아님).
+          PREV_TAG=$(git tag --list 'v*' --sort=-v:refname | head -n 1 || true)
+          if [ -z "$PREV_TAG" ]; then
+            RANGE="HEAD"
+            echo "prev_tag=(none)" >> "$GITHUB_OUTPUT"
+          else
+            RANGE="${PREV_TAG}..HEAD"
+            echo "prev_tag=$PREV_TAG" >> "$GITHUB_OUTPUT"
+          fi
+          # Merge commit 은 요약에 노이즈 → 제외.
+          git log $RANGE --no-merges --pretty=format:'%h %s' > commits.txt
+          COUNT=$(wc -l < commits.txt | tr -d ' ')
+          echo "count=$COUNT" >> "$GITHUB_OUTPUT"
+          echo "Range: $RANGE ($COUNT commits)"
+
+      - name: Setup Python
+        if: steps.tag_check.outputs.exists == 'false'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Anthropic SDK
+        if: steps.tag_check.outputs.exists == 'false'
+        run: pip install --quiet 'anthropic>=0.40'
+
+      - name: Generate release notes (Claude)
+        if: steps.tag_check.outputs.exists == 'false'
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python .github/scripts/generate_release_notes.py < commits.txt > notes.md
+          echo "── Generated notes preview ──"
+          head -40 notes.md
+
+      - name: Create tag and GitHub Release
+        if: steps.tag_check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            --title "${{ steps.version.outputs.tag }}" \
+            --notes-file notes.md \
+            --target "${{ github.sha }}"
