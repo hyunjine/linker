@@ -1,0 +1,76 @@
+# release 브랜치에 push 되면 루트 VERSION 파일을 읽어 `vX.Y.Z` 태그와
+# GitHub Release 를 자동 생성한다.
+#
+# VERSION 파일 포맷:
+#   - 첫 번째 non-empty 라인 : semver `major.minor.patch` (태그명 유래)
+#   - 그 이하 모든 내용       : GitHub Release 노트 본문 (Markdown 그대로)
+#
+# 정책:
+#   - VERSION 첫 줄과 동일한 `v*` 태그가 이미 존재하면 skip (중복 방지)
+#   - Xcode Cloud 는 이 워크플로와 무관하게 별도로 아카이브를 만든다 — 두 흐름은 독립적
+name: Release Automation
+
+on:
+  push:
+    branches: [release]
+
+concurrency:
+  group: release-automation
+  cancel-in-progress: false
+
+jobs:
+  tag-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout (full history for tags)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Parse VERSION file
+        id: parse
+        run: |
+          if [ ! -f VERSION ]; then
+            echo "::error::VERSION file missing at repo root"
+            exit 1
+          fi
+
+          # 첫 non-empty 라인 = 버전. `grep -m 1 '.'` 는 첫 번째 non-empty 라인만 출력.
+          VERSION=$(grep -m 1 '.' VERSION | tr -d '[:space:]')
+          if [ -z "$VERSION" ]; then
+            echo "::error::VERSION file first non-empty line is missing"
+            exit 1
+          fi
+
+          # 노트 본문 = 첫 non-empty 라인 이후 전부. 다음 라인부터 EOF 까지.
+          FIRST_LINE_NUM=$(grep -n '.' VERSION | head -n 1 | cut -d: -f1)
+          tail -n +$((FIRST_LINE_NUM + 1)) VERSION | awk 'NF{f=1} f' > notes.md
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+          echo "── Version: $VERSION ──"
+          echo "── Notes preview ──"
+          head -20 notes.md
+
+      - name: Check if tag already exists (skip if yes)
+        id: tag_check
+        run: |
+          TAG="${{ steps.parse.outputs.tag }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag $TAG already exists — skipping release"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create tag and GitHub Release
+        if: steps.tag_check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.parse.outputs.tag }}" \
+            --title "${{ steps.parse.outputs.tag }}" \
+            --notes-file notes.md \
+            --target "${{ github.sha }}"
