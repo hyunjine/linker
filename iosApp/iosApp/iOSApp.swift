@@ -3,6 +3,7 @@ import Shared
 import KakaoSDKCommon
 import KakaoSDKAuth
 import KakaoSDKUser
+import GoogleSignIn
 
 @main
 struct iOSApp: App {
@@ -24,6 +25,14 @@ struct iOSApp: App {
         // Apple Sign-In 브리지. shared 의 AppleLoginClient 가 이 handler 를 호출 → AppleLoginProvider 위임.
         AppleLoginBridge.shared.handler = { callback in
             AppleLoginProvider.shared.signIn { result in
+                callback(result)
+            }
+        }
+
+        // Google Sign-In 브리지. shared 의 GoogleLoginClient → GoogleLoginProvider (GIDSignIn).
+        // GIDSignIn 은 Info.plist 의 GIDClientID 를 자동 로드. 로그인 후 앱 복귀 URL 은 body.onOpenURL 에서 처리.
+        GoogleLoginBridge.shared.handler = { callback in
+            GoogleLoginProvider.shared.signIn { result in
                 callback(result)
             }
         }
@@ -109,7 +118,10 @@ struct iOSApp: App {
                     // 카카오톡에서 로그인 완료 후 우리 앱으로 돌아오는 콜백 URL 처리.
                     if AuthApi.isKakaoTalkLoginUrl(url) {
                         _ = AuthController.handleOpenUrl(url: url)
+                        return
                     }
+                    // Google Sign-In 웹 콜백 (REVERSED_CLIENT_ID 스킴) 처리.
+                    _ = GIDSignIn.sharedInstance.handle(url)
                 }
                 .onAppear {
                     // 첫 진입 시 위젯 payload 갱신 (세션 없으면 shared 가 빈 items 로 반환).

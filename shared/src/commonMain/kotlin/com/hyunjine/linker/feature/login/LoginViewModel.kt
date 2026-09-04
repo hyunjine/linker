@@ -3,9 +3,11 @@ package com.hyunjine.linker.feature.login
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hyunjine.linker.auth.AppleLoginClient
+import com.hyunjine.linker.auth.GoogleLoginClient
 import com.hyunjine.linker.auth.KakaoLoginClient
 import com.hyunjine.linker.auth.signInWithApple
 import com.hyunjine.linker.auth.signInWithEmail
+import com.hyunjine.linker.auth.signInWithGoogle
 import com.hyunjine.linker.auth.signInWithKakao
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,6 +34,14 @@ class LoginViewModel : ViewModel() {
         viewModelScope.launch {
             runCatching { signInWithApple(client) }
                 .onFailure { println("[Auth] signInWithApple 실패: $it") }
+        }
+    }
+
+    fun onGoogleLoginClick(client: GoogleLoginClient) {
+        println("[Auth] Google 버튼 click")
+        viewModelScope.launch {
+            runCatching { signInWithGoogle(client) }
+                .onFailure { println("[Auth] signInWithGoogle 실패: $it") }
         }
     }
 

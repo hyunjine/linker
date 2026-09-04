@@ -77,6 +77,7 @@ fun AuthGateScreen(
     onKakaoLoginClick: () -> Unit = {},
     showAppleLogin: Boolean = false,
     onAppleLoginClick: () -> Unit = {},
+    onGoogleLoginClick: () -> Unit = {},
     showDebugLogin: Boolean = false,
     onDebugLoginClick: () -> Unit = {},
 ) {
@@ -178,6 +179,8 @@ fun AuthGateScreen(
                     Spacer(Modifier.height(12.dp))
                     AppleLoginButton(onClick = onAppleLoginClick)
                 }
+                Spacer(Modifier.height(12.dp))
+                GoogleLoginButton(onClick = onGoogleLoginClick)
             }
         }
 
@@ -231,6 +234,48 @@ fun CoupleLogo(modifier: Modifier = Modifier) {
             painter = painterResource(Res.drawable.ic_couple_rings),
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
+        )
+    }
+}
+
+/**
+ * "Google 로 계속하기" 버튼. Google Sign-In 브랜딩 가이드라인 근사: 흰 배경 · 회색 테두리 ·
+ * 검정 텍스트. 로고는 별도 vector asset 이 없어 우선 텍스트만 사용 (후속 PR 에서 SVG 도입 예정).
+ */
+@Composable
+private fun GoogleLoginButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val font = LocalPretendardFontFamily.current
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color.White)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 15.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "G",
+            style = TextStyle(
+                color = Color(0xFF4285F4),
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = font,
+            ),
+        )
+        Spacer(Modifier.size(10.dp))
+        Text(
+            text = "Google로 계속하기",
+            style = TextStyle(
+                color = Color(0xFF1F1F1F),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = font,
+            ),
         )
     }
 }

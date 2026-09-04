@@ -23,6 +23,8 @@ coil = "3.5.0"
 kakaoSdk = "2.20.6"
 firebaseBom = "34.4.0"
 googleServices = "4.4.4"
+androidxCredentials = "1.5.0"
+googleIdentityId = "1.1.1"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -67,6 +69,12 @@ coil-network-ktor = { module = "io.coil-kt.coil3:coil-network-ktor3", version.re
 
 # Kakao SDK (Android only). v2-user 로 로그인 · 유저 API. iOS 는 SPM 으로 별도 통합.
 kakao-user = { module = "com.kakao.sdk:v2-user", version.ref = "kakaoSdk" }
+
+# Google Sign-In (Android). Credential Manager (androidx.credentials) + Google ID helper.
+# iOS 는 SPM 의 google-signin-ios 로 별도 통합.
+androidx-credentials = { module = "androidx.credentials:credentials", version.ref = "androidxCredentials" }
+androidx-credentials-play-services-auth = { module = "androidx.credentials:credentials-play-services-auth", version.ref = "androidxCredentials" }
+googleid = { module = "com.google.android.libraries.identity.googleid:googleid", version.ref = "googleIdentityId" }
 
 # Firebase (Android). BOM 으로 버전 통합 관리. iOS 는 SPM firebase-ios-sdk 로 별도 통합.
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }

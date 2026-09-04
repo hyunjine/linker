@@ -10,6 +10,8 @@
 		BD6748AA30454ABF001737E5 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = BD6748A930454ABF001737E5 /* FirebaseCore */; };
 		BD6748AC30454ABF001737E5 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = BD6748AB30454ABF001737E5 /* FirebaseMessaging */; };
 		BD6748AE30454ABF001737E5 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = BD6748AD30454ABF001737E5 /* FirebaseCrashlytics */; };
+		BD6748B230454ABF001737E5 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = BD6748B130454ABF001737E5 /* GoogleSignIn */; };
+		BD6748B430454ABF001737E5 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = BD6748B330454ABF001737E5 /* GoogleSignInSwift */; };
 		BD8F01D1303BF1B8000751CF /* KakaoSDKAuth in Frameworks */ = {isa = PBXBuildFile; productRef = BD8F01D0303BF1B8000751CF /* KakaoSDKAuth */; };
 		BD8F01D3303BF1B8000751CF /* KakaoSDKCommon in Frameworks */ = {isa = PBXBuildFile; productRef = BD8F01D2303BF1B8000751CF /* KakaoSDKCommon */; };
 		BD8F01D5303BF1B8000751CF /* KakaoSDKUser in Frameworks */ = {isa = PBXBuildFile; productRef = BD8F01D4303BF1B8000751CF /* KakaoSDKUser */; };
@@ -100,6 +102,8 @@
 				BD6748AC30454ABF001737E5 /* FirebaseMessaging in Frameworks */,
 				BD6748AA30454ABF001737E5 /* FirebaseCore in Frameworks */,
 				BD6748AE30454ABF001737E5 /* FirebaseCrashlytics in Frameworks */,
+				BD6748B230454ABF001737E5 /* GoogleSignIn in Frameworks */,
+				BD6748B430454ABF001737E5 /* GoogleSignInSwift in Frameworks */,
 				BD8F01D5303BF1B8000751CF /* KakaoSDKUser in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -175,6 +179,8 @@
 				BD6748A930454ABF001737E5 /* FirebaseCore */,
 				BD6748AB30454ABF001737E5 /* FirebaseMessaging */,
 				BD6748AD30454ABF001737E5 /* FirebaseCrashlytics */,
+				BD6748B130454ABF001737E5 /* GoogleSignIn */,
+				BD6748B330454ABF001737E5 /* GoogleSignInSwift */,
 			);
 			productName = iosApp;
 			productReference = CAA19F5C0767436843DE3BCB /* Linker.app */;
@@ -232,6 +238,7 @@
 			packageReferences = (
 				BD8F01CE303BF0C9000751CF /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */,
 				BD6748A830454A46001737E5 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
+				BD6748B030454ABF001737E5 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 20518BDB74316BC93738C1EB /* Products */;
@@ -262,6 +269,25 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		0E0415F10FEA31EB0F88CB58 /* Compile Kotlin Framework */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Compile Kotlin Framework";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\n# Xcode 빌드 스크립트는 최소 PATH 로 돌아 Homebrew · asdf 등에서 설치한 java 를 못 찾음.\n# JAVA_HOME 이 이미 세팅돼 있으면 그대로, 아니면 흔한 후보 경로에서 자동 탐색.\nif [ -z \"$JAVA_HOME\" ]; then\n  for candidate in \\\n    \"/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home\" \\\n    \"/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home\" \\\n    \"/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home\" \\\n    \"/Library/Java/JavaVirtualMachines/openjdk-21.jdk/Contents/Home\" \\\n    \"/Library/Java/JavaVirtualMachines/openjdk-17.jdk/Contents/Home\" \\\n    ; do\n    if [ -x \"$candidate/bin/java\" ]; then\n      export JAVA_HOME=\"$candidate\"\n      break\n    fi\n  done\nfi\nif [ -z \"$JAVA_HOME\" ]; then\n  echo \"error: JAVA_HOME 설정 실패. openjdk 설치 필요: brew install openjdk@21\"\n  exit 1\nfi\nexport PATH=\"$JAVA_HOME/bin:$PATH\"\ncd \"$SRCROOT/..\"\n./gradlew :shared:embedAndSignAppleFrameworkForXcode\n";
+		};
 		BD6748AF30454ABF001737E5 /* Upload Crashlytics dSYM */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -284,25 +310,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "\"${BUILD_DIR%/Build/*}/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/run\"\n";
-		};
-		0E0415F10FEA31EB0F88CB58 /* Compile Kotlin Framework */ = {
-			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "Compile Kotlin Framework";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\n# Xcode 빌드 스크립트는 최소 PATH 로 돌아 Homebrew · asdf 등에서 설치한 java 를 못 찾음.\n# JAVA_HOME 이 이미 세팅돼 있으면 그대로, 아니면 흔한 후보 경로에서 자동 탐색.\nif [ -z \"$JAVA_HOME\" ]; then\n  for candidate in \\\n    \"/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home\" \\\n    \"/opt/homebrew/opt/openjdk@17/libexec/openjdk.jdk/Contents/Home\" \\\n    \"/opt/homebrew/opt/openjdk/libexec/openjdk.jdk/Contents/Home\" \\\n    \"/Library/Java/JavaVirtualMachines/openjdk-21.jdk/Contents/Home\" \\\n    \"/Library/Java/JavaVirtualMachines/openjdk-17.jdk/Contents/Home\" \\\n    ; do\n    if [ -x \"$candidate/bin/java\" ]; then\n      export JAVA_HOME=\"$candidate\"\n      break\n    fi\n  done\nfi\nif [ -z \"$JAVA_HOME\" ]; then\n  echo \"error: JAVA_HOME 설정 실패. openjdk 설치 필요: brew install openjdk@21\"\n  exit 1\nfi\nexport PATH=\"$JAVA_HOME/bin:$PATH\"\ncd \"$SRCROOT/..\"\n./gradlew :shared:embedAndSignAppleFrameworkForXcode\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -619,6 +626,14 @@
 				minimumVersion = 12.18.0;
 			};
 		};
+		BD6748B030454ABF001737E5 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/google/GoogleSignIn-iOS";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 9.0.0;
+			};
+		};
 		BD8F01CE303BF0C9000751CF /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/kakao/kakao-ios-sdk";
@@ -644,6 +659,16 @@
 			isa = XCSwiftPackageProductDependency;
 			package = BD6748A830454A46001737E5 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseCrashlytics;
+		};
+		BD6748B130454ABF001737E5 /* GoogleSignIn */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BD6748B030454ABF001737E5 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignIn;
+		};
+		BD6748B330454ABF001737E5 /* GoogleSignInSwift */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BD6748B030454ABF001737E5 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
+			productName = GoogleSignInSwift;
 		};
 		BD8F01D0303BF1B8000751CF /* KakaoSDKAuth */ = {
 			isa = XCSwiftPackageProductDependency;

@@ -3,6 +3,7 @@ package com.hyunjine.linker.auth
 import com.hyunjine.linker.data.remote.SupabaseProvider
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Apple
+import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.Kakao
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.providers.builtin.IDToken
@@ -85,6 +86,39 @@ suspend fun signInWithApple(client: AppleLoginClient) {
         }
         is AppleLoginResult.Failure -> {
             println("[Auth] Apple 로그인 실패: ${result.reason}")
+            error(result.reason)
+        }
+    }
+}
+
+/**
+ * Google Sign-In → Supabase `signInWith(IDToken, Google, nonce)` 흐름.
+ *
+ * 1. [client]. login() → 네이티브 Google SDK (iOS GIDSignIn · Android Credential Manager)
+ * 2. 성공 시 id_token + raw nonce 를 Supabase 로 전달
+ * 3. Supabase 서버가 Google JWKS 로 id_token 서명·aud·SHA256(rawNonce)==nonce claim 검증 → 세션 발급
+ *
+ * Google 은 이름·이메일·프로필 사진을 id_token 에 담아준다. Supabase 가 자동으로
+ * user_metadata (name, avatar_url) 로 매핑해줘 별도 updateUser 호출 불필요 — profileDefaults()
+ * 가 그대로 프리필.
+ */
+suspend fun signInWithGoogle(client: GoogleLoginClient) {
+    println("[Auth] signInWithGoogle: enter")
+    when (val result = client.login()) {
+        is GoogleLoginResult.Success -> {
+            println("[Auth] Google 로그인 성공 → Supabase signInWithIdToken")
+            SupabaseProvider.client.auth.signInWith(IDToken) {
+                idToken = result.idToken
+                provider = Google
+                nonce = result.rawNonce
+            }
+            println("[Auth] Supabase 세션 발급 완료 (Google)")
+        }
+        GoogleLoginResult.Cancelled -> {
+            println("[Auth] Google 로그인 사용자 취소")
+        }
+        is GoogleLoginResult.Failure -> {
+            println("[Auth] Google 로그인 실패: ${result.reason}")
             error(result.reason)
         }
     }
