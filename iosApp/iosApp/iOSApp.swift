@@ -29,8 +29,18 @@ struct iOSApp: App {
             }
         }
 
+        // GoogleSignIn 설정. GIDClientID 를 Info.plist 에 중복 저장하지 않고 GoogleService-Info.plist
+        // 의 CLIENT_ID 를 그대로 재사용 — Firebase 콘솔에서 Google Auth 켜면 이 값이 자동 채워지므로.
+        if let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
+           let plist = NSDictionary(contentsOfFile: path),
+           let clientID = plist["CLIENT_ID"] as? String {
+            GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
+            print("[GoogleLogin] configured clientID=\(clientID.prefix(24))…")
+        } else {
+            print("[GoogleLogin] GoogleService-Info.plist 에 CLIENT_ID 없음 — 재다운로드 필요")
+        }
+
         // Google Sign-In 브리지. shared 의 GoogleLoginClient → GoogleLoginProvider (GIDSignIn).
-        // GIDSignIn 은 Info.plist 의 GIDClientID 를 자동 로드. 로그인 후 앱 복귀 URL 은 body.onOpenURL 에서 처리.
         GoogleLoginBridge.shared.handler = { callback in
             GoogleLoginProvider.shared.signIn { result in
                 callback(result)
