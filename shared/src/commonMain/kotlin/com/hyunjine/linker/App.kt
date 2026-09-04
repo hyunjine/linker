@@ -333,9 +333,18 @@ fun App() {
                     }
                     entry<ProfileSetupRoute> {
                         val currentUser = (status as? SessionStatus.Authenticated)?.session?.user
+                        // 온보딩 중 뒤로가기 = 로그아웃. 프로필 미완성 상태로 아무데도 갈 곳이 없어
+                        // 스택 pop 은 no-op 이 되어버림. Supabase signOut → sessionStatus NotAuthenticated
+                        // → LaunchedEffect 가 AuthRoute 로 리셋해 로그인 화면 복귀.
+                        val kakaoForSignOut = rememberKakaoLoginClient()
                         com.hyunjine.linker.feature.profile.ProfileSetupRoute(
                             currentUser = currentUser,
-                            onBack = { backStack.removeLastOrNull() },
+                            onBack = {
+                                scope.launch {
+                                    runCatching { signOut(kakaoForSignOut) }
+                                        .onFailure { println("[Auth] ProfileSetup 취소 signOut 실패: $it") }
+                                }
+                            },
                             // 프로필 세팅 완료 → 커플 연결은 선택이라 바로 홈. 원할 때 드로워로 연결.
                             onSaved = goHome,
                         )
