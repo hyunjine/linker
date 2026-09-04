@@ -97,8 +97,20 @@ extension AppleLoginProvider: ASAuthorizationControllerDelegate {
             finish(AppleLoginResultFailure(reason: "nonce state lost — 중복 요청?"))
             return
         }
-        print("[AppleLogin] ok — idToken=\(identityToken.prefix(24))… userId=\(credential.user)")
-        finish(AppleLoginResultSuccess(idToken: identityToken, rawNonce: raw))
+
+        // Apple 은 최초 로그인 시에만 fullName 을 credential 에 담아준다 (재로그인 시 nil).
+        // 한국어 관례상 성+이름 공백 없이 붙임 (예: "양현진"). 영문/일본어 등은 그 언어 관례상 부자연스러울 수 있으나
+        // 앱 UX 가 한국어 사용자 대상이라 우선 이 정책 채택.
+        let fullName: String? = credential.fullName.flatMap { comps in
+            let parts = [comps.familyName, comps.givenName]
+                .compactMap { $0 }
+                .filter { !$0.isEmpty }
+            let joined = parts.joined()
+            return joined.isEmpty ? nil : joined
+        }
+
+        print("[AppleLogin] ok — idToken=\(identityToken.prefix(24))… userId=\(credential.user) fullName=\(fullName ?? "nil")")
+        finish(AppleLoginResultSuccess(idToken: identityToken, rawNonce: raw, fullName: fullName))
     }
 
     func authorizationController(

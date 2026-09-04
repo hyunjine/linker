@@ -8,6 +8,8 @@ import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.providers.builtin.IDToken
 import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.put
 
 /**
  * 카카오 SDK 로그인 → Supabase `signInWith(IDToken)` 흐름.
@@ -62,6 +64,21 @@ suspend fun signInWithApple(client: AppleLoginClient) {
                 nonce = result.rawNonce
             }
             println("[Auth] Supabase 세션 발급 완료 (Apple)")
+
+            // Apple 은 최초 로그인 시에만 fullName 을 credential 로 넘긴다. 있으면 Supabase
+            // user_metadata 에 저장해 ProfileSetupScreen 프리필 (profileDefaults) 이 사용하도록.
+            // 이후 재로그인 시엔 Apple 이 nil 을 반환하지만 이미 저장된 metadata 가 있어 문제없음.
+            val name = result.fullName
+            if (!name.isNullOrBlank()) {
+                runCatching {
+                    SupabaseProvider.client.auth.updateUser {
+                        data { put("full_name", JsonPrimitive(name)) }
+                    }
+                    println("[Auth] Apple user_metadata.full_name = $name 저장 완료")
+                }.onFailure {
+                    println("[Auth] Apple user_metadata 저장 실패 (무시): $it")
+                }
+            }
         }
         AppleLoginResult.Cancelled -> {
             println("[Auth] Apple 로그인 사용자 취소")

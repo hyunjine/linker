@@ -15,8 +15,15 @@ sealed interface AppleLoginResult {
     /**
      * @param idToken Apple 이 발급한 OIDC id_token (JWT). Supabase 로 그대로 전달.
      * @param rawNonce Apple 요청 시 클라이언트가 생성했던 원본 nonce. Supabase 검증용.
+     * @param fullName Apple 이 credential 에 담아준 성+이름 문자열. **최초 로그인 시에만** null 아님
+     *  (Apple 프라이버시 정책 — 재로그인 시 nil). 있으면 Supabase user_metadata 로 저장해 이후
+     *  ProfileSetupScreen 프리필에 사용.
      */
-    data class Success(val idToken: String, val rawNonce: String) : AppleLoginResult
+    data class Success(
+        val idToken: String,
+        val rawNonce: String,
+        val fullName: String? = null,
+    ) : AppleLoginResult
 
     /** 사용자 취소 (다이얼로그 dismiss · 뒤로가기). 로그인 화면에서 조용히 무시. */
     data object Cancelled : AppleLoginResult
