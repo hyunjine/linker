@@ -75,6 +75,8 @@ private const val TITLE_TOP_OFFSET_DP = 12 // 로고 아래 여백 (Figma: 460-3
 fun AuthGateScreen(
     mode: AuthGateMode,
     onKakaoLoginClick: () -> Unit = {},
+    showAppleLogin: Boolean = false,
+    onAppleLoginClick: () -> Unit = {},
     showDebugLogin: Boolean = false,
     onDebugLoginClick: () -> Unit = {},
 ) {
@@ -160,7 +162,8 @@ fun AuthGateScreen(
             }
         }
 
-        // ── 카카오 버튼 (login 에만, fade + 약간 지연) ──
+        // ── 소셜 로그인 버튼들 (login 에만, fade + 약간 지연) ──
+        // 카카오 위주. Apple 은 iOS 만 노출 (showAppleLogin=true).
         AnimatedVisibility(
             visible = mode == AuthGateMode.Login,
             modifier = Modifier
@@ -169,7 +172,13 @@ fun AuthGateScreen(
             enter = fadeIn(tween(durationMillis = 400, delayMillis = 250)),
             exit = fadeOut(tween(200)),
         ) {
-            KakaoLoginButton(onClick = onKakaoLoginClick)
+            androidx.compose.foundation.layout.Column {
+                KakaoLoginButton(onClick = onKakaoLoginClick)
+                if (showAppleLogin) {
+                    Spacer(Modifier.height(12.dp))
+                    AppleLoginButton(onClick = onAppleLoginClick)
+                }
+            }
         }
 
         // ── 디버그 로그인 진입 (debug 빌드 · login 상태 에서만) ──
@@ -222,6 +231,46 @@ fun CoupleLogo(modifier: Modifier = Modifier) {
             painter = painterResource(Res.drawable.ic_couple_rings),
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
+        )
+    }
+}
+
+/**
+ * "Apple 로 계속하기" 버튼. Apple HIG 준수: 검정 배경 · 흰 텍스트 · 최소 44pt height.
+ * 로고는 별도 vector asset 이 없어 텍스트 앞에 유니코드 애플 심볼 () 사용 — SF 폰트 fallback.
+ */
+@Composable
+private fun AppleLoginButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val font = LocalPretendardFontFamily.current
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color.Black)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 15.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "",
+            style = TextStyle(
+                color = Color.White,
+                fontSize = 20.sp,
+            ),
+        )
+        Spacer(Modifier.size(8.dp))
+        Text(
+            text = "Apple로 계속하기",
+            style = TextStyle(
+                color = Color.White,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = font,
+            ),
         )
     }
 }

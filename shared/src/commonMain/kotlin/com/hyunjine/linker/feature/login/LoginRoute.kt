@@ -7,7 +7,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.hyunjine.linker.auth.rememberAppleLoginClient
 import com.hyunjine.linker.auth.rememberKakaoLoginClient
+import com.hyunjine.linker.auth.supportsAppleSignIn
 import com.hyunjine.linker.feature.auth.AuthGateMode
 import com.hyunjine.linker.feature.auth.AuthGateScreen
 import com.hyunjine.linker.platform.DebugConfig
@@ -23,12 +25,16 @@ import com.hyunjine.linker.platform.DebugConfig
 fun LoginRoute(mode: AuthGateMode) {
     val viewModel: LoginViewModel = viewModel { LoginViewModel() }
     val kakao = rememberKakaoLoginClient()
+    val apple = rememberAppleLoginClient()
     val debugError by viewModel.debugError.collectAsStateWithLifecycle()
     var debugSheetOpen by remember { mutableStateOf(false) }
 
     AuthGateScreen(
         mode = mode,
         onKakaoLoginClick = { viewModel.onKakaoLoginClick(kakao) },
+        // iOS 만 네이티브 Apple Sign-In 지원. Android 는 supportsAppleSignIn=false 로 버튼 자체 hidden.
+        showAppleLogin = supportsAppleSignIn,
+        onAppleLoginClick = { viewModel.onAppleLoginClick(apple) },
         // Release 빌드에서는 DebugConfig.enabled = false 라 노출 자체 X.
         showDebugLogin = DebugConfig.enabled,
         onDebugLoginClick = { debugSheetOpen = true },

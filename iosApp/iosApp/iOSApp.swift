@@ -21,6 +21,13 @@ struct iOSApp: App {
         // 실제 알림 권한 요청은 아래 onAppear 에서 (앱 UI 뜬 뒤에 물어보는 게 UX 상 자연스러움).
         LinkerPushBridge.shared.configure()
 
+        // Apple Sign-In 브리지. shared 의 AppleLoginClient 가 이 handler 를 호출 → AppleLoginProvider 위임.
+        AppleLoginBridge.shared.handler = { callback in
+            AppleLoginProvider.shared.signIn { result in
+                callback(result)
+            }
+        }
+
         // 카카오 SDK 초기화. 네이티브 앱 키는 Config.xcconfig → Info.plist (KAKAO_NATIVE_APP_KEY).
         let appKey = Bundle.main.object(forInfoDictionaryKey: "KAKAO_NATIVE_APP_KEY") as? String ?? ""
         print("[KakaoLogin] init — appKey='\(appKey)' length=\(appKey.count)")

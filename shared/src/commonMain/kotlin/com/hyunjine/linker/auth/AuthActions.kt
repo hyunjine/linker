@@ -2,6 +2,7 @@ package com.hyunjine.linker.auth
 
 import com.hyunjine.linker.data.remote.SupabaseProvider
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.providers.Apple
 import io.github.jan.supabase.auth.providers.Kakao
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.providers.builtin.IDToken
@@ -35,6 +36,38 @@ suspend fun signInWithKakao(client: KakaoLoginClient) {
         }
         is KakaoLoginResult.Failure -> {
             println("[Auth] Kakao 로그인 실패: ${result.reason}")
+            error(result.reason)
+        }
+    }
+}
+
+/**
+ * Apple Sign-In → Supabase `signInWith(IDToken, Apple, nonce)` 흐름.
+ *
+ * 1. [client]. login() → 네이티브 Apple Sign-In 다이얼로그 (iOS only, Android 는 미지원 stub)
+ * 2. 성공 시 id_token + raw nonce 를 Supabase 로 전달
+ * 3. Supabase 서버가 id_token 서명 · aud · SHA256(rawNonce) == nonce claim 검증 → 세션 발급
+ *
+ * 카카오와 달리 nonce 를 반드시 함께 넘겨야 Supabase 가 검증을 통과시킨다.
+ * 취소는 조용히 무시. 실패는 UI 층에서 catch 해 처리.
+ */
+suspend fun signInWithApple(client: AppleLoginClient) {
+    println("[Auth] signInWithApple: enter")
+    when (val result = client.login()) {
+        is AppleLoginResult.Success -> {
+            println("[Auth] Apple 로그인 성공 → Supabase signInWithIdToken")
+            SupabaseProvider.client.auth.signInWith(IDToken) {
+                idToken = result.idToken
+                provider = Apple
+                nonce = result.rawNonce
+            }
+            println("[Auth] Supabase 세션 발급 완료 (Apple)")
+        }
+        AppleLoginResult.Cancelled -> {
+            println("[Auth] Apple 로그인 사용자 취소")
+        }
+        is AppleLoginResult.Failure -> {
+            println("[Auth] Apple 로그인 실패: ${result.reason}")
             error(result.reason)
         }
     }
