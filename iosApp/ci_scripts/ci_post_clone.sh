@@ -20,14 +20,25 @@ set -eu
 : "${CI_PRIMARY_REPOSITORY_PATH:?CI_PRIMARY_REPOSITORY_PATH 미설정 — Xcode Cloud 외부 실행 아님?}"
 : "${KAKAO_NATIVE_APP_KEY:?KAKAO_NATIVE_APP_KEY 미설정 — App Store Connect Xcode Cloud 환경변수에 secret 으로 등록 필요}"
 
-# Xcode Cloud 러너에는 Java 가 기본으로 없어 `Compile Kotlin Framework` Run Script
-# (JAVA_HOME 자동 탐색) 가 실패한다. Homebrew 는 Xcode Cloud 에 pre-installed
-# 되어 있으므로 openjdk@21 만 설치하면 됨. 이후 Run Script 가
-# /opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home 를 자동 발견.
-if ! [ -x "/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home/bin/java" ]; then
-  echo "[ci_post_clone] openjdk@21 설치 중..."
+# Xcode Cloud 러너에는 Java 가 기본으로 없어 gradle 이 아예 실행 안 됨.
+# → Homebrew 로 openjdk@21 을 bootstrap 설치 (매 빌드마다 fresh clone 이라 매번 필요).
+# 이후 Kotlin JVM Toolchain (jvmToolchain(21) + Foojay resolver) 가 실제 컴파일용
+# JDK 를 관리 — bootstrap 만 하고 나면 shared/build.gradle.kts 의 지시대로 gradle
+# 이 알아서 처리한다.
+OPENJDK_HOME="/opt/homebrew/opt/openjdk@21/libexec/openjdk.jdk/Contents/Home"
+if ! [ -x "$OPENJDK_HOME/bin/java" ]; then
+  echo "[ci_post_clone] openjdk@21 설치 시작..."
   brew install openjdk@21
+  echo "[ci_post_clone] openjdk@21 설치 완료"
 fi
+
+if ! [ -x "$OPENJDK_HOME/bin/java" ]; then
+  echo "::error::brew install 이후에도 $OPENJDK_HOME/bin/java 없음 — Homebrew 경로 확인 필요"
+  ls -la /opt/homebrew/opt/ 2>&1 | head -20
+  exit 1
+fi
+echo "[ci_post_clone] JAVA_HOME 후보 확인: $OPENJDK_HOME"
+"$OPENJDK_HOME/bin/java" -version 2>&1 | head -3
 
 XCCONFIG_DIR="$CI_PRIMARY_REPOSITORY_PATH/iosApp/Configuration"
 XCCONFIG_PATH="$XCCONFIG_DIR/Config.xcconfig"
