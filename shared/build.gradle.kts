@@ -19,6 +19,7 @@ val holidayApiKey: String = localProperties.getProperty("holiday.api.key", "")
 val supabaseUrl: String = localProperties.getProperty("supabase.url", "")
 val supabasePublishableKey: String = localProperties.getProperty("supabase.publishableKey", "")
 val kakaoNativeAppKey: String = localProperties.getProperty("kakao.native.app.key", "")
+val googleWebClientId: String = localProperties.getProperty("google.web.client.id", "")
 
 val generatedSecretsDir: Provider<Directory> =
     layout.buildDirectory.dir("generated/secrets/kotlin")
@@ -29,10 +30,12 @@ val generateSecrets by tasks.registering {
     val sbUrl = supabaseUrl
     val sbKey = supabasePublishableKey
     val kakaoKey = kakaoNativeAppKey
+    val googleWeb = googleWebClientId
     inputs.property("holidayApiKey", holidayKey)
     inputs.property("supabaseUrl", sbUrl)
     inputs.property("supabasePublishableKey", sbKey)
     inputs.property("kakaoNativeAppKey", kakaoKey)
+    inputs.property("googleWebClientId", googleWeb)
     outputs.dir(outputDir)
     doLast {
         val file = outputDir.get().asFile.resolve("com/hyunjine/linker/data/Secrets.kt")
@@ -54,6 +57,15 @@ val generateSecrets by tasks.registering {
 
                 /** 카카오 네이티브 앱 키. Android SDK 초기화 + kakao{key}://oauth 스킴. local.properties `kakao.native.app.key`. */
                 const val KakaoNativeAppKey: String = "$kakaoKey"
+
+                /**
+                 * Google **Web** OAuth 2.0 Client ID (형식: `NUMBER-HASH.apps.googleusercontent.com`).
+                 * Android Credential Manager 의 GetGoogleIdOption 에 `serverClientId` 로 넘겨야 하고,
+                 * Supabase 는 이 값 (또는 iOS Client ID) 을 authorized audience 로 검증한다.
+                 * local.properties `google.web.client.id`. Google Cloud Console → APIs & Services →
+                 * Credentials 에서 Web application 타입으로 생성한 것.
+                 */
+                const val GoogleWebClientId: String = "$googleWeb"
             }
             """.trimIndent() + "\n"
         )
@@ -104,6 +116,10 @@ kotlin {
             implementation(libs.compose.uiTooling)
             implementation(libs.ktor.client.okhttp)
             implementation(libs.kakao.user)
+            // Google Sign-In via Credential Manager (modern API)
+            implementation(libs.androidx.credentials)
+            implementation(libs.androidx.credentials.play.services.auth)
+            implementation(libs.googleid)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)

@@ -3,6 +3,7 @@ import Shared
 import KakaoSDKCommon
 import KakaoSDKAuth
 import KakaoSDKUser
+import GoogleSignIn
 
 @main
 struct iOSApp: App {
@@ -20,6 +21,31 @@ struct iOSApp: App {
         // FCM: FirebaseApp.configure + Messaging/UNUserNotificationCenter delegate 세팅.
         // 실제 알림 권한 요청은 아래 onAppear 에서 (앱 UI 뜬 뒤에 물어보는 게 UX 상 자연스러움).
         LinkerPushBridge.shared.configure()
+
+        // Apple Sign-In 브리지. shared 의 AppleLoginClient 가 이 handler 를 호출 → AppleLoginProvider 위임.
+        AppleLoginBridge.shared.handler = { callback in
+            AppleLoginProvider.shared.signIn { result in
+                callback(result)
+            }
+        }
+
+        // GoogleSignIn 설정. GIDClientID 를 Info.plist 에 중복 저장하지 않고 GoogleService-Info.plist
+        // 의 CLIENT_ID 를 그대로 재사용 — Firebase 콘솔에서 Google Auth 켜면 이 값이 자동 채워지므로.
+        if let path = Bundle.main.path(forResource: "GoogleService-Info", ofType: "plist"),
+           let plist = NSDictionary(contentsOfFile: path),
+           let clientID = plist["CLIENT_ID"] as? String {
+            GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
+            print("[GoogleLogin] configured clientID=\(clientID.prefix(24))…")
+        } else {
+            print("[GoogleLogin] GoogleService-Info.plist 에 CLIENT_ID 없음 — 재다운로드 필요")
+        }
+
+        // Google Sign-In 브리지. shared 의 GoogleLoginClient → GoogleLoginProvider (GIDSignIn).
+        GoogleLoginBridge.shared.handler = { callback in
+            GoogleLoginProvider.shared.signIn { result in
+                callback(result)
+            }
+        }
 
         // 카카오 SDK 초기화. 네이티브 앱 키는 Config.xcconfig → Info.plist (KAKAO_NATIVE_APP_KEY).
         let appKey = Bundle.main.object(forInfoDictionaryKey: "KAKAO_NATIVE_APP_KEY") as? String ?? ""
@@ -102,7 +128,10 @@ struct iOSApp: App {
                     // 카카오톡에서 로그인 완료 후 우리 앱으로 돌아오는 콜백 URL 처리.
                     if AuthApi.isKakaoTalkLoginUrl(url) {
                         _ = AuthController.handleOpenUrl(url: url)
+                        return
                     }
+                    // Google Sign-In 웹 콜백 (REVERSED_CLIENT_ID 스킴) 처리.
+                    _ = GIDSignIn.sharedInstance.handle(url)
                 }
                 .onAppear {
                     // 첫 진입 시 위젯 payload 갱신 (세션 없으면 shared 가 빈 items 로 반환).
