@@ -2,34 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- 홈스크린에 노출되는 앱 이름. PRODUCT_NAME (Linker) 은 빌드 산출물 이름으로만 유지하고
-	     사용자에게 보이는 이름은 이 키로 오버라이드. -->
-	<key>CFBundleDisplayName</key>
-	<string>현진이랑민교</string>
-
-	<!-- Export compliance 자동화. HTTPS · 카카오 SDK · Firebase · Supabase 는 모두 표준
-	     운영체제 암호화만 사용하고 자체 암호 로직 없음 → US EAR 기준 exempt 취급.
-	     이 키가 있으면 매 TestFlight/App Store 업로드마다 "암호화 씀?" 프롬프트 안 뜸. -->
-	<key>ITSAppUsesNonExemptEncryption</key>
-	<false/>
-
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
-
-	<!-- 카카오 네이티브 앱 키 (Config.xcconfig 의 KAKAO_NATIVE_APP_KEY 를 빌드 타임에 치환).
-	     Swift 에서 Bundle.main.object(forInfoDictionaryKey:) 로 읽어 SDK init. -->
-	<key>KAKAO_NATIVE_APP_KEY</key>
-	<string>$(KAKAO_NATIVE_APP_KEY)</string>
-
-	<!-- 카카오톡 앱 설치 여부 확인 · 앱 실행에 필요한 스킴 allowlist -->
-	<key>LSApplicationQueriesSchemes</key>
-	<array>
-		<string>kakaokompassauth</string>
-		<string>kakaolink</string>
-	</array>
-
-	<!-- 카카오 로그인 후 콜백을 우리 앱으로 돌려받기 위한 URL 스킴.
-	     kakao{네이티브 앱 키} 형태. Config.xcconfig 의 KAKAO_NATIVE_APP_KEY 참조. -->
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
@@ -42,6 +16,23 @@
 				<string>kakao$(KAKAO_NATIVE_APP_KEY)</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>google</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.319241271170-m6kj85v1smlad0p75g7kcsevd5lk889t</string>
+			</array>
+		</dict>
+	</array>
+	<key>KAKAO_NATIVE_APP_KEY</key>
+	<string>$(KAKAO_NATIVE_APP_KEY)</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>kakaokompassauth</string>
+		<string>kakaolink</string>
 	</array>
 </dict>
 </plist>

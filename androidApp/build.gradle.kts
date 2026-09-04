@@ -14,6 +14,25 @@ private val kakaoNativeAppKey: String = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }.getProperty("kakao.native.app.key", "")
 
+// 앱 버전은 루트 VERSION 파일이 유일 소스. 파일 첫 줄이 semver (`major.minor.patch`),
+// 그 아래 라인들은 GitHub Release 노트 본문 (릴리즈 워크플로 #184 가 사용).
+// Xcode Cloud ci_post_clone.sh 도 첫 줄을 읽어 MARKETING_VERSION 을 세팅한다.
+// versionCode 는 semver 를 정수로 변환 (10000·100·1 자리) — Play Store 는 versionCode 가 항상
+// 증가해야 하므로, VERSION 파일이 항상 올라가는 한 이 정수도 자동으로 증가한다.
+private val appVersionName: String = rootProject.file("VERSION")
+    .readLines()
+    .firstOrNull { it.isNotBlank() }
+    ?.trim()
+    ?: error("VERSION 파일이 비어있음")
+private val appVersionCode: Int = appVersionName
+    .split(".")
+    .let { parts ->
+        require(parts.size == 3) { "VERSION 은 major.minor.patch 형식이어야 함 (현재: $appVersionName)" }
+        val (major, minor, patch) = parts.map(String::toInt)
+        require(minor in 0..99 && patch in 0..99) { "minor · patch 는 0..99 (현재: $appVersionName)" }
+        major * 10000 + minor * 100 + patch
+    }
+
 kotlin {
     compilerOptions {
         jvmTarget = JvmTarget.JVM_11
@@ -40,8 +59,8 @@ android {
         applicationId = "com.hyunjine.linker"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersionCode
+        versionName = appVersionName
 
         // Kakao SDK 콜백 스킴 kakao{키}://oauth 의 {키} 자리에 주입.
         manifestPlaceholders["KAKAO_NATIVE_APP_KEY"] = kakaoNativeAppKey
