@@ -102,12 +102,13 @@ fun MainDrawerContent(
             text = "상대방 연결",
             onClick = onCoupleLinkClick,
         )
-        Spacer(Modifier.height(8.dp))
-        AllScheduleButton(
-            text = "기념일 설정",
-            iconRes = Res.drawable.ic_cal_31,
-            onClick = onAnniversaryClick,
-        )
+        // 기념일 설정: 다음 버전에서 다시 열 예정 (기능 재설계 이슈 참조). 지금은 숨김.
+//        Spacer(Modifier.height(8.dp))
+//        AllScheduleButton(
+//            text = "기념일 설정",
+//            iconRes = Res.drawable.ic_cal_31,
+//            onClick = onAnniversaryClick,
+//        )
         Spacer(Modifier.height(12.dp))
         SectionLabel(text = "일정 표시")
         ToggleRow(
