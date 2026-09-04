@@ -73,6 +73,11 @@ val generateSecrets by tasks.registering {
 }
 
 kotlin {
+    // Foojay resolver (settings.gradle.kts) 가 로컬에 없으면 JDK 21 을 자동 다운로드.
+    // Xcode Cloud · CI · 새 팀원 온보딩 모두 zero-config. jvmTarget 은 여전히 JVM_11
+    // 유지 (Android 최소 지원 · 컴파일된 바이트코드는 backward-compatible).
+    jvmToolchain(21)
+
     // `expect`/`actual` classes 는 Beta 상태 (KT-61573) — 프로젝트가 이미 다수의 expect 를
     // 사용 중이라 경고를 통째로 억제. 정식 stabilize 되면 이 플래그 제거.
     compilerOptions {

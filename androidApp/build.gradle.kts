@@ -34,6 +34,9 @@ private val appVersionCode: Int = appVersionName
     }
 
 kotlin {
+    // shared 모듈과 동일. Foojay resolver 가 로컬에 없으면 JDK 21 자동 다운로드.
+    jvmToolchain(21)
+
     compilerOptions {
         jvmTarget = JvmTarget.JVM_11
     }
