@@ -14,7 +14,7 @@ import kotlinx.coroutines.launch
  *
  * - [CoupleLinkUiState.Loading]: 서버 응답 대기.
  * - [CoupleLinkUiState.NotPaired]: 파트너 미조인. 두 개 옵션 (내 초대코드 · 상대 코드 입력) 노출.
- * - [CoupleLinkUiState.Paired]: 이미 파트너와 연결됨. 파트너 프로필 카드 · 안내 · 연결 해제 UI.
+ * - [CoupleLinkUiState.Paired]: 파트너와 연결됨. 파트너 프로필 카드 + 연결 해제 UI.
  *
  * 파트너 조인 여부는 `couples.linked_at` non-null 로 판정.
  * 아예 커플 자체가 없는 유저 (미가입) 는 NotPaired 로 취급 — 옵션 진입 시 초대코드 화면이

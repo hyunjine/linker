@@ -56,7 +56,7 @@ private val TOP_BAR_HEIGHT = 54.dp
  * 커플 연결 진입 화면. [state] 에 따라 세 갈래로 분기:
  *  - [CoupleLinkUiState.Loading]: 옵션 카드 자리를 비워둠 (로딩 중).
  *  - [CoupleLinkUiState.NotPaired]: 두 옵션 (내 초대코드 · 상대 코드) 노출.
- *  - [CoupleLinkUiState.Paired]: 옵션 감추고 "이미 파트너와 연결됨" 안내 카드만.
+ *  - [CoupleLinkUiState.Paired]: 파트너 프로필 카드 + 연결 해제 버튼.
  *
  * NotPaired 옵션:
  *  - "내 초대코드 만들기" → [CoupleInviteCodeScreen] (내 커플 자동 생성 + 코드 공유)
@@ -143,49 +143,16 @@ private fun NotPairedContent(
 }
 
 /**
- * 이미 파트너와 연결된 상태 안내 + 연결 해제 진입. 옵션 카드는 감춘다.
- * 파트너 프로필 조회에 성공했으면 상단에 파트너 아바타 · 닉네임 · 생일 · 캘린더 색 카드를 표시.
- * 조회 실패 (null) 는 예전 UI 로 폴백해 안내 카드만.
+ * 파트너와 연결된 상태. 프로필 카드로 "연결됨" 을 시각적으로 보여주고 아래에 연결 해제 진입.
+ * 파트너 프로필 조회 실패 (null) 시엔 카드 없이 해제 버튼만 노출 — 회귀 방지.
  */
 @Composable
 private fun PairedContent(partner: UsersRepository.Profile?, onUnlinkClick: () -> Unit) {
-    val font = LocalPretendardFontFamily.current
     Spacer(Modifier.height(24.dp))
     if (partner != null) {
         PartnerProfileCard(partner = partner, modifier = Modifier.padding(horizontal = 16.dp))
         Spacer(Modifier.height(12.dp))
     }
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(SurfaceCard)
-            .padding(horizontal = 20.dp, vertical = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Text(
-            text = "이미 파트너와 연결됨",
-            style = TextStyle(
-                fontFamily = font,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 17.sp,
-                color = TextPrimary,
-            ),
-        )
-        Text(
-            text = "새 파트너를 연결하려면 먼저 연결을 해제하세요.",
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            style = TextStyle(
-                fontFamily = font,
-                fontSize = 14.sp,
-                lineHeight = 20.sp,
-                color = TextSecondary,
-            ),
-        )
-    }
-    Spacer(Modifier.height(12.dp))
     UnlinkButton(onClick = onUnlinkClick, modifier = Modifier.padding(horizontal = 16.dp))
 }
 
