@@ -19,22 +19,12 @@ import com.hyunjine.linker.auth.signInWithKakao
 import com.hyunjine.linker.auth.signOut
 import com.hyunjine.linker.data.remote.AnniversariesRepository
 import com.hyunjine.linker.data.remote.CouplesRepository
-import com.hyunjine.linker.data.remote.SchedulesRepository
 import com.hyunjine.linker.data.remote.UsersRepository
 import com.hyunjine.linker.feature.anniversary.AnniversariesScreen
 import com.hyunjine.linker.feature.anniversary.AnniversaryUi
 import com.hyunjine.linker.feature.couple.CoupleInviteCodeScreen
 import com.hyunjine.linker.feature.couple.CoupleJoinScreen
 import com.hyunjine.linker.feature.couple.CoupleLinkScreen
-import com.hyunjine.linker.feature.main.AllDaySchedule
-import com.hyunjine.linker.feature.main.CalendarDayEntry
-import com.hyunjine.linker.feature.main.CalendarEvent
-import com.hyunjine.linker.feature.main.CalendarEventType
-import com.hyunjine.linker.feature.main.DayDetail
-import com.hyunjine.linker.feature.main.DayOwner
-import com.hyunjine.linker.feature.main.DayTask
-import com.hyunjine.linker.feature.main.OwnerColors
-import com.hyunjine.linker.feature.main.TimedSchedule
 import com.hyunjine.linker.feature.profile.ProfileSetupScreen
 import com.hyunjine.linker.feature.schedule.CreateScheduleScreen
 import com.hyunjine.linker.feature.search.SearchAnniversaryItem
@@ -155,63 +145,6 @@ private fun today(): LocalDate =
     kotlin.time.Clock.System.now()
         .toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
         .date
-
-/**
- * 스케줄 rows → DayDetailSheet 가 소비하는 [DayDetail].
- * - type='task' → [DayTask]
- * - type='schedule' + all_day → [AllDaySchedule]
- * - type='schedule' + 시각 → [TimedSchedule]
- */
-private fun List<SchedulesRepository.Row>.toDayDetail(date: LocalDate): DayDetail {
-    val tasks = mutableListOf<DayTask>()
-    val timed = mutableListOf<TimedSchedule>()
-    val allDay = mutableListOf<AllDaySchedule>()
-    for (row in this) {
-        val owner = row.ownerKind.toDayOwner()
-        when {
-            row.type == "task" -> tasks += DayTask(
-                id = row.id, title = row.title, isDone = row.isDone, owner = owner,
-            )
-            row.allDay -> allDay += AllDaySchedule(
-                id = row.id, title = row.title, owner = owner, barColor = null,
-            )
-            else -> timed += TimedSchedule(
-                id = row.id,
-                startTime = row.startTime.toKoreanClock() ?: "",
-                endTime = row.endTime.toKoreanClock(),
-                title = row.title,
-                owner = owner,
-            )
-        }
-    }
-    return DayDetail(
-        date = date,
-        lunarLabel = null,   // 음력 표시는 후속 이슈
-        tasks = tasks,
-        timedSchedules = timed,
-        allDaySchedules = allDay,
-    )
-}
-
-private fun String.toDayOwner(): DayOwner = when (this) {
-    "me" -> DayOwner.Me
-    "partner" -> DayOwner.Partner
-    else -> DayOwner.Us
-}
-
-/** "HH:MM:SS" → "오전 10:00" / "오후 2:00" 형식. null 은 null 그대로. */
-private fun String?.toKoreanClock(): String? {
-    if (this.isNullOrBlank()) return null
-    val h = substring(0, 2).toIntOrNull() ?: return null
-    val m = substring(3, 5)
-    val (period, hour12) = when {
-        h == 0 -> "오전" to 12
-        h < 12 -> "오전" to h
-        h == 12 -> "오후" to 12
-        else -> "오후" to (h - 12)
-    }
-    return "$period $hour12:$m"
-}
 
 /** 기념일 서버 row → UI 데이터. */
 private fun AnniversariesRepository.Row.toUi(): AnniversaryUi = AnniversaryUi(
