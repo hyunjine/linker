@@ -15,6 +15,10 @@ final class LinkerPushBridge: NSObject, UNUserNotificationCenterDelegate, Messag
 
     static let shared = LinkerPushBridge()
 
+    /// MessagingDelegate 에서 받아 캐시. `ensureFcmTokenRegistered()` 가 이걸 우선 사용해
+    /// "APNs token 아직" (FCM error 505) 상황을 방어. delegate 는 APNs 등록 완료 후에만 fire.
+    private var cachedFcmToken: String?
+
     func configure() {
         FirebaseApp.configure()
         Messaging.messaging().delegate = self
@@ -49,14 +53,26 @@ final class LinkerPushBridge: NSObject, UNUserNotificationCenterDelegate, Messag
     ///
     /// 세션이 없어도 shared 의 `UserDevicesRepository.upsertMyDevice` 가 auth.uid() 없으면
     /// no-op 이라 안전. 반복 호출도 idempotent.
+    ///
+    /// 우선순위:
+    /// 1) delegate 로 이미 받은 [cachedFcmToken] 사용 — APNs 등록 완료 후에만 fire 되므로 안전
+    /// 2) 없으면 `Messaging.messaging().token { ... }` fetch 시도. APNs 아직이면 error 505.
+    ///    이 경우 조용히 skip (delegate 가 나중에 fire 되면 자동 upsert 됨).
     func ensureFcmTokenRegistered() {
+        if let token = cachedFcmToken {
+            print("[FCM] ensure token upsert (cached): \(token.prefix(12))…")
+            FcmTokenBridge.shared.onTokenRefreshedAsync(token: token, platform: "ios")
+            return
+        }
         Messaging.messaging().token { token, error in
             if let error = error {
-                print("[FCM] token fetch 실패: \(error)")
+                // 초기 실행 시 APNs 등록 완료 전 호출되면 여기 옴 — delegate 가 곧 fire 될 것.
+                print("[FCM] token fetch 스킵 (아직 준비 안 됨): \(error.localizedDescription)")
                 return
             }
             guard let token = token else { return }
-            print("[FCM] ensure token upsert: \(token.prefix(12))…")
+            print("[FCM] ensure token upsert (fresh): \(token.prefix(12))…")
+            self.cachedFcmToken = token
             FcmTokenBridge.shared.onTokenRefreshedAsync(token: token, platform: "ios")
         }
     }
@@ -69,6 +85,7 @@ final class LinkerPushBridge: NSObject, UNUserNotificationCenterDelegate, Messag
             return
         }
         print("[FCM] token: \(token.prefix(12))…")
+        cachedFcmToken = token
         FcmTokenBridge.shared.onTokenRefreshedAsync(token: token, platform: "ios")
     }
 
