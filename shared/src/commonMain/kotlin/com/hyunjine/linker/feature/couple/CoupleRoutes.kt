@@ -2,14 +2,19 @@ package com.hyunjine.linker.feature.couple
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hyunjine.linker.platform.rememberCopyToClipboard
 import com.hyunjine.linker.platform.rememberShareText
 
 /**
- * 커플 연결 chooser 라우트. VM 이 파트너 조인 여부를 미리 조회해 Screen state 에 반영.
- * Paired 면 옵션 카드를 감추고 안내 UI 로 대체.
+ * 커플 연결 chooser 라우트. VM 이 파트너 조인 여부 · 프로필을 조회해 Screen state 에 반영.
+ * Paired 면 파트너 프로필 카드 + 연결 해제 버튼을, NotPaired 면 옵션 카드 두 개를 보여준다.
+ *
+ * `LifecycleResumeEffect` 로 화면이 RESUMED 될 때마다 refresh 를 다시 호출한다.
+ * 파트너가 프로필 (닉네임 · 사진 · 색 등) 을 바꾼 뒤 내가 이 화면에 재진입하면 최신값이 뜨도록.
+ * nav3 가 같은 NavKey 로 entry 를 재사용해 init 이 재fire 되지 않는 케이스도 함께 커버.
  */
 @Composable
 fun CoupleLinkRoute(
@@ -20,6 +25,10 @@ fun CoupleLinkRoute(
 ) {
     val viewModel: CoupleLinkViewModel = viewModel { CoupleLinkViewModel() }
     val state by viewModel.state.collectAsStateWithLifecycle()
+    LifecycleResumeEffect(Unit) {
+        viewModel.refresh()
+        onPauseOrDispose { }
+    }
     CoupleLinkScreen(
         state = state,
         onBack = onBack,

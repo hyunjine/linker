@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -24,22 +26,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
+import coil3.compose.AsyncImage
+import com.hyunjine.linker.data.remote.UsersRepository
 import com.hyunjine.linker.designsystem.common.AlertAction
 import com.hyunjine.linker.designsystem.common.AlertActionStyle
 import com.hyunjine.linker.designsystem.common.AppAlertDialog
 import com.hyunjine.linker.designsystem.common.AppTopBar
+import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderBg
+import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderFg
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.designsystem.theme.ProvidePretendard
 import com.hyunjine.linker.designsystem.theme.SurfaceCard
 import com.hyunjine.linker.designsystem.theme.SurfaceGray
 import com.hyunjine.linker.designsystem.theme.TextPrimary
 import com.hyunjine.linker.designsystem.theme.TextSecondary
+import com.hyunjine.linker.designsystem.theme.calendarColorFor
 
 private val TOP_BAR_HEIGHT = 54.dp
 
@@ -47,7 +56,7 @@ private val TOP_BAR_HEIGHT = 54.dp
  * 커플 연결 진입 화면. [state] 에 따라 세 갈래로 분기:
  *  - [CoupleLinkUiState.Loading]: 옵션 카드 자리를 비워둠 (로딩 중).
  *  - [CoupleLinkUiState.NotPaired]: 두 옵션 (내 초대코드 · 상대 코드) 노출.
- *  - [CoupleLinkUiState.Paired]: 옵션 감추고 "이미 파트너와 연결됨" 안내 카드만.
+ *  - [CoupleLinkUiState.Paired]: 파트너 프로필 카드 + 연결 해제 버튼.
  *
  * NotPaired 옵션:
  *  - "내 초대코드 만들기" → [CoupleInviteCodeScreen] (내 커플 자동 생성 + 코드 공유)
@@ -76,7 +85,10 @@ fun CoupleLinkScreen(
         ) {
             Spacer(Modifier.height(TOP_BAR_HEIGHT))
             when (state) {
-                is CoupleLinkUiState.Paired -> PairedContent(onUnlinkClick = { confirmUnlink = true })
+                is CoupleLinkUiState.Paired -> PairedContent(
+                    partner = state.partner,
+                    onUnlinkClick = { confirmUnlink = true },
+                )
                 is CoupleLinkUiState.NotPaired -> NotPairedContent(
                     onCreateInvite = onCreateInvite,
                     onEnterPartnerCode = onEnterPartnerCode,
@@ -130,43 +142,110 @@ private fun NotPairedContent(
     )
 }
 
-/** 이미 파트너와 연결된 상태 안내 + 연결 해제 진입. 옵션 카드는 감춘다. */
+/**
+ * 파트너와 연결된 상태. 프로필 카드로 "연결됨" 을 시각적으로 보여주고 아래에 연결 해제 진입.
+ * 파트너 프로필 조회 실패 (null) 시엔 카드 없이 해제 버튼만 노출 — 회귀 방지.
+ */
 @Composable
-private fun PairedContent(onUnlinkClick: () -> Unit) {
-    val font = LocalPretendardFontFamily.current
+private fun PairedContent(partner: UsersRepository.Profile?, onUnlinkClick: () -> Unit) {
     Spacer(Modifier.height(24.dp))
-    Column(
-        modifier = Modifier
+    if (partner != null) {
+        PartnerProfileCard(partner = partner, modifier = Modifier.padding(horizontal = 16.dp))
+        Spacer(Modifier.height(12.dp))
+    }
+    UnlinkButton(onClick = onUnlinkClick, modifier = Modifier.padding(horizontal = 16.dp))
+}
+
+/**
+ * 파트너 프로필 카드. 프로필 편집 화면과 톤을 맞춰 iOS 계열 카드 배경 + 원형 아바타.
+ * - 아바타: [Profile.profileImageUrl] 있으면 이미지, 없으면 닉네임 첫 글자 폴백
+ * - 캘린더 색은 우측에 작은 dot 으로 힌트 (파트너 스케줄 chip 색)
+ * - 생일은 `yyyy.MM.dd` 로 포맷 (드로워 handle 과 동일 포맷)
+ * 파트너 프로필은 read-only — 탭해도 편집 진입 X.
+ */
+@Composable
+private fun PartnerProfileCard(
+    partner: UsersRepository.Profile,
+    modifier: Modifier = Modifier,
+) {
+    val font = LocalPretendardFontFamily.current
+    val secureUrl = partner.profileImageUrl?.replace(Regex("^http://"), "https://")
+    val name = partner.nickname?.takeIf { it.isNotBlank() } ?: "파트너"
+    val handle = partner.birthDate?.let(::formatBirthHandle).orEmpty()
+    val calendarColor = calendarColorFor(partner.calendarColor)
+    Row(
+        modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
             .clip(RoundedCornerShape(18.dp))
             .background(SurfaceCard)
-            .padding(horizontal = 20.dp, vertical = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = 20.dp, vertical = 18.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text(
-            text = "이미 파트너와 연결됨",
-            style = TextStyle(
-                fontFamily = font,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 17.sp,
-                color = TextPrimary,
-            ),
-        )
-        Text(
-            text = "새 파트너를 연결하려면 먼저 연결을 해제하세요.",
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            style = TextStyle(
-                fontFamily = font,
-                fontSize = 14.sp,
-                lineHeight = 20.sp,
-                color = TextSecondary,
-            ),
+        Box(
+            modifier = Modifier
+                .size(52.dp)
+                .clip(CircleShape)
+                .background(AvatarPlaceholderBg),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (!secureUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = secureUrl,
+                    contentDescription = "파트너 프로필 사진",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.size(52.dp).clip(CircleShape),
+                )
+            } else {
+                Text(
+                    text = name.take(1),
+                    style = TextStyle(
+                        fontFamily = font,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 22.sp,
+                        color = AvatarPlaceholderFg,
+                    ),
+                )
+            }
+        }
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(
+                text = name,
+                style = TextStyle(
+                    fontFamily = font,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 17.sp,
+                    color = TextPrimary,
+                ),
+            )
+            if (handle.isNotBlank()) {
+                Text(
+                    text = handle,
+                    style = TextStyle(
+                        fontFamily = font,
+                        fontSize = 13.sp,
+                        color = TextSecondary,
+                    ),
+                )
+            }
+        }
+        // 캘린더 색 dot — 캘린더에서 파트너 스케줄이 어떤 색으로 뜨는지 미리보기.
+        Box(
+            modifier = Modifier
+                .size(14.dp)
+                .clip(CircleShape)
+                .background(calendarColor),
         )
     }
-    Spacer(Modifier.height(12.dp))
-    UnlinkButton(onClick = onUnlinkClick, modifier = Modifier.padding(horizontal = 16.dp))
+}
+
+/** ISO date (yyyy-MM-dd) → "yyyy.MM.dd" (드로워 · 프로필 handle 과 동일 포맷). */
+private fun formatBirthHandle(iso: String): String {
+    if (iso.length < 10) return ""
+    val year = iso.substring(0, 4)
+    val month = iso.substring(5, 7)
+    val day = iso.substring(8, 10)
+    return "$year.$month.$day"
 }
 
 /** 파괴적 액션 (Row 전체 탭 → 확인 다이얼로그). 톤: 흰 카드 + 빨간 텍스트. */
@@ -280,5 +359,17 @@ private fun CoupleLinkScreenPreview_NotPaired() {
 @Preview
 @Composable
 private fun CoupleLinkScreenPreview_Paired() {
-    ProvidePretendard { CoupleLinkScreen(state = CoupleLinkUiState.Paired) }
+    ProvidePretendard {
+        CoupleLinkScreen(
+            state = CoupleLinkUiState.Paired(
+                partner = UsersRepository.Profile(
+                    id = "preview",
+                    nickname = "민교",
+                    birthDate = "1998-04-15",
+                    profileImageUrl = null,
+                    calendarColor = "pink",
+                ),
+            ),
+        )
+    }
 }

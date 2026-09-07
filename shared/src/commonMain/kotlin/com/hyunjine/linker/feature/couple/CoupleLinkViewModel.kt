@@ -3,6 +3,7 @@ package com.hyunjine.linker.feature.couple
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hyunjine.linker.data.remote.CouplesRepository
+import com.hyunjine.linker.data.remote.UsersRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,7 +14,7 @@ import kotlinx.coroutines.launch
  *
  * - [CoupleLinkUiState.Loading]: 서버 응답 대기.
  * - [CoupleLinkUiState.NotPaired]: 파트너 미조인. 두 개 옵션 (내 초대코드 · 상대 코드 입력) 노출.
- * - [CoupleLinkUiState.Paired]: 이미 파트너와 연결됨. 옵션 카드 감추고 안내 UI.
+ * - [CoupleLinkUiState.Paired]: 파트너와 연결됨. 파트너 프로필 카드 + 연결 해제 UI.
  *
  * 파트너 조인 여부는 `couples.linked_at` non-null 로 판정.
  * 아예 커플 자체가 없는 유저 (미가입) 는 NotPaired 로 취급 — 옵션 진입 시 초대코드 화면이
@@ -24,16 +25,22 @@ class CoupleLinkViewModel : ViewModel() {
     private val _state = MutableStateFlow<CoupleLinkUiState>(CoupleLinkUiState.Loading)
     val state: StateFlow<CoupleLinkUiState> = _state.asStateFlow()
 
-    init { refresh() }
-
-    private fun refresh() {
+    /**
+     * 파트너 조인 상태 · 프로필을 다시 조회한다. `CoupleLinkRoute` 의 `LifecycleResumeEffect`
+     * 가 최초 진입 · RESUMED 재진입마다 호출해 stale UI 를 방어한다 (init 대신 사용).
+     */
+    fun refresh() {
         viewModelScope.launch {
             runCatching {
                 val id = CouplesRepository.myCoupleIdOrNull() ?: return@runCatching null
-                CouplesRepository.getCoupleById(id)
-            }.onSuccess { full ->
+                val full = CouplesRepository.getCoupleById(id) ?: return@runCatching null
+                // linked_at 이 null 이면 아직 혼자 있는 solo couple → 파트너 프로필 fetch 스킵.
+                val partner = if (full.linkedAt != null) UsersRepository.partnerProfile() else null
+                full to partner
+            }.onSuccess { pair ->
+                val (full, partner) = pair ?: (null to null)
                 _state.value = if (full?.linkedAt != null) {
-                    CoupleLinkUiState.Paired
+                    CoupleLinkUiState.Paired(partner)
                 } else {
                     CoupleLinkUiState.NotPaired
                 }
@@ -64,5 +71,9 @@ class CoupleLinkViewModel : ViewModel() {
 sealed interface CoupleLinkUiState {
     data object Loading : CoupleLinkUiState
     data object NotPaired : CoupleLinkUiState
-    data object Paired : CoupleLinkUiState
+    /**
+     * 파트너 조인 완료. [partner] 는 파트너 `public.users` 프로필 (닉네임·생일·아바타·색).
+     * RLS · Realtime · 삭제 rc 등으로 조회 실패하면 null — 이 경우 프로필 카드 자리를 감춘다.
+     */
+    data class Paired(val partner: UsersRepository.Profile?) : CoupleLinkUiState
 }

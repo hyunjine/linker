@@ -18,13 +18,16 @@ struct TodayScheduleProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (TodayScheduleEntry) -> Void) {
-        let payload = SharedTodayStore.read() ?? samplePayload
+        let payload = validatedPayload() ?? samplePayload
         completion(TodayScheduleEntry(date: Date(), payload: payload))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TodayScheduleEntry>) -> Void) {
         let now = Date()
-        let payload = SharedTodayStore.read()
+        // 자정을 넘어가면 App Group 파일이 아직 어제 payload 인 상태 (앱이 refresh 를
+        // 아직 못 돌린 경우). 어제 데이터를 그대로 뿌리면 사용자에게 오해를 줌.
+        // payload.date 가 오늘과 다르면 nil 로 대체 → 위젯은 "일정 없음" 표시.
+        let payload = validatedPayload()
         let entry = TodayScheduleEntry(date: now, payload: payload)
         // 다음 자정에 다시 로드해 날짜 헤더 · 오늘 items 를 갱신.
         let cal = Calendar.current
@@ -34,6 +37,21 @@ struct TodayScheduleProvider: TimelineProvider {
             matchingPolicy: .nextTime,
         ) ?? now.addingTimeInterval(60 * 60 * 6)
         completion(Timeline(entries: [entry], policy: .after(midnight)))
+    }
+
+    /// App Group 파일에서 payload 를 읽되, `date` 가 오늘이 아니면 nil 반환.
+    /// 자정 넘어가서 앱이 아직 refresh 못 돌린 경우 어제 items 를 그대로 노출하는 걸 방지.
+    private func validatedPayload() -> WidgetTodayPayload? {
+        guard let payload = SharedTodayStore.read() else { return nil }
+        let today = todayIsoString()
+        return payload.date == today ? payload : nil
+    }
+
+    private func todayIsoString() -> String {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.timeZone = TimeZone.current
+        return f.string(from: Date())
     }
 
     /// 위젯 갤러리 · 프리뷰용 샘플 데이터. 실제 앱 실행 후에는 App Group 파일이 채움.
