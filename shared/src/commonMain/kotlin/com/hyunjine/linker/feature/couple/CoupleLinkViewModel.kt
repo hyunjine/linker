@@ -25,9 +25,11 @@ class CoupleLinkViewModel : ViewModel() {
     private val _state = MutableStateFlow<CoupleLinkUiState>(CoupleLinkUiState.Loading)
     val state: StateFlow<CoupleLinkUiState> = _state.asStateFlow()
 
-    init { refresh() }
-
-    private fun refresh() {
+    /**
+     * 파트너 조인 상태 · 프로필을 다시 조회한다. `CoupleLinkRoute` 의 `LifecycleResumeEffect`
+     * 가 최초 진입 · RESUMED 재진입마다 호출해 stale UI 를 방어한다 (init 대신 사용).
+     */
+    fun refresh() {
         viewModelScope.launch {
             runCatching {
                 val id = CouplesRepository.myCoupleIdOrNull() ?: return@runCatching null
