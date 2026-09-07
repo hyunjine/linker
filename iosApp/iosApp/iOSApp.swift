@@ -11,6 +11,11 @@ struct iOSApp: App {
     // scenePhase 변화 감지에 필요.
     @Environment(\.scenePhase) private var scenePhase
 
+    // SwiftUI @main 은 기본적으로 UIApplicationDelegate 콜백을 못 받음.
+    // #194 silent push (자정 위젯 refresh) 처리에 didReceiveRemoteNotification 이
+    // 필요해 얇은 AppDelegate 를 붙임.
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     init() {
         // Debug 빌드에서만 테스트용 email/password 로그인 UI 를 노출하기 위한 플래그.
         // Release 빌드에는 이 블록이 컴파일되지 않아 enabled=false 유지.
@@ -141,8 +146,14 @@ struct iOSApp: App {
                 }
         }
         .onChange(of: scenePhase) { _, phase in
-            // foreground 복귀 · 로그인 후 등에도 최신 오늘 일정 반영.
-            if phase == .active { WidgetSync.refresh() }
+            if phase == .active {
+                // foreground 복귀 · 로그인 후 등에도 최신 오늘 일정 반영.
+                WidgetSync.refresh()
+                // FCM 토큰이 아직 user_devices 에 upsert 안 됐을 수 있음 (첫 실행 시 delegate
+                // 는 로그인 전 fire, 이후 캐시된 토큰이라 delegate 재fire X). 명시적 fetch 로
+                // gap 커버 — 세션 있을 때만 실제로 upsert 됨.
+                LinkerPushBridge.shared.ensureFcmTokenRegistered()
+            }
         }
     }
 }
