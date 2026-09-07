@@ -35,8 +35,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -56,8 +54,8 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.unit.Dp
 import com.hyunjine.linker.designsystem.theme.LinkerTheme
 import linker.shared.generated.resources.Res
+import linker.shared.generated.resources.ic_app_logo
 import linker.shared.generated.resources.ic_apple_logo
-import linker.shared.generated.resources.ic_couple_rings
 import linker.shared.generated.resources.ic_google_g
 import linker.shared.generated.resources.ic_kakao_bubble
 import org.jetbrains.compose.resources.DrawableResource
@@ -120,7 +118,7 @@ fun AuthGateScreen(
         )
 
         // ── 로고 (양쪽 상태 모두 노출, 위치만 이동) ──
-        CoupleLogo(
+        AppLogo(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = logoTop)
@@ -221,34 +219,17 @@ fun AuthGateScreen(
 }
 
 /**
- * 파란색 그라디언트 원 안에 두 개의 흰색 링. SVG 배경 원은 컴포저블 [background] 로,
- * 링 두 개는 vector drawable 로 그린다.
+ * 앱 로고 표시 컴포저블. 원본은 `composeResources/drawable/ic_app_logo.png` 하나 —
+ * 이 파일 하나만 교체하면 스플래시 · 로그인 · 그 외 로고 노출 지점이 모두 반영된다.
+ * 원형으로 클립해 앱 아이콘 톤을 유지 (adaptive-icon 이 launcher 마스크에 잘리는 것과 일관).
  */
 @Composable
-fun CoupleLogo(modifier: Modifier = Modifier) {
-    Box(
-        modifier = modifier
-            .clip(CircleShape)
-            .background(
-                Brush.linearGradient(
-                    // Figma: #33A0FF → #008AFF (0.5) → #65B5FF, 대각선 (0,0)→(79,79)
-                    colorStops = arrayOf(
-                        0.0f to Color(0xFF33A0FF),
-                        0.5f to Color(0xFF008AFF),
-                        1.0f to Color(0xFF65B5FF),
-                    ),
-                    start = Offset(0f, 0f),
-                    end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY),
-                ),
-            ),
-        contentAlignment = Alignment.Center,
-    ) {
-        Image(
-            painter = painterResource(Res.drawable.ic_couple_rings),
-            contentDescription = null,
-            modifier = Modifier.fillMaxSize(),
-        )
-    }
+fun AppLogo(modifier: Modifier = Modifier) {
+    Image(
+        painter = painterResource(Res.drawable.ic_app_logo),
+        contentDescription = null,
+        modifier = modifier.clip(CircleShape),
+    )
 }
 
 /**
