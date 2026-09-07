@@ -39,6 +39,28 @@ final class LinkerPushBridge: NSObject, UNUserNotificationCenterDelegate, Messag
         }
     }
 
+    /// 앱 복귀 · 로그인 성공 등 세션이 있을 만한 시점에 호출.
+    /// FCM SDK 캐시된 토큰을 명시적으로 fetch 해 shared 로 upsert 요청.
+    ///
+    /// 이유: `messaging(_:didReceiveRegistrationToken:)` delegate 는 토큰이 **새로 발급/rotate**
+    /// 될 때만 fire. 첫 실행 delegate 시점엔 아직 로그인 전이라 upsert 가 no-op 로 조용히 실패하고,
+    /// 이후 로그인해도 캐시된 동일 토큰이라 delegate 는 다시 fire 안 함 → user_devices 에 row 없이
+    /// 사용자가 방치되는 케이스가 있었다. 이 메서드가 그 gap 을 메꾼다.
+    ///
+    /// 세션이 없어도 shared 의 `UserDevicesRepository.upsertMyDevice` 가 auth.uid() 없으면
+    /// no-op 이라 안전. 반복 호출도 idempotent.
+    func ensureFcmTokenRegistered() {
+        Messaging.messaging().token { token, error in
+            if let error = error {
+                print("[FCM] token fetch 실패: \(error)")
+                return
+            }
+            guard let token = token else { return }
+            print("[FCM] ensure token upsert: \(token.prefix(12))…")
+            FcmTokenBridge.shared.onTokenRefreshedAsync(token: token, platform: "ios")
+        }
+    }
+
     // MARK: - MessagingDelegate
 
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {

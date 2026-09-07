@@ -146,8 +146,14 @@ struct iOSApp: App {
                 }
         }
         .onChange(of: scenePhase) { _, phase in
-            // foreground 복귀 · 로그인 후 등에도 최신 오늘 일정 반영.
-            if phase == .active { WidgetSync.refresh() }
+            if phase == .active {
+                // foreground 복귀 · 로그인 후 등에도 최신 오늘 일정 반영.
+                WidgetSync.refresh()
+                // FCM 토큰이 아직 user_devices 에 upsert 안 됐을 수 있음 (첫 실행 시 delegate
+                // 는 로그인 전 fire, 이후 캐시된 토큰이라 delegate 재fire X). 명시적 fetch 로
+                // gap 커버 — 세션 있을 때만 실제로 upsert 됨.
+                LinkerPushBridge.shared.ensureFcmTokenRegistered()
+            }
         }
     }
 }
