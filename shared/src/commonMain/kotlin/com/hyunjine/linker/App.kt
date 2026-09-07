@@ -231,7 +231,7 @@ private fun String?.toSecureImageUrl(): String? =
 /** ISO date (yyyy-MM-dd) → ProfileSetupScreen 이 파싱하는 "yyyy. MM. dd." 포맷. */
 private fun isoToDisplayBirthDate(iso: String): String {
     val date = runCatching { LocalDate.parse(iso) }.getOrNull() ?: return "2000. 01. 01."
-    val m = date.monthNumber.toString().padStart(2, '0')
+    val m = (date.month.ordinal + 1).toString().padStart(2, '0')
     val d = date.day.toString().padStart(2, '0')
     return "${date.year}. $m. $d."
 }
@@ -240,7 +240,7 @@ private fun isoToDisplayBirthDate(iso: String): String {
 private fun isoToHandleBirthDate(iso: String?): String {
     if (iso.isNullOrBlank()) return ""
     val date = runCatching { LocalDate.parse(iso) }.getOrNull() ?: return ""
-    val m = date.monthNumber.toString().padStart(2, '0')
+    val m = (date.month.ordinal + 1).toString().padStart(2, '0')
     val d = date.day.toString().padStart(2, '0')
     return "${date.year}.$m.$d"
 }

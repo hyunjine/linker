@@ -437,18 +437,18 @@ private fun EndDateWheels(date: LocalDate, minDate: LocalDate, onChange: (LocalD
     // 최대 10년 뒤까지 스크롤 가능 — materialize 상한 (1000) 안에서 충분한 범위.
     val maxYear = minDate.year + 10
     var draftYear by remember(date) { mutableStateOf(date.year.coerceIn(minDate.year, maxYear)) }
-    var draftMonth by remember(date) { mutableStateOf(date.monthNumber) }
+    var draftMonth by remember(date) { mutableStateOf(date.month.ordinal + 1) }
     var draftDay by remember(date) { mutableStateOf(date.day) }
 
     val years = (minDate.year..maxYear).map { "${it}년" }
-    val minMonth = if (draftYear == minDate.year) minDate.monthNumber else 1
+    val minMonth = if (draftYear == minDate.year) minDate.month.ordinal + 1 else 1
     val maxMonth = 12
     val months = (minMonth..maxMonth).map { "${it}월" }
     if (draftMonth < minMonth) draftMonth = minMonth
 
     val monthCap = daysInMonth(draftYear, draftMonth)
     val minDay =
-        if (draftYear == minDate.year && draftMonth == minDate.monthNumber) minDate.day else 1
+        if (draftYear == minDate.year && draftMonth == minDate.month.ordinal + 1) minDate.day else 1
     val days = (minDay..monthCap).map { "${it}일" }
     if (draftDay < minDay) draftDay = minDay
     if (draftDay > monthCap) draftDay = monthCap
@@ -501,7 +501,7 @@ private enum class RepeatKind {
         else RepeatRule.Monthly(anchor.day)
 
         Yearly -> if (current is RepeatRule.Yearly) current
-        else RepeatRule.Yearly(anchor.monthNumber, anchor.day)
+        else RepeatRule.Yearly(anchor.month.ordinal + 1, anchor.day)
     }
 
     companion object {

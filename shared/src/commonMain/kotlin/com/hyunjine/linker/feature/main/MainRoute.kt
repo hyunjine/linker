@@ -92,7 +92,7 @@ fun MainRoute(
 /** ISO date → 드로워 핸들 자리에 표시할 "yyyy.MM.dd". */
 private fun isoToHandleBirthDate(iso: String): String {
     val date = runCatching { LocalDate.parse(iso) }.getOrNull() ?: return ""
-    val m = date.monthNumber.toString().padStart(2, '0')
+    val m = (date.month.ordinal + 1).toString().padStart(2, '0')
     val d = date.day.toString().padStart(2, '0')
     return "${date.year}.$m.$d"
 }
