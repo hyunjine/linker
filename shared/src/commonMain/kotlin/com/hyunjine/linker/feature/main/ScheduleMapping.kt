@@ -38,7 +38,13 @@ internal fun List<SchedulesRepository.Row>.toDayDetail(date: LocalDate, viewerId
         val owner = resolveOwnerForViewer(row.ownerKind, row.createdBy, viewerId).toDayOwner()
         when {
             row.type == "task" -> tasks += DayTask(
-                id = row.id, title = row.title, isDone = row.isDone, owner = owner,
+                id = row.id,
+                title = row.title,
+                isDone = row.isDone,
+                owner = owner,
+                // 뷰어 == 생성자 여부. viewerId 가 null (프로필 로드 전) 이면 안전하게 false —
+                // 잘못 활성화해 서버 실패를 감추는 것보다는 나음.
+                createdByMe = viewerId != null && row.createdBy == viewerId,
             )
             row.allDay -> allDay += AllDaySchedule(
                 id = row.id, title = row.title, owner = owner, barColor = null,

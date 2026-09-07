@@ -63,12 +63,19 @@ enum class DayOwner(val label: String, val bg: Color, val fg: Color) {
     Us("우리", OwnerUsBg, OwnerUsText),
 }
 
-/** 체크박스 할 일 한 개. */
+/**
+ * 체크박스 할 일 한 개.
+ *
+ * @property createdByMe 현재 뷰어가 이 태스크의 생성자인지. 체크박스 토글은 만든 사람만 가능
+ *   (RLS WITH CHECK 로도 서버에서 막지만, 옵티미스틱 UI 가 실패를 삼켜 오해를 유발하므로
+ *   클라이언트에서 토글 자체를 비활성화). `Us` 인 태스크도 실제 `created_by` 로 판정.
+ */
 data class DayTask(
     val id: String,
     val title: String,
     val isDone: Boolean,
     val owner: DayOwner,
+    val createdByMe: Boolean,
 )
 
 /** 시각이 있는 일정 (하루 일정). start/end 는 "오전 10:00" 같은 이미 포맷된 표시 문자열. */
@@ -304,8 +311,20 @@ private fun TaskRow(task: DayTask, onToggle: () -> Unit, onSelect: () -> Unit) {
                     color = if (task.isDone) PrimaryBlue else Separator,
                     shape = RoundedCornerShape(6.dp),
                 )
-                // 체크박스 탭은 토글 · Row 로 이벤트 안 넘어감. 시각 피드백은 색 변화가 대신하므로 리플 X.
-                .clickable(interactionSource = checkInteraction, indication = null, onClick = onToggle),
+                // 만든 사람만 완료 상태를 조작 가능 (#197). 옵티미스틱 UI 가 서버 실패를 감춰
+                // 오해를 유발하므로 클라이언트에서 아예 clickable 을 붙이지 않는다.
+                // 시각 피드백은 색 변화가 대신하므로 리플 X.
+                .then(
+                    if (task.createdByMe) {
+                        Modifier.clickable(
+                            interactionSource = checkInteraction,
+                            indication = null,
+                            onClick = onToggle,
+                        )
+                    } else {
+                        Modifier
+                    },
+                ),
             contentAlignment = Alignment.Center,
         ) {
             if (task.isDone) {
