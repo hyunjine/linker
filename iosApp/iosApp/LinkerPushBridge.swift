@@ -60,4 +60,29 @@ final class LinkerPushBridge: NSObject, UNUserNotificationCenterDelegate, Messag
     ) {
         completionHandler([.banner, .list, .sound, .badge])
     }
+
+    // MARK: - Silent Push (#194)
+
+    /// 백그라운드 silent push 수신 진입점. AppDelegate 의
+    /// `application(_:didReceiveRemoteNotification:fetchCompletionHandler:)` 가 이걸 호출.
+    /// payload data 에 `reason = widget_refresh` 있으면 WidgetSync 트리거.
+    ///
+    /// iOS 는 이 콜백에 최대 ~30초 실행 시간을 주고 completionHandler 호출 여부·
+    /// 결과값으로 앱의 백그라운드 성실도를 평가. 실패 계속되면 이후 silent push
+    /// throttle 되므로 반드시 completionHandler 호출.
+    func handleRemoteNotification(
+        _ userInfo: [AnyHashable: Any],
+        completionHandler: @escaping (UIBackgroundFetchResult) -> Void,
+    ) {
+        let reason = userInfo["reason"] as? String
+        guard reason == "widget_refresh" else {
+            // 다른 종류의 push (스케줄 알림 등) 는 UNUserNotification 이 처리.
+            completionHandler(.noData)
+            return
+        }
+        print("[FCM] silent push received reason=widget_refresh")
+        WidgetSync.refresh { success in
+            completionHandler(success ? .newData : .failed)
+        }
+    }
 }

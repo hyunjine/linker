@@ -34,5 +34,11 @@
 		<string>kakaokompassauth</string>
 		<string>kakaolink</string>
 	</array>
+	<!-- Silent Push (content-available: 1) 를 백그라운드에서 받으려면 필수 (#194).
+	     매일 KST 자정에 서버가 발송해 앱을 잠깐 깨워 위젯 payload 를 갱신한다. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 </dict>
 </plist>
