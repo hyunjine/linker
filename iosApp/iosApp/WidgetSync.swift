@@ -15,15 +15,21 @@ enum WidgetSync {
 
     /// 로그인 직후 · 앱 foreground · 스케줄 변경 후 등 데이터가 바뀔 만한 시점에 호출.
     /// KMP suspend fun 은 Swift 에서 completion handler 로 자동 노출됨.
-    static func refresh() {
+    /// [completion] 은 성공 여부를 알리는 optional 콜백 — BGTask 등에서 완료 시점을 알아야 할 때 사용.
+    static func refresh(completion: ((Bool) -> Void)? = nil) {
         TodayWidgetPayloadBuilder.shared.buildJson { json, error in
             if let error = error {
                 print("[WidgetSync] shared buildJson failed: \(error)")
+                completion?(false)
                 return
             }
-            guard let json = json else { return }
+            guard let json = json else {
+                completion?(false)
+                return
+            }
             write(json)
             WidgetCenter.shared.reloadAllTimelines()
+            completion?(true)
         }
     }
 

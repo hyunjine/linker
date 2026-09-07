@@ -4,6 +4,7 @@ import KakaoSDKCommon
 import KakaoSDKAuth
 import KakaoSDKUser
 import GoogleSignIn
+import BackgroundTasks
 
 @main
 struct iOSApp: App {
@@ -11,12 +12,25 @@ struct iOSApp: App {
     // scenePhase 변화 감지에 필요.
     @Environment(\.scenePhase) private var scenePhase
 
+    // BGAppRefreshTask identifier. Info.plist BGTaskSchedulerPermittedIdentifiers 와 일치.
+    private static let widgetRefreshTaskId = "com.hyunjine.linker.widget-refresh"
+
     init() {
         // Debug 빌드에서만 테스트용 email/password 로그인 UI 를 노출하기 위한 플래그.
         // Release 빌드에는 이 블록이 컴파일되지 않아 enabled=false 유지.
         #if DEBUG
         DebugConfig.shared.enabled = true
         #endif
+
+        // BGAppRefreshTask 핸들러 등록. UIApplication 이 완전히 뜨기 전에 등록되어야
+        // 시스템이 백그라운드 실행 시 우리 코드를 부를 수 있음.
+        // 자정 근방에 iOS 가 앱을 잠깐 (~30초) 깨워 WidgetSync.refresh() 실행 (#191).
+        BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: Self.widgetRefreshTaskId,
+            using: nil,
+        ) { task in
+            handleWidgetRefreshTask(task as! BGAppRefreshTask)
+        }
 
         // FCM: FirebaseApp.configure + Messaging/UNUserNotificationCenter delegate 세팅.
         // 실제 알림 권한 요청은 아래 onAppear 에서 (앱 UI 뜬 뒤에 물어보는 게 UX 상 자연스러움).
@@ -141,8 +155,59 @@ struct iOSApp: App {
                 }
         }
         .onChange(of: scenePhase) { _, phase in
-            // foreground 복귀 · 로그인 후 등에도 최신 오늘 일정 반영.
-            if phase == .active { WidgetSync.refresh() }
+            switch phase {
+            case .active:
+                // foreground 복귀 · 로그인 후 등에도 최신 오늘 일정 반영.
+                WidgetSync.refresh()
+            case .background:
+                // 앱이 백그라운드 진입할 때 다음 자정 refresh 를 예약 (앱을 안 켜도 위젯이 갱신되도록).
+                scheduleNextWidgetRefresh()
+            default:
+                break
+            }
         }
     }
+}
+
+// MARK: - Background widget refresh
+
+/// 다음 KST 00:05 근방에 BGAppRefreshTask 를 예약. iOS 는 실제 실행 시각을 시스템 부하 ·
+/// 배터리 상태 등을 보고 스스로 결정하지만, 우리가 요청한 earliestBeginDate 이후로만 실행.
+/// 자정 직후 5분 여유를 두어 시각 오차 · timezone 전환 상황 방어.
+private func scheduleNextWidgetRefresh() {
+    let request = BGAppRefreshTaskRequest(identifier: "com.hyunjine.linker.widget-refresh")
+    request.earliestBeginDate = nextMidnightPlusFiveMinutes()
+    do {
+        try BGTaskScheduler.shared.submit(request)
+        print("[BGWidgetRefresh] scheduled — earliestBeginDate=\(String(describing: request.earliestBeginDate))")
+    } catch {
+        print("[BGWidgetRefresh] schedule failed: \(error)")
+    }
+}
+
+/// BGAppRefreshTask 실행 콜백. 시스템이 준 최대 실행 시간 (~30초) 안에 위젯 payload 갱신하고
+/// 다음 자정 실행도 다시 예약. expirationHandler 는 시간 초과 시 정리용.
+private func handleWidgetRefreshTask(_ task: BGAppRefreshTask) {
+    // 다음 자정용 새 요청 즉시 예약 (이번 실행이 실패해도 내일은 시도).
+    scheduleNextWidgetRefresh()
+
+    task.expirationHandler = {
+        print("[BGWidgetRefresh] expired before completion")
+        task.setTaskCompleted(success: false)
+    }
+
+    WidgetSync.refresh { success in
+        print("[BGWidgetRefresh] refresh completed success=\(success)")
+        task.setTaskCompleted(success: success)
+    }
+}
+
+private func nextMidnightPlusFiveMinutes() -> Date {
+    let cal = Calendar.current
+    let midnight = cal.nextDate(
+        after: Date(),
+        matching: DateComponents(hour: 0, minute: 0, second: 0),
+        matchingPolicy: .nextTime,
+    ) ?? Date().addingTimeInterval(60 * 60 * 6)
+    return midnight.addingTimeInterval(5 * 60)
 }

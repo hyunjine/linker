@@ -34,5 +34,16 @@
 		<string>kakaokompassauth</string>
 		<string>kakaolink</string>
 	</array>
+	<!-- BGAppRefreshTask 로 자정 근방에 앱을 백그라운드 실행해 위젯 payload 갱신 (#191).
+	     시스템이 정확한 실행 시각을 정하지만 요청한 earliestBeginDate 이후로만 실행. -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.hyunjine.linker.widget-refresh</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>processing</string>
+	</array>
 </dict>
 </plist>
