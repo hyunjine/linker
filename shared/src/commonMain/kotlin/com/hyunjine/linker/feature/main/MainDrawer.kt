@@ -39,7 +39,6 @@ import com.hyunjine.linker.designsystem.theme.SurfaceCard
 import com.hyunjine.linker.designsystem.theme.TextPrimary
 import com.hyunjine.linker.designsystem.theme.TextSecondary
 import linker.shared.generated.resources.Res
-import linker.shared.generated.resources.ic_app_logo
 import linker.shared.generated.resources.ic_cal_31
 import linker.shared.generated.resources.ic_check
 import linker.shared.generated.resources.ic_setting_outline
@@ -98,7 +97,7 @@ fun MainDrawerContent(
             onClick = onSettingsClick,
         )
         Spacer(Modifier.height(12.dp))
-        AllScheduleButtonWithLogo(
+        CoupleLinkRow(
             text = "상대방 연결",
             onClick = onCoupleLinkClick,
         )
@@ -243,10 +242,10 @@ private fun ProfileHeader(name: String, handle: String, imageUrl: String?, onCli
 }
 
 /**
- * "상대방 연결" 전용 — 앱 아이콘 (링키드 링) 을 22dp 로 렌더. 그 외 시각·간격은 [AllScheduleButton] 과 동일.
+ * "상대방 연결" 전용 텍스트 행. [AllScheduleButton] 과 컨테이너 시각은 동일하되 좌측 아이콘 없음.
  */
 @Composable
-private fun AllScheduleButtonWithLogo(
+private fun CoupleLinkRow(
     text: String,
     onClick: () -> Unit,
 ) {
@@ -260,13 +259,7 @@ private fun AllScheduleButtonWithLogo(
             .noRippleClickable(onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Image(
-            painter = painterResource(Res.drawable.ic_app_logo),
-            contentDescription = null,
-            modifier = Modifier.size(22.dp).clip(RoundedCornerShape(5.dp)),
-        )
         Text(
             text = text,
             style = TextStyle(
