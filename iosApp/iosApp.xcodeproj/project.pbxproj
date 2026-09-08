@@ -331,6 +331,8 @@
 /* Begin XCBuildConfiguration section */
 		56FC0BCA518C24A9CD3B4159 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 233C92811BCC42C0FC21E086 /* Configuration */;
+			baseConfigurationReferenceRelativePath = Config.xcconfig;
 			buildSettings = {
 				ARCHS = arm64;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -364,6 +366,8 @@
 		};
 		BDC1031930414CAE0018F84A /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 233C92811BCC42C0FC21E086 /* Configuration */;
+			baseConfigurationReferenceRelativePath = Config.xcconfig;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = LinkerWidget/LinkerWidget.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
@@ -394,6 +398,8 @@
 		};
 		BDC1031A30414CAE0018F84A /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 233C92811BCC42C0FC21E086 /* Configuration */;
+			baseConfigurationReferenceRelativePath = Config.xcconfig;
 			buildSettings = {
 				CODE_SIGN_ENTITLEMENTS = LinkerWidget/LinkerWidget.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
@@ -424,6 +430,8 @@
 		};
 		C5BED061E7CBB6FC62DBB45D /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReferenceAnchor = 233C92811BCC42C0FC21E086 /* Configuration */;
+			baseConfigurationReferenceRelativePath = Config.xcconfig;
 			buildSettings = {
 				ARCHS = arm64;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
