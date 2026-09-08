@@ -48,6 +48,33 @@ jobs:
       - name: Cache Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      - name: Cache Kotlin/Native (~/.konan)
+        # Kotlin/Native 컴파일러 배포판 · 플랫폼 라이브러리 · 커널 캐시. 콜드 러너에서
+        # 재다운로드 시 2~5분 소요 → 캐시 히트하면 대부분 스킵.
+        # 키는 kotlin-native 버전 · konan 하위 폴더 목록 (컴파일러 · dependencies · 캐시)
+        # 이 바뀌면 재빌드. libs.versions.toml 의 kotlin 버전을 hash 에 포함해 kotlin bump
+        # 시 자동 무효화.
+        uses: actions/cache@v4
+        with:
+          path: ~/.konan
+          key: ${{ runner.os }}-konan-${{ hashFiles('gradle/libs.versions.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-konan-
+
+      - name: Cache SPM (Swift Package Manager)
+        # Xcode 가 DerivedData 안의 SourcePackages 로 SPM 체크아웃 · 빌드 산출물을 관리.
+        # 러너가 매 실행 새로 시작되므로 이 폴더를 명시적으로 캐시해 Firebase · GoogleSignIn ·
+        # KakaoSDK 등 무거운 패키지 재다운로드 · 재컴파일 스킵 (~1~2분 절감).
+        # 키는 Package.resolved 해시 — 패키지 버전이 바뀌면 자동 무효화.
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-spm-${{ hashFiles('iosApp/iosApp.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
       - name: Parse VERSION
         id: version
         run: |
