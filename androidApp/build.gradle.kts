@@ -6,20 +6,20 @@ plugins {
     alias(libs.plugins.googleServices)
 }
 
-// 앱 버전은 루트 VERSION 파일이 유일 소스. 파일 첫 줄이 semver (`major.minor.patch`),
-// 그 아래 라인들은 GitHub Release 노트 본문 (릴리즈 워크플로 #184 가 사용).
-// Xcode Cloud ci_post_clone.sh 도 첫 줄을 읽어 MARKETING_VERSION 을 세팅한다.
+// 앱 버전은 `iosApp/Configuration/Config.xcconfig` 의 MARKETING_VERSION 을 단일 소스로 함.
+// iOS 는 이 값을 xcconfig 로 네이티브 사용, Android 는 여기서 파싱해 versionName 에 매핑.
 // versionCode 는 semver 를 정수로 변환 (10000·100·1 자리) — Play Store 는 versionCode 가 항상
-// 증가해야 하므로, VERSION 파일이 항상 올라가는 한 이 정수도 자동으로 증가한다.
-private val appVersionName: String = rootProject.file("VERSION")
+// 증가해야 하므로, marketing 이 항상 올라가는 한 이 정수도 자동으로 증가한다.
+private val appVersionName: String = rootProject.file("iosApp/Configuration/Config.xcconfig")
     .readLines()
-    .firstOrNull { it.isNotBlank() }
+    .firstOrNull { it.trim().startsWith("MARKETING_VERSION=") }
+    ?.substringAfter("=")
     ?.trim()
-    ?: error("VERSION 파일이 비어있음")
+    ?: error("Config.xcconfig 에 MARKETING_VERSION= 라인이 없음")
 private val appVersionCode: Int = appVersionName
     .split(".")
     .let { parts ->
-        require(parts.size == 3) { "VERSION 은 major.minor.patch 형식이어야 함 (현재: $appVersionName)" }
+        require(parts.size == 3) { "MARKETING_VERSION 은 major.minor.patch 형식이어야 함 (현재: $appVersionName)" }
         val (major, minor, patch) = parts.map(String::toInt)
         require(minor in 0..99 && patch in 0..99) { "minor · patch 는 0..99 (현재: $appVersionName)" }
         major * 10000 + minor * 100 + patch
