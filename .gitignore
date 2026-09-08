@@ -20,4 +20,3 @@ node_modules/
 .claude/settings.local.json
 .claude/settings.json
 .claude/local/
-iosApp/Configuration/Config.xcconfig
