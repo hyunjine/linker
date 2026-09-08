@@ -1,6 +1,14 @@
-// 공개 식별자 + 릴리즈 버전. 시크릿은 없음 (Kakao 제거 이후) — 저장소에 checkin.
-// 버전 업 방법: VERSION 파일과 이 파일의 MARKETING_VERSION 을 동시 업데이트, 그리고
-// CURRENT_PROJECT_VERSION 을 +1 (TestFlight 는 marketing 동일 + build 유니크 요구).
+// 공개 식별자 + 릴리즈 버전 + 클라이언트에 baked-in 될 API 키.
+// 시크릿이라 부를 만한 값 없음 — 어차피 IPA/APK 안에 박혀 배포되므로 저장소에 checkin.
+//   - Supabase Publishable key: 이름 그대로 공개용 (RLS 로 보호)
+//   - Google Web OAuth Client ID: OAuth 공개 식별자
+//   - data.go.kr 특일정보 API 키: 클라이언트에 baked in, rate-limit per-key (rotate 필요 시 별도 처리)
+//
+// 로컬에서 override 하고 싶으면 `local.properties` 에 같은 키를 넣으면 그 값이 우선.
+// Xcode Cloud/CI 는 local.properties 없어도 이 파일의 값을 사용.
+//
+// 버전 업 방법: VERSION → CHANGELOG.md 갱신, 그리고 이 파일의 MARKETING_VERSION 을
+// 함께 업데이트 + CURRENT_PROJECT_VERSION +1 (TestFlight 는 marketing 동일 + build 유니크).
 
 TEAM_ID=YCCX589JXZ
 
@@ -9,3 +17,17 @@ PRODUCT_BUNDLE_IDENTIFIER=com.hyunjine.linker
 
 MARKETING_VERSION=1.2.0
 CURRENT_PROJECT_VERSION=3
+
+// Supabase (프로젝트 guxpohhhacljwhyiskdk).
+// 주의: 아래 URL 은 build.gradle.kts 가 자체 파싱해 씀. Xcode 의 xcconfig 프리프로세서
+// 는 `//` 뒤를 주석으로 취급해 URL 을 truncate 할 수 있으므로, iOS 쪽 build setting
+// (Info.plist substitution 등) 으로는 이 값을 참조하지 않는다 — shared Kotlin/Native
+// framework 안의 `Secrets.SupabaseUrl` 상수로만 소비된다.
+SUPABASE_URL=https://guxpohhhacljwhyiskdk.supabase.co
+SUPABASE_PUBLISHABLE_KEY=sb_publishable_1O5ktPM0NZNlVg8lFWeA4w_Mae55UqH
+
+// Google OAuth Web Client ID (Android Credential Manager · Supabase audience 검증)
+GOOGLE_WEB_CLIENT_ID=319241271170-talfk79qn5qdu8lkjm27rhm7r52ocfep.apps.googleusercontent.com
+
+// data.go.kr 특일정보 API key (URL-encoded 원본)
+HOLIDAY_API_KEY=MDrnWhPMe%2FUxsbwq%2FchXWEaPt81DPw%2BIkTIDFm0O8n%2BKF29ZHGKyyA1FbhY2oW39RnRUkwHMyDzGmclKFrJHnQ%3D%3D
