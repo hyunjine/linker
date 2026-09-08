@@ -1,18 +1,10 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import java.util.Properties
 
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.googleServices)
 }
-
-// 카카오 네이티브 앱 키를 local.properties → manifest placeholder 로 주입.
-// AndroidManifest 의 kakao${KAKAO_NATIVE_APP_KEY}://oauth 스킴에 사용.
-private val kakaoNativeAppKey: String = Properties().apply {
-    val f = rootProject.file("local.properties")
-    if (f.exists()) f.inputStream().use { load(it) }
-}.getProperty("kakao.native.app.key", "")
 
 // 앱 버전은 루트 VERSION 파일이 유일 소스. 파일 첫 줄이 semver (`major.minor.patch`),
 // 그 아래 라인들은 GitHub Release 노트 본문 (릴리즈 워크플로 #184 가 사용).
@@ -64,9 +56,6 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = appVersionCode
         versionName = appVersionName
-
-        // Kakao SDK 콜백 스킴 kakao{키}://oauth 의 {키} 자리에 주입.
-        manifestPlaceholders["KAKAO_NATIVE_APP_KEY"] = kakaoNativeAppKey
     }
     packaging {
         resources {

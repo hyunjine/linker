@@ -18,7 +18,6 @@ val localProperties = Properties().apply {
 val holidayApiKey: String = localProperties.getProperty("holiday.api.key", "")
 val supabaseUrl: String = localProperties.getProperty("supabase.url", "")
 val supabasePublishableKey: String = localProperties.getProperty("supabase.publishableKey", "")
-val kakaoNativeAppKey: String = localProperties.getProperty("kakao.native.app.key", "")
 val googleWebClientId: String = localProperties.getProperty("google.web.client.id", "")
 
 val generatedSecretsDir: Provider<Directory> =
@@ -29,12 +28,10 @@ val generateSecrets by tasks.registering {
     val holidayKey = holidayApiKey
     val sbUrl = supabaseUrl
     val sbKey = supabasePublishableKey
-    val kakaoKey = kakaoNativeAppKey
     val googleWeb = googleWebClientId
     inputs.property("holidayApiKey", holidayKey)
     inputs.property("supabaseUrl", sbUrl)
     inputs.property("supabasePublishableKey", sbKey)
-    inputs.property("kakaoNativeAppKey", kakaoKey)
     inputs.property("googleWebClientId", googleWeb)
     outputs.dir(outputDir)
     doLast {
@@ -54,9 +51,6 @@ val generateSecrets by tasks.registering {
 
                 /** Supabase Publishable key (`sb_publishable_...`). 클라이언트에 안전하게 임베드. local.properties `supabase.publishableKey`. */
                 const val SupabasePublishableKey: String = "$sbKey"
-
-                /** 카카오 네이티브 앱 키. Android SDK 초기화 + kakao{key}://oauth 스킴. local.properties `kakao.native.app.key`. */
-                const val KakaoNativeAppKey: String = "$kakaoKey"
 
                 /**
                  * Google **Web** OAuth 2.0 Client ID (형식: `NUMBER-HASH.apps.googleusercontent.com`).
@@ -120,7 +114,6 @@ kotlin {
             implementation(libs.compose.uiToolingPreview)
             implementation(libs.compose.uiTooling)
             implementation(libs.ktor.client.okhttp)
-            implementation(libs.kakao.user)
             // Google Sign-In via Credential Manager (modern API)
             implementation(libs.androidx.credentials)
             implementation(libs.androidx.credentials.play.services.auth)

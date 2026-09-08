@@ -20,7 +20,6 @@ material3 = "1.11.0-alpha07"
 navigation3 = "1.1.1"
 supabase = "3.7.0"
 coil = "3.5.0"
-kakaoSdk = "2.20.6"
 firebaseBom = "34.4.0"
 googleServices = "4.4.4"
 androidxCredentials = "1.5.0"
@@ -55,7 +54,7 @@ ktor-serialization-kotlinx-json = { module = "io.ktor:ktor-serialization-kotlinx
 ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
 
-# supabase-kt (KMP). auth-kt: Supabase Auth (카카오 provider), postgrest-kt: 테이블 CRUD.
+# supabase-kt (KMP). auth-kt: Supabase Auth (Apple · Google 소셜 로그인), postgrest-kt: 테이블 CRUD.
 # realtime-kt: postgres_changes 구독 (파트너 변경 즉시 sync).
 # storage-kt: avatars 버킷 업로드 (프로필 사진 저장).
 supabase-auth = { module = "io.github.jan-tennert.supabase:auth-kt", version.ref = "supabase" }
@@ -66,9 +65,6 @@ supabase-storage = { module = "io.github.jan-tennert.supabase:storage-kt", versi
 # Coil3 (KMP). AsyncImage 로 URL 로부터 아바타 로딩. 네트워크는 ktor engine 재사용.
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-ktor = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
-
-# Kakao SDK (Android only). v2-user 로 로그인 · 유저 API. iOS 는 SPM 으로 별도 통합.
-kakao-user = { module = "com.kakao.sdk:v2-user", version.ref = "kakaoSdk" }
 
 # Google Sign-In (Android). Credential Manager (androidx.credentials) + Google ID helper.
 # iOS 는 SPM 의 google-signin-ios 로 별도 통합.

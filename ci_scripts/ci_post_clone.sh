@@ -4,12 +4,11 @@
 #
 # 두 가지 담당:
 #   (1) 루트 VERSION 파일 첫 줄 → iosApp/Configuration/Config.xcconfig 재생성
-#       (`Config.xcconfig` 는 KAKAO 시크릿 포함해 .gitignore, fresh clone 마다 필요)
+#       (`Config.xcconfig` 는 .gitignore, fresh clone 마다 재생성 필요)
 #   (2) KMP 빌드를 위해 JDK 21 을 다운로드해 $CI_DERIVED_DATA_PATH/JDK/Home 에 배치
 #       (`Compile Kotlin Framework` Run Script 가 그 경로에서 JAVA_HOME 을 찾음)
 #
 # App Store Connect → Xcode Cloud → Environment Variables 에 등록 필요:
-#   - KAKAO_NATIVE_APP_KEY  (Secret) 카카오 네이티브 앱 키
 #   - JAVA_HOME             값: /Volumes/workspace/DerivedData/JDK/Home
 #       (Xcode Cloud 는 $CI_DERIVED_DATA_PATH=/Volumes/workspace/DerivedData 고정)
 #       이 변수가 있어야 Run Script phase 가 JAVA_HOME 을 상속받음. 스크립트에서
@@ -24,7 +23,6 @@ set -eu
 
 : "${CI_PRIMARY_REPOSITORY_PATH:?CI_PRIMARY_REPOSITORY_PATH 미설정 — Xcode Cloud 외부 실행 아님?}"
 : "${CI_DERIVED_DATA_PATH:?CI_DERIVED_DATA_PATH 미설정 — Xcode Cloud 외부 실행 아님?}"
-: "${KAKAO_NATIVE_APP_KEY:?KAKAO_NATIVE_APP_KEY 미설정 — App Store Connect Xcode Cloud 환경변수에 secret 으로 등록 필요}"
 
 # ─────────── JDK 21 (Adoptium Temurin) 다운로드 ───────────
 # Homebrew 방식은 러너마다 안정성이 달라 검증된 방식으로 전환.
@@ -91,8 +89,7 @@ if [ -z "$APP_VERSION" ]; then
   exit 1
 fi
 
-# 하드코딩 값은 저장소에 노출되어도 무해한 공개 식별자 (TEAM_ID, Bundle ID, 앱 이름).
-# 시크릿은 오직 KAKAO_NATIVE_APP_KEY 뿐이며 환경변수에서 주입.
+# 모두 저장소에 노출되어도 무해한 공개 식별자 (TEAM_ID, Bundle ID, 앱 이름).
 cat > "$XCCONFIG_PATH" <<EOF
 TEAM_ID=YCCX589JXZ
 
@@ -101,8 +98,6 @@ PRODUCT_BUNDLE_IDENTIFIER=com.hyunjine.linker
 
 CURRENT_PROJECT_VERSION=${CI_BUILD_NUMBER:-1}
 MARKETING_VERSION=$APP_VERSION
-
-KAKAO_NATIVE_APP_KEY=$KAKAO_NATIVE_APP_KEY
 EOF
 
 echo "[ci_post_clone] Config.xcconfig 생성 완료 (version=$APP_VERSION build=${CI_BUILD_NUMBER:-1})"

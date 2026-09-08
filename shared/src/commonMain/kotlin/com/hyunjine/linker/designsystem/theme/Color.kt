@@ -16,10 +16,6 @@ val LogoGradient: Brush = Brush.horizontalGradient(
     colors = listOf(LogoGradientStart, LogoGradientEnd),
 )
 
-// 카카오 로그인 버튼
-val KakaoYellow = Color(0xFFFEE500)
-val KakaoLabel = Color(0xFF3C1E1E)
-
 // iOS 시스템 톤 (프로필 편집 등에서 사용)
 val SurfaceGray = Color(0xFFF2F2F7)      // 화면 배경
 val SurfaceCard = Color.White            // 카드 배경

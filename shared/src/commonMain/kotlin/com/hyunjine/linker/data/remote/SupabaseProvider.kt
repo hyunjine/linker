@@ -15,8 +15,8 @@ import io.github.jan.supabase.storage.Storage
  * 만든 [Secrets] 를 참조.
  *
  * 현재 설치 모듈:
- * - [Auth]: Supabase Auth. 인증은 카카오 SDK 로그인 → `signInWith(IDToken, Kakao)` 흐름. 별도
- *   OAuth 딥링크 (scheme/host) 는 불필요해 설정하지 않는다.
+ * - [Auth]: Supabase Auth. Apple/Google 네이티브 로그인 → `signInWith(IDToken, ...)` 흐름.
+ *   별도 OAuth 딥링크 (scheme/host) 는 불필요해 설정하지 않는다.
  * - [Postgrest]: PostgREST 자동 API.
  * - [Realtime]: postgres_changes 구독. 파트너 변경 즉시 sync (schedules · anniversaries · users).
  * - [Storage]: avatars 버킷 (프로필 사진 업로드).
