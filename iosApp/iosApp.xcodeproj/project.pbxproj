@@ -12,9 +12,6 @@
 		BD6748AE30454ABF001737E5 /* FirebaseCrashlytics in Frameworks */ = {isa = PBXBuildFile; productRef = BD6748AD30454ABF001737E5 /* FirebaseCrashlytics */; };
 		BD6748B230454ABF001737E5 /* GoogleSignIn in Frameworks */ = {isa = PBXBuildFile; productRef = BD6748B130454ABF001737E5 /* GoogleSignIn */; };
 		BD6748B430454ABF001737E5 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = BD6748B330454ABF001737E5 /* GoogleSignInSwift */; };
-		BD8F01D1303BF1B8000751CF /* KakaoSDKAuth in Frameworks */ = {isa = PBXBuildFile; productRef = BD8F01D0303BF1B8000751CF /* KakaoSDKAuth */; };
-		BD8F01D3303BF1B8000751CF /* KakaoSDKCommon in Frameworks */ = {isa = PBXBuildFile; productRef = BD8F01D2303BF1B8000751CF /* KakaoSDKCommon */; };
-		BD8F01D5303BF1B8000751CF /* KakaoSDKUser in Frameworks */ = {isa = PBXBuildFile; productRef = BD8F01D4303BF1B8000751CF /* KakaoSDKUser */; };
 		BDC1030830414CAD0018F84A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BDC1030730414CAD0018F84A /* WidgetKit.framework */; };
 		BDC1030A30414CAD0018F84A /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BDC1030930414CAD0018F84A /* SwiftUI.framework */; };
 		BDC1031730414CAE0018F84A /* LinkerWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BDC1030630414CAD0018F84A /* LinkerWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -97,14 +94,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				BD8F01D3303BF1B8000751CF /* KakaoSDKCommon in Frameworks */,
-				BD8F01D1303BF1B8000751CF /* KakaoSDKAuth in Frameworks */,
 				BD6748AC30454ABF001737E5 /* FirebaseMessaging in Frameworks */,
 				BD6748AA30454ABF001737E5 /* FirebaseCore in Frameworks */,
 				BD6748AE30454ABF001737E5 /* FirebaseCrashlytics in Frameworks */,
 				BD6748B230454ABF001737E5 /* GoogleSignIn in Frameworks */,
 				BD6748B430454ABF001737E5 /* GoogleSignInSwift in Frameworks */,
-				BD8F01D5303BF1B8000751CF /* KakaoSDKUser in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -173,9 +167,6 @@
 			);
 			name = iosApp;
 			packageProductDependencies = (
-				BD8F01D0303BF1B8000751CF /* KakaoSDKAuth */,
-				BD8F01D2303BF1B8000751CF /* KakaoSDKCommon */,
-				BD8F01D4303BF1B8000751CF /* KakaoSDKUser */,
 				BD6748A930454ABF001737E5 /* FirebaseCore */,
 				BD6748AB30454ABF001737E5 /* FirebaseMessaging */,
 				BD6748AD30454ABF001737E5 /* FirebaseCrashlytics */,
@@ -236,7 +227,6 @@
 			mainGroup = 607E93E2C25EDA8AFA445BA9;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				BD8F01CE303BF0C9000751CF /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */,
 				BD6748A830454A46001737E5 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				BD6748B030454ABF001737E5 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
 			);
@@ -638,14 +628,6 @@
 				minimumVersion = 9.0.0;
 			};
 		};
-		BD8F01CE303BF0C9000751CF /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/kakao/kakao-ios-sdk";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.28.0;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -673,21 +655,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = BD6748B030454ABF001737E5 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignInSwift;
-		};
-		BD8F01D0303BF1B8000751CF /* KakaoSDKAuth */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = BD8F01CE303BF0C9000751CF /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */;
-			productName = KakaoSDKAuth;
-		};
-		BD8F01D2303BF1B8000751CF /* KakaoSDKCommon */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = BD8F01CE303BF0C9000751CF /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */;
-			productName = KakaoSDKCommon;
-		};
-		BD8F01D4303BF1B8000751CF /* KakaoSDKUser */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = BD8F01CE303BF0C9000751CF /* XCRemoteSwiftPackageReference "kakao-ios-sdk" */;
-			productName = KakaoSDKUser;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -13,9 +13,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import androidx.savedstate.serialization.SavedStateConfiguration
-import com.hyunjine.linker.auth.rememberKakaoLoginClient
 import com.hyunjine.linker.auth.sessionStatus
-import com.hyunjine.linker.auth.signInWithKakao
 import com.hyunjine.linker.auth.signOut
 import com.hyunjine.linker.data.remote.AnniversariesRepository
 import com.hyunjine.linker.data.remote.CouplesRepository
@@ -269,12 +267,11 @@ fun App() {
                         // 온보딩 중 뒤로가기 = 로그아웃. 프로필 미완성 상태로 아무데도 갈 곳이 없어
                         // 스택 pop 은 no-op 이 되어버림. Supabase signOut → sessionStatus NotAuthenticated
                         // → LaunchedEffect 가 AuthRoute 로 리셋해 로그인 화면 복귀.
-                        val kakaoForSignOut = rememberKakaoLoginClient()
                         com.hyunjine.linker.feature.profile.ProfileSetupRoute(
                             currentUser = currentUser,
                             onBack = {
                                 scope.launch {
-                                    runCatching { signOut(kakaoForSignOut) }
+                                    runCatching { signOut() }
                                         .onFailure { println("[Auth] ProfileSetup 취소 signOut 실패: $it") }
                                 }
                             },
@@ -328,7 +325,6 @@ fun App() {
                         )
                     }
                     entry<MainRoute> {
-                        val kakao = rememberKakaoLoginClient()
                         com.hyunjine.linker.feature.main.MainRoute(
                             onAddSchedule = { tappedDate, type ->
                                 backStack.add(
@@ -348,7 +344,7 @@ fun App() {
                             onCoupleLinkClick = { backStack.add(CoupleLinkRoute) },
                             onLogout = {
                                 scope.launch {
-                                    runCatching { signOut(kakao) }
+                                    runCatching { signOut() }
                                         .onFailure { println("[Auth] signOut 실패: $it") }
                                 }
                             },
