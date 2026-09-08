@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -131,6 +132,12 @@ fun CreateScheduleScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    // 스크롤 영역이 IME (키보드) 를 명시적으로 회피하도록. 상위 Column 의
+                    // safeDrawing 이 IME 도 커버해야 하지만, CMP iOS 에서 keyboard inset 이
+                    // 간헐적으로 누락되는 케이스가 있어 방어적으로 이 레벨에서 한 번 더 적용
+                    // (#240). safeDrawing 이 이미 IME 를 반영한 상태에서 imePadding 은 no-op
+                    // 이라 double padding 문제도 없음.
+                    .imePadding()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
@@ -233,7 +240,10 @@ fun CreateScheduleScreen(
                     }
                 }
 
-                Spacer(Modifier.height(24.dp))
+                // 삭제 버튼 · 마지막 항목이 스크롤 끝에서 잘려 보이는 케이스 방어. 상위 Column 의
+                // safeDrawing 이 이미 홈 인디케이터를 커버하지만 시각적 breathing room 확보용
+                // (기존 24 → 40, #240 리포트 참고).
+                Spacer(Modifier.height(40.dp))
             }
         }
     }
