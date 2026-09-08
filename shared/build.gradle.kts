@@ -9,16 +9,40 @@ plugins {
     alias(libs.plugins.kotlinSerialization)
 }
 
-// local.properties 의 holiday.api.key 를 읽어 commonMain 에 생성되는 Secrets.kt 파일에 넣는다.
-// local.properties 는 gitignore 되어 있어 키가 저장소에 안 들어감.
+// 앱 시크릿은 두 소스에서 읽는다:
+//   1) `iosApp/Configuration/Config.xcconfig` — 저장소에 checkin. Xcode Cloud/CI 빌드도
+//      항상 값을 갖도록 하기 위함. 여기 있는 값은 결국 IPA/APK 에 baked in 되어 배포되므로
+//      "숨겨봤자 얻는 게 없는" 성격 (Supabase publishable key · OAuth 공개 식별자 등).
+//   2) `local.properties` — gitignore. 로컬 개발용 override. 같은 키가 있으면 우선.
 val localProperties = Properties().apply {
     val f = rootProject.file("local.properties")
     if (f.exists()) f.inputStream().use { load(it) }
 }
-val holidayApiKey: String = localProperties.getProperty("holiday.api.key", "")
-val supabaseUrl: String = localProperties.getProperty("supabase.url", "")
-val supabasePublishableKey: String = localProperties.getProperty("supabase.publishableKey", "")
-val googleWebClientId: String = localProperties.getProperty("google.web.client.id", "")
+val xcconfigProperties: Map<String, String> = rootProject.file("iosApp/Configuration/Config.xcconfig")
+    .takeIf { it.exists() }
+    ?.readLines()
+    ?.mapNotNull { raw ->
+        val line = raw.trim()
+        if (line.isEmpty() || line.startsWith("//")) return@mapNotNull null
+        val eq = line.indexOf('=')
+        if (eq <= 0) return@mapNotNull null
+        // Xcode 는 `//` 뒤를 주석으로 취급하지만, 우리는 build 시점에만 값을 읽어 Kotlin
+        // 상수로 baked-in 하므로 URL 등을 그대로 사용해도 무방 (Xcode build setting 으로
+        // 는 노출되지 않는다).
+        line.substring(0, eq).trim() to line.substring(eq + 1).trim()
+    }
+    ?.toMap()
+    .orEmpty()
+
+/** local.properties (dev override) 우선 → 없으면 Config.xcconfig 값. 둘 다 없으면 "". */
+fun secret(localKey: String, xcconfigKey: String): String =
+    localProperties.getProperty(localKey)?.takeIf { it.isNotBlank() }
+        ?: xcconfigProperties[xcconfigKey].orEmpty()
+
+val holidayApiKey: String = secret("holiday.api.key", "HOLIDAY_API_KEY")
+val supabaseUrl: String = secret("supabase.url", "SUPABASE_URL")
+val supabasePublishableKey: String = secret("supabase.publishableKey", "SUPABASE_PUBLISHABLE_KEY")
+val googleWebClientId: String = secret("google.web.client.id", "GOOGLE_WEB_CLIENT_ID")
 
 val generatedSecretsDir: Provider<Directory> =
     layout.buildDirectory.dir("generated/secrets/kotlin")
