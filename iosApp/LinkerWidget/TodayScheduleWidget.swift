@@ -154,24 +154,37 @@ private struct CircularView: View {
 private struct RectangularView: View {
     let entry: TodayScheduleEntry
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(todayHeader).font(.caption2).foregroundStyle(.secondary)
-            if let items = entry.payload?.items, !items.isEmpty {
-                ForEach(items.prefix(2)) { item in
-                    HStack(spacing: 4) {
-                        if let t = item.timeLabel { Text(t).font(.caption2).monospacedDigit() }
-                        Text(item.title).font(.caption).lineLimit(1)
-                    }
+        // 잠금화면 rectangular 는 세로 공간이 극도로 제한적. 날짜 헤더는 iOS 잠금화면 상단
+        // 시계/날짜와 중복되어 있어 제거 (#174) — 확보한 여유로 일정 row 를 하나 더 노출.
+        // 홈화면과 동일 패턴 (ViewThatFits) 을 쓰되 rectangular 전용 컴팩트 row 로.
+        if let items = entry.payload?.items, !items.isEmpty {
+            ViewThatFits(in: .vertical) {
+                ForEach(0..<items.count, id: \.self) { hiddenCount in
+                    rectangularContent(items: items, hiddenCount: hiddenCount)
                 }
-            } else {
-                Text("일정 없음").font(.caption).foregroundStyle(.secondary)
+            }
+        } else {
+            VStack(alignment: .leading) {
+                Text("오늘 일정 없음").font(.caption).foregroundStyle(.secondary)
             }
         }
     }
 
-    private var todayHeader: String {
-        let f = DateFormatter(); f.dateFormat = "M월 d일 (E)"; f.locale = Locale(identifier: "ko_KR")
-        return f.string(from: entry.date)
+    @ViewBuilder
+    private func rectangularContent(items: [WidgetSchedule], hiddenCount: Int) -> some View {
+        let shown = items.count - hiddenCount
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(items.prefix(shown)) { item in
+                HStack(spacing: 4) {
+                    if let t = item.timeLabel { Text(t).font(.caption2).monospacedDigit() }
+                    Text(item.title).font(.caption).lineLimit(1)
+                }
+            }
+            if hiddenCount > 0 {
+                Text("+\(hiddenCount)개")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+        }
     }
 }
 
