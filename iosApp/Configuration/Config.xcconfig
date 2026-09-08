@@ -1,0 +1,11 @@
+// 공개 식별자 + 릴리즈 버전. 시크릿은 없음 (Kakao 제거 이후) — 저장소에 checkin.
+// 버전 업 방법: VERSION 파일과 이 파일의 MARKETING_VERSION 을 동시 업데이트, 그리고
+// CURRENT_PROJECT_VERSION 을 +1 (TestFlight 는 marketing 동일 + build 유니크 요구).
+
+TEAM_ID=YCCX589JXZ
+
+PRODUCT_NAME=Linker
+PRODUCT_BUNDLE_IDENTIFIER=com.hyunjine.linker
+
+MARKETING_VERSION=1.2.0
+CURRENT_PROJECT_VERSION=3
