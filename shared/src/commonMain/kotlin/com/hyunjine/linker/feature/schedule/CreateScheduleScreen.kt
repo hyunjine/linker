@@ -6,15 +6,17 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -108,15 +110,31 @@ fun CreateScheduleScreen(
     // 고른 순간 화면 전체가 잠겨 다시 "나/공동" 으로 되돌릴 방법이 없어진다.
     val canEdit = !editing || (initial?.isEditableByCurrentUser ?: true)
 
+    // 화면 임의 지점 탭 → 키보드 dismiss. TextField · 버튼 등 자체 탭을 consume 하는
+    // 컴포넌트는 pointerInput 을 통과 못 하므로 그쪽 인터랙션은 그대로 유지 (#240).
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(SurfaceGray),
+            .background(SurfaceGray)
+            .pointerInput(Unit) {
+                detectTapGestures(onTap = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                })
+            },
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.safeDrawing),
+                // safeDrawing 은 CMP iOS 에서 홈 인디케이터 영역을 놓치는 케이스가 있어
+                // systemBarsPadding + imePadding 조합으로 교체 (#240). systemBars 는 상단
+                // 상태바 + 하단 홈 인디케이터를 명시 커버, imePadding 은 키보드가 뜰 때만
+                // 하단 여백 추가.
+                .systemBarsPadding()
+                .imePadding(),
         ) {
             AppTopBar(
                 title = if (editing) "일정 수정" else "일정 추가",
@@ -132,12 +150,6 @@ fun CreateScheduleScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    // 스크롤 영역이 IME (키보드) 를 명시적으로 회피하도록. 상위 Column 의
-                    // safeDrawing 이 IME 도 커버해야 하지만, CMP iOS 에서 keyboard inset 이
-                    // 간헐적으로 누락되는 케이스가 있어 방어적으로 이 레벨에서 한 번 더 적용
-                    // (#240). safeDrawing 이 이미 IME 를 반영한 상태에서 imePadding 은 no-op
-                    // 이라 double padding 문제도 없음.
-                    .imePadding()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
