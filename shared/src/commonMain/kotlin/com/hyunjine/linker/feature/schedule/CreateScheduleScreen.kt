@@ -2,19 +2,19 @@ package com.hyunjine.linker.feature.schedule
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.systemBarsPadding
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.rememberScrollState
@@ -110,31 +110,33 @@ fun CreateScheduleScreen(
     // 고른 순간 화면 전체가 잠겨 다시 "나/공동" 으로 되돌릴 방법이 없어진다.
     val canEdit = !editing || (initial?.isEditableByCurrentUser ?: true)
 
-    // 화면 임의 지점 탭 → 키보드 dismiss. TextField · 버튼 등 자체 탭을 consume 하는
-    // 컴포넌트는 pointerInput 을 통과 못 하므로 그쪽 인터랙션은 그대로 유지 (#240).
+    // 화면 임의 지점 탭 → 키보드 dismiss. clickable(indication=null) 은 자식이 자체
+    // clickable 로 이벤트를 consume 하는 영역은 그대로 두고 (TextField, RowItem, 버튼),
+    // 나머지 빈 영역만 이 콜백을 발화시킨다. `pointerInput { detectTapGestures }` 는
+    // CMP iOS 에서 상위 scroll modifier 와 경쟁하면서 신뢰성이 떨어져 이 방식으로 교체 (#240).
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val dismissInteraction = remember { MutableInteractionSource() }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(SurfaceGray)
-            .pointerInput(Unit) {
-                detectTapGestures(onTap = {
-                    focusManager.clearFocus()
-                    keyboardController?.hide()
-                })
+            .clickable(
+                interactionSource = dismissInteraction,
+                indication = null,
+            ) {
+                focusManager.clearFocus()
+                keyboardController?.hide()
             },
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                // safeDrawing 은 CMP iOS 에서 홈 인디케이터 영역을 놓치는 케이스가 있어
-                // systemBarsPadding + imePadding 조합으로 교체 (#240). systemBars 는 상단
-                // 상태바 + 하단 홈 인디케이터를 명시 커버, imePadding 은 키보드가 뜰 때만
-                // 하단 여백 추가.
-                .systemBarsPadding()
-                .imePadding(),
+                // safeDrawing = systemBars ∪ ime ∪ displayCutout. CMP iOS 에서 상단 노치 · 하단
+                // 홈 인디케이터 · 키보드 영역을 한 번에 커버. AnniversariesScreen · ProfileSetupScreen
+                // 과 동일 패턴 (#240).
+                .windowInsetsPadding(WindowInsets.safeDrawing),
         ) {
             AppTopBar(
                 title = if (editing) "일정 수정" else "일정 추가",
@@ -149,7 +151,11 @@ fun CreateScheduleScreen(
 
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    // AppTopBar 아래 남은 공간을 전부 차지 + 그 안에서 스크롤. `fillMaxSize` 대신
+                    // `weight(1f)` 를 쓰면 상위 Column 이 부모 높이를 이미 알기 때문에 scroll extent
+                    // 가 확정되어 마지막 아이템이 잘리는 케이스가 사라진다.
+                    .weight(1f)
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 16.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(20.dp),
@@ -252,10 +258,9 @@ fun CreateScheduleScreen(
                     }
                 }
 
-                // 삭제 버튼 · 마지막 항목이 스크롤 끝에서 잘려 보이는 케이스 방어. 상위 Column 의
-                // safeDrawing 이 이미 홈 인디케이터를 커버하지만 시각적 breathing room 확보용
-                // (기존 24 → 40, #240 리포트 참고).
-                Spacer(Modifier.height(40.dp))
+                // 마지막 카드 아래 breathing room. safeDrawing 이 하단 인셋은 커버하므로
+                // 여기는 순수 여백 목적 — 삭제 버튼과 화면 끝 사이 시각적 여유 (#240).
+                Spacer(Modifier.height(16.dp))
             }
         }
     }
