@@ -24,6 +24,7 @@ firebaseBom = "34.4.0"
 googleServices = "4.4.4"
 androidxCredentials = "1.5.0"
 googleIdentityId = "1.1.1"
+msal = "5.+"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -75,6 +76,11 @@ googleid = { module = "com.google.android.libraries.identity.googleid:googleid",
 # Firebase (Android). BOM 으로 버전 통합 관리. iOS 는 SPM firebase-ios-sdk 로 별도 통합.
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
 firebase-messaging = { module = "com.google.firebase:firebase-messaging" }
+
+# MSAL (Android). Microsoft Entra ID 로그인 → Graph API access_token 발급.
+# iOS 는 SPM 의 microsoft-authentication-library-for-objc 로 별도 통합 (Xcode SPM 수동 추가).
+# 참고: `5.+` 최신 stable 을 자동 tracking. 릴리즈 사이클 잦지 않아 안전.
+msal = { module = "com.microsoft.identity.client:msal", version.ref = "msal" }
 
 # Gradle plugin artifacts (build-logic composite build 에서 compileOnly 로만 참조).
 # 컨벤션 플러그인이 KotlinProjectExtension · LibraryExtension 같은 DSL 타입을 import 하려면 필요.

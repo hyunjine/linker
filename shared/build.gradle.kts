@@ -43,6 +43,7 @@ val holidayApiKey: String = secret("holiday.api.key", "HOLIDAY_API_KEY")
 val supabaseUrl: String = secret("supabase.url", "SUPABASE_URL")
 val supabasePublishableKey: String = secret("supabase.publishableKey", "SUPABASE_PUBLISHABLE_KEY")
 val googleWebClientId: String = secret("google.web.client.id", "GOOGLE_WEB_CLIENT_ID")
+val outlookClientId: String = secret("outlook.client.id", "OUTLOOK_CLIENT_ID")
 
 val generatedSecretsDir: Provider<Directory> =
     layout.buildDirectory.dir("generated/secrets/kotlin")
@@ -53,10 +54,12 @@ val generateSecrets by tasks.registering {
     val sbUrl = supabaseUrl
     val sbKey = supabasePublishableKey
     val googleWeb = googleWebClientId
+    val outlookClient = outlookClientId
     inputs.property("holidayApiKey", holidayKey)
     inputs.property("supabaseUrl", sbUrl)
     inputs.property("supabasePublishableKey", sbKey)
     inputs.property("googleWebClientId", googleWeb)
+    inputs.property("outlookClientId", outlookClient)
     outputs.dir(outputDir)
     doLast {
         val file = outputDir.get().asFile.resolve("com/hyunjine/linker/data/Secrets.kt")
@@ -84,6 +87,13 @@ val generateSecrets by tasks.registering {
                  * Credentials 에서 Web application 타입으로 생성한 것.
                  */
                 const val GoogleWebClientId: String = "$googleWeb"
+
+                /**
+                 * Microsoft Entra ID (Azure AD) 앱 등록의 Application (client) ID (GUID).
+                 * Multi-tenant + personal accounts 로 등록해서 MSAL SDK 에 `common` authority 와 함께
+                 * 넘긴다. Graph API 접근 audience 로 소비. local.properties `outlook.client.id`.
+                 */
+                const val OutlookClientId: String = "$outlookClient"
             }
             """.trimIndent() + "\n"
         )
@@ -142,6 +152,8 @@ kotlin {
             implementation(libs.androidx.credentials)
             implementation(libs.androidx.credentials.play.services.auth)
             implementation(libs.googleid)
+            // Microsoft MSAL — Outlook (Microsoft Entra ID) 로그인 → Graph API access_token.
+            implementation(libs.msal)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
