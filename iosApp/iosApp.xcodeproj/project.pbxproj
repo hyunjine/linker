@@ -49,14 +49,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		7D5E0F860461EE696E868D37 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		7D5E0F860461EE696E868D37 /* Exceptions for "iosApp" folder in "iosApp" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
 			target = AC68E6B7F5087EDAC76D1FEE /* iosApp */;
 		};
-		BDC1031B30414CAE0018F84A /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		BDC1031B30414CAE0018F84A /* Exceptions for "LinkerWidget" folder in "LinkerWidgetExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -74,7 +74,7 @@
 		9B135DE6C167A223EDE36E4F /* iosApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				7D5E0F860461EE696E868D37 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+				7D5E0F860461EE696E868D37 /* Exceptions for "iosApp" folder in "iosApp" target */,
 			);
 			path = iosApp;
 			sourceTree = "<group>";
@@ -82,7 +82,7 @@
 		BDC1030B30414CAD0018F84A /* LinkerWidget */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				BDC1031B30414CAE0018F84A /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+				BDC1031B30414CAE0018F84A /* Exceptions for "LinkerWidget" folder in "LinkerWidgetExtension" target */,
 			);
 			path = LinkerWidget;
 			sourceTree = "<group>";
@@ -229,6 +229,7 @@
 			packageReferences = (
 				BD6748A830454A46001737E5 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */,
 				BD6748B030454ABF001737E5 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */,
+				BDF0019B3052773A003AE4D9 /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 20518BDB74316BC93738C1EB /* Products */;
@@ -634,6 +635,14 @@
 			requirement = {
 				kind = upToNextMajorVersion;
 				minimumVersion = 9.0.0;
+			};
+		};
+		BDF0019B3052773A003AE4D9 /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/AzureAD/microsoft-authentication-library-for-objc.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.15.0;
 			};
 		};
 /* End XCRemoteSwiftPackageReference section */
