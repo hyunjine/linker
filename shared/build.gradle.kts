@@ -153,6 +153,9 @@ kotlin {
             implementation(libs.androidx.credentials.play.services.auth)
             implementation(libs.googleid)
             // Microsoft MSAL — Outlook (Microsoft Entra ID) 로그인 → Graph API access_token.
+            // MSAL 은 Surface Duo 전용 `display-mask` 를 transitive 로 물고 있는데
+            // Maven Central 에 없고 Microsoft Duo SDK 전용 repo 에만 있음. 그래서
+            // settings.gradle.kts 에 Microsoft Duo repo 추가 (com.microsoft.device 그룹 한정).
             implementation(libs.msal)
         }
         commonMain.dependencies {
