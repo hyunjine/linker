@@ -16,6 +16,24 @@
 				<string>com.googleusercontent.apps.319241271170-m6kj85v1smlad0p75g7kcsevd5lk889t</string>
 			</array>
 		</dict>
+		<!-- MSAL (Outlook 로그인) redirect URI scheme. Azure Portal 에 등록된
+		     `msauth.com.hyunjine.linker://auth` 와 매칭. -->
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>msal</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>msauth.com.hyunjine.linker</string>
+			</array>
+		</dict>
+	</array>
+	<!-- MSAL 이 브로커/설치된 다른 MSAL 앱을 감지하기 위해 요구하는 스킴 화이트리스트 (iOS 9+). -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>msauthv2</string>
+		<string>msauthv3</string>
 	</array>
 	<!-- Silent Push (content-available: 1) 를 백그라운드에서 받으려면 필수 (#194).
 	     매일 KST 자정에 서버가 발송해 앱을 잠깐 깨워 위젯 payload 를 갱신한다. -->

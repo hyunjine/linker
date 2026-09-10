@@ -2,36 +2,46 @@ package com.hyunjine.linker.auth
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlin.coroutines.resume
 
 /**
- * iOS MSAL 통합 stub. 실제 SDK 호출은 Swift bridge (`OutlookAuthBridge.swift`) 가 담당하도록
- * 설계돼 있으나, MSAL iOS 는 SPM 패키지 `microsoft-authentication-library-for-objc` 를
- * Xcode UI 로 수동 추가해야 하기 때문에 그 작업 전까지는 아래처럼 Failure 만 반환.
+ * iOS MSAL 구현. 실제 SDK 호출은 Swift [OutlookAuthBridge] handler 가 수행하고, 여기서는
+ * callback → suspend 변환만 담당한다. handler 미세팅 (예: SPM 아직 안 붙였을 때) 상태에서는
+ * 안전하게 Failure/null 반환.
  *
- * **다음 스텝 (사용자 작업):**
- * 1. Xcode → `iosApp` project → PROJECT `iosApp` → Package Dependencies → `+`
- *    URL: `https://github.com/AzureAD/microsoft-authentication-library-for-objc.git`
- *    Rules: Up to Next Major Version from `1.5.0`
- *    Add to Target: `iosApp` (LinkerWidget 는 제외)
- * 2. `iosApp/iosApp/Info.plist` 에 아래 URL scheme 추가 (LSApplicationQueriesSchemes · CFBundleURLTypes):
- *    - Query schemes: `msauthv2`, `msauthv3`
- *    - URL scheme: `msauth.com.hyunjine.linker` (bundle id prefix + msauth.)
- * 3. `iosApp/iosApp/iOSApp.swift` (또는 SceneDelegate) 의 URL open 콜백에서
- *    `MSALPublicClientApplication.handleMSALResponse(url, sourceApplication:)` 호출
- * 4. `OutlookAuthBridge.swift` 를 `iosApp/iosApp/` 에 추가 (별도 커밋에서 제공 예정)
- * 5. 이 파일의 stub 을 `OutlookAuthBridge` 호출로 교체
+ * 앱 부트스트랩 (iOSApp.swift) 이 4개 handler 를 모두 세팅해야 정상 동작. handler 미세팅 상황을
+ * 감지하기 위해 login 은 Failure(reason) 로 로그 남기고, 나머지는 조용히 null 반환.
  */
 actual class OutlookAuthClient {
-    actual suspend fun login(): OutlookAuthResult =
-        OutlookAuthResult.Failure("iOS MSAL 미통합 — SPM 추가 및 Swift bridge 대기")
-
-    actual suspend fun signOut() {
-        // no-op until bridge ready
+    actual suspend fun login(): OutlookAuthResult {
+        val handler = OutlookAuthBridge.loginHandler
+            ?: return OutlookAuthResult.Failure("OutlookAuthBridge.loginHandler 미세팅 (iOSApp.swift 확인)")
+        return suspendCancellableCoroutine { cont ->
+            handler { result -> cont.resume(result) }
+        }
     }
 
-    actual suspend fun currentAccount(): OutlookAccount? = null
+    actual suspend fun signOut() {
+        val handler = OutlookAuthBridge.signOutHandler ?: return
+        suspendCancellableCoroutine<Unit> { cont ->
+            handler { cont.resume(Unit) }
+        }
+    }
 
-    actual suspend fun accessToken(): String? = null
+    actual suspend fun currentAccount(): OutlookAccount? {
+        val handler = OutlookAuthBridge.currentAccountHandler ?: return null
+        return suspendCancellableCoroutine { cont ->
+            handler { account -> cont.resume(account) }
+        }
+    }
+
+    actual suspend fun accessToken(): String? {
+        val handler = OutlookAuthBridge.accessTokenHandler ?: return null
+        return suspendCancellableCoroutine { cont ->
+            handler { token -> cont.resume(token) }
+        }
+    }
 }
 
 @Composable
