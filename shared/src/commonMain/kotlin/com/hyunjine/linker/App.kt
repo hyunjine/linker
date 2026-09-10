@@ -374,16 +374,20 @@ fun App() {
                             coupleRefreshTick = coupleRefreshTick,
                             outlookAccountEmail = outlookAccountEmail,
                             onOutlookConnectClick = {
+                                println("[Outlook] 드로워 연동 탭 → login() 호출 시작")
                                 scope.launch {
-                                    when (val r = outlookAuth.login()) {
+                                    val r = outlookAuth.login()
+                                    println("[Outlook] login() 반환: ${r::class.simpleName}")
+                                    when (r) {
                                         is OutlookAuthResult.Success -> {
                                             outlookAccountEmail = r.email
+                                            println("[Outlook] 계정 세팅: ${r.email}, sync 시작")
                                             val from = oneMonthAgo().plus(-30, DateTimeUnit.DAY)
                                             outlookSync.syncRange(from, oneMonthAhead())
                                             scheduleRefreshTick++
                                         }
                                         is OutlookAuthResult.Failure -> println("[Outlook] login 실패: ${r.reason}")
-                                        OutlookAuthResult.Cancelled -> Unit
+                                        OutlookAuthResult.Cancelled -> println("[Outlook] 사용자 취소")
                                     }
                                 }
                             },

@@ -15,6 +15,7 @@
 		BDC1030830414CAD0018F84A /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BDC1030730414CAD0018F84A /* WidgetKit.framework */; };
 		BDC1030A30414CAD0018F84A /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BDC1030930414CAD0018F84A /* SwiftUI.framework */; };
 		BDC1031730414CAE0018F84A /* LinkerWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = BDC1030630414CAD0018F84A /* LinkerWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		BDF0019F30527F01003AE4D9 /* MSAL in Frameworks */ = {isa = PBXBuildFile; productRef = BDF0019E30527F01003AE4D9 /* MSAL */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -95,6 +96,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BD6748AC30454ABF001737E5 /* FirebaseMessaging in Frameworks */,
+				BDF0019F30527F01003AE4D9 /* MSAL in Frameworks */,
 				BD6748AA30454ABF001737E5 /* FirebaseCore in Frameworks */,
 				BD6748AE30454ABF001737E5 /* FirebaseCrashlytics in Frameworks */,
 				BD6748B230454ABF001737E5 /* GoogleSignIn in Frameworks */,
@@ -172,6 +174,7 @@
 				BD6748AD30454ABF001737E5 /* FirebaseCrashlytics */,
 				BD6748B130454ABF001737E5 /* GoogleSignIn */,
 				BD6748B330454ABF001737E5 /* GoogleSignInSwift */,
+				BDF0019E30527F01003AE4D9 /* MSAL */,
 			);
 			productName = iosApp;
 			productReference = CAA19F5C0767436843DE3BCB /* Linker.app */;
@@ -672,6 +675,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = BD6748B030454ABF001737E5 /* XCRemoteSwiftPackageReference "GoogleSignIn-iOS" */;
 			productName = GoogleSignInSwift;
+		};
+		BDF0019E30527F01003AE4D9 /* MSAL */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = BDF0019B3052773A003AE4D9 /* XCRemoteSwiftPackageReference "microsoft-authentication-library-for-objc" */;
+			productName = MSAL;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

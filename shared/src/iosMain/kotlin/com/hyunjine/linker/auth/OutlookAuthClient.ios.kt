@@ -16,7 +16,11 @@ import kotlin.coroutines.resume
 actual class OutlookAuthClient {
     actual suspend fun login(): OutlookAuthResult {
         val handler = OutlookAuthBridge.loginHandler
-            ?: return OutlookAuthResult.Failure("OutlookAuthBridge.loginHandler 미세팅 (iOSApp.swift 확인)")
+        if (handler == null) {
+            println("[OutlookAuth iOS] loginHandler 미세팅 — iOSApp.swift init 실행 여부 확인 필요")
+            return OutlookAuthResult.Failure("OutlookAuthBridge.loginHandler 미세팅")
+        }
+        println("[OutlookAuth iOS] loginHandler 호출 — Swift OutlookAuthProvider 로 위임")
         return suspendCancellableCoroutine { cont ->
             handler { result -> cont.resume(result) }
         }

@@ -27,6 +27,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -34,6 +35,7 @@ import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderBg
 import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderFg
 import com.hyunjine.linker.designsystem.theme.DrawerButtonBg
 import com.hyunjine.linker.designsystem.theme.DrawerCheckBlue
+import com.hyunjine.linker.designsystem.theme.LinkerTheme
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.designsystem.theme.SurfaceCard
 import com.hyunjine.linker.designsystem.theme.TextPrimary
@@ -446,4 +448,14 @@ private fun CheckboxSquare(checked: Boolean) {
 private fun Modifier.noRippleClickable(onClick: () -> Unit): Modifier {
     val interaction = remember { MutableInteractionSource() }
     return this.clickable(interactionSource = interaction, indication = null, onClick = onClick)
+}
+
+@Composable
+@Preview(showBackground = true)
+private fun OutlookRow() {
+    LinkerTheme {
+        OutlookRow(
+            null, {}
+        )
+    }
 }
