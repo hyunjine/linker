@@ -41,6 +41,7 @@ import com.hyunjine.linker.designsystem.theme.TextSecondary
 import linker.shared.generated.resources.Res
 import linker.shared.generated.resources.ic_cal_31
 import linker.shared.generated.resources.ic_check
+import linker.shared.generated.resources.ic_outlook
 import linker.shared.generated.resources.ic_setting_outline
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
@@ -83,6 +84,12 @@ fun MainDrawerContent(
     onLogout: () -> Unit = {},
     /** 파트너 조인 여부. false 면 "상대방 캘린더" · "공동 캘린더" 토글 자체를 감춘다. */
     hasPartner: Boolean = true,
+    /** Outlook 연동된 계정 이메일. null 이면 미연동 상태 — 행 탭 시 로그인 시트. */
+    outlookAccountEmail: String? = null,
+    /** Outlook 미연동일 때 행 탭 콜백 (MSAL 로그인 시트 즉시 트리거). */
+    onOutlookConnectClick: () -> Unit = {},
+    /** Outlook 연동됨 상태에서 행 탭 콜백 (연동 해제 확인 후 signOut · mirror 삭제). */
+    onOutlookDisconnectClick: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -140,8 +147,62 @@ fun MainDrawerContent(
             onCheckedChange = onToggleSolarTerms,
         )
         Spacer(Modifier.height(16.dp))
+        OutlookRow(
+            accountEmail = outlookAccountEmail,
+            onClick = if (outlookAccountEmail == null) onOutlookConnectClick else onOutlookDisconnectClick,
+        )
+        Spacer(Modifier.height(8.dp))
         LogoutRow(onClick = onLogout)
         Spacer(Modifier.height(16.dp))
+    }
+}
+
+/**
+ * Outlook 캘린더 연동 진입 행. 미연동 상태는 "Outlook 연동" 텍스트만, 연동됐으면 계정
+ * 이메일과 "연결됨" 서브텍스트 노출. 사용자가 탭하면 상태에 따라 로그인 시트 or 연동 해제.
+ * 시각은 다른 드로워 버튼과 통일 (Figma AllScheduleBtn 톤).
+ */
+@Composable
+private fun OutlookRow(accountEmail: String?, onClick: () -> Unit) {
+    val pretendard = LocalPretendardFontFamily.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(DrawerButtonBg)
+            .noRippleClickable(onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Image(
+            painter = painterResource(Res.drawable.ic_outlook),
+            contentDescription = null,
+            modifier = Modifier.size(22.dp),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = if (accountEmail == null) "Outlook 연동" else "Outlook 연동됨",
+                style = TextStyle(
+                    fontFamily = pretendard,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = TextPrimary,
+                ),
+            )
+            if (accountEmail != null) {
+                Text(
+                    text = accountEmail,
+                    style = TextStyle(
+                        fontFamily = pretendard,
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 12.sp,
+                        color = TextSecondary,
+                    ),
+                )
+            }
+        }
     }
 }
 

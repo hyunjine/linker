@@ -214,6 +214,12 @@ fun MainScreen(
     onDisplayStateChange: (DrawerDisplayState) -> Unit = {},
     /** 파트너 조인 여부. 드로워의 "상대방 캘린더" 토글 노출 · 스케줄 필터에 사용. */
     hasPartner: Boolean = false,
+    /** Outlook 연동된 계정 이메일. null 이면 미연동 → 드로워 행 탭 시 로그인 시트. */
+    outlookAccountEmail: String? = null,
+    /** Outlook 연동 시작 (MSAL 시트). 성공 시 상위 (App) 이 sync 트리거 · 상태 재조회. */
+    onOutlookConnectClick: () -> Unit = {},
+    /** Outlook 연동 해제 (MSAL signOut · mirror rows 삭제). */
+    onOutlookDisconnectClick: () -> Unit = {},
 ) {
     // Int.MAX_VALUE 크기의 pager 로 사실상 무한 좌우 스와이프. 중간에서 시작해 양쪽으로 무제한 이동.
     val anchorPage = remember { Int.MAX_VALUE / 2 }
@@ -311,6 +317,15 @@ fun MainScreen(
                 onLogout = {
                     scope.launch { drawerState.close() }
                     onLogout()
+                },
+                outlookAccountEmail = outlookAccountEmail,
+                onOutlookConnectClick = {
+                    scope.launch { drawerState.close() }
+                    onOutlookConnectClick()
+                },
+                onOutlookDisconnectClick = {
+                    scope.launch { drawerState.close() }
+                    onOutlookDisconnectClick()
                 },
             )
         },
