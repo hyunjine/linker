@@ -49,14 +49,14 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		7D5E0F860461EE696E868D37 /* Exceptions for "iosApp" folder in "iosApp" target */ = {
+		7D5E0F860461EE696E868D37 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
 			target = AC68E6B7F5087EDAC76D1FEE /* iosApp */;
 		};
-		BDC1031B30414CAE0018F84A /* Exceptions for "LinkerWidget" folder in "LinkerWidgetExtension" target */ = {
+		BDC1031B30414CAE0018F84A /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -74,7 +74,7 @@
 		9B135DE6C167A223EDE36E4F /* iosApp */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				7D5E0F860461EE696E868D37 /* Exceptions for "iosApp" folder in "iosApp" target */,
+				7D5E0F860461EE696E868D37 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
 			);
 			path = iosApp;
 			sourceTree = "<group>";
@@ -82,7 +82,7 @@
 		BDC1030B30414CAD0018F84A /* LinkerWidget */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				BDC1031B30414CAE0018F84A /* Exceptions for "LinkerWidget" folder in "LinkerWidgetExtension" target */,
+				BDC1031B30414CAE0018F84A /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
 			);
 			path = LinkerWidget;
 			sourceTree = "<group>";
@@ -276,7 +276,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# 스크립트 로직은 유지보수 편의를 위해 별도 파일 (ci_scripts/compile_kotlin_framework.sh) 로 분리.\n# pbxproj 는 그 파일을 호출만 한다 — JDK 자동 확보 · gradle embedAndSignAppleFrameworkForXcode 실행.\nsh \"$SRCROOT/../ci_scripts/compile_kotlin_framework.sh\"\n";
+			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\n# 스크립트 로직은 유지보수 편의를 위해 별도 파일 (ci_scripts/compile_kotlin_framework.sh) 로 분리.\n# pbxproj 는 그 파일을 호출만 한다 — JDK 자동 확보 · gradle embedAndSignAppleFrameworkForXcode 실행.\nsh \"$SRCROOT/../ci_scripts/compile_kotlin_framework.sh\"";
 		};
 		BD6748AF30454ABF001737E5 /* Upload Crashlytics dSYM */ = {
 			isa = PBXShellScriptBuildPhase;

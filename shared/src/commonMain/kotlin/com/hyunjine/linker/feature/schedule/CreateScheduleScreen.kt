@@ -2,6 +2,7 @@ package com.hyunjine.linker.feature.schedule
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,9 +12,15 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hyunjine.linker.designsystem.common.AlertAction
@@ -46,6 +54,7 @@ import com.hyunjine.linker.designsystem.common.liquidGlass
 import com.hyunjine.linker.designsystem.common.TimePickerSheet
 import com.hyunjine.linker.designsystem.common.YearMonthDayPickerSheet
 import com.hyunjine.linker.designsystem.theme.Chevron
+import com.hyunjine.linker.designsystem.theme.LinkerTheme
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.designsystem.theme.OnPrimary
 import com.hyunjine.linker.designsystem.theme.PlaceholderText
@@ -107,15 +116,33 @@ fun CreateScheduleScreen(
     // 고른 순간 화면 전체가 잠겨 다시 "나/공동" 으로 되돌릴 방법이 없어진다.
     val canEdit = !editing || (initial?.isEditableByCurrentUser ?: true)
 
+    // 화면 임의 지점 탭 → 키보드 dismiss. clickable(indication=null) 은 자식이 자체
+    // clickable 로 이벤트를 consume 하는 영역은 그대로 두고 (TextField, RowItem, 버튼),
+    // 나머지 빈 영역만 이 콜백을 발화시킨다. `pointerInput { detectTapGestures }` 는
+    // CMP iOS 에서 상위 scroll modifier 와 경쟁하면서 신뢰성이 떨어져 이 방식으로 교체 (#240).
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val dismissInteraction = remember { MutableInteractionSource() }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(SurfaceGray),
+            .background(SurfaceGray)
+            .clickable(
+                interactionSource = dismissInteraction,
+                indication = null,
+            ) {
+                focusManager.clearFocus()
+                keyboardController?.hide()
+            },
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.safeDrawing),
+                // safeDrawing = systemBars ∪ ime ∪ displayCutout. CMP iOS 에서 상단 노치 · 하단
+                // 홈 인디케이터 · 키보드 영역을 한 번에 커버. AnniversariesScreen · ProfileSetupScreen
+                // 과 동일 패턴 (#240).
+                .statusBarsPadding()
         ) {
             AppTopBar(
                 title = if (editing) "일정 수정" else "일정 추가",
@@ -130,9 +157,15 @@ fun CreateScheduleScreen(
 
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    // AppTopBar 아래 남은 공간을 전부 차지 + 그 안에서 스크롤. `fillMaxSize` 대신
+                    // `weight(1f)` 를 쓰면 상위 Column 이 부모 높이를 이미 알기 때문에 scroll extent
+                    // 가 확정되어 마지막 아이템이 잘리는 케이스가 사라진다.
+                    .weight(1f)
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .navigationBarsPadding()
+                ,
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 TitleCard(
@@ -233,7 +266,9 @@ fun CreateScheduleScreen(
                     }
                 }
 
-                Spacer(Modifier.height(24.dp))
+                // 마지막 카드 아래 breathing room. safeDrawing 이 하단 인셋은 커버하므로
+                // 여기는 순수 여백 목적 — 삭제 버튼과 화면 끝 사이 시각적 여유 (#240).
+                Spacer(Modifier.height(16.dp))
             }
         }
     }
@@ -664,4 +699,112 @@ private fun parseRepeat(s: String): RepeatRule = when {
         RepeatRule.Yearly(parts.getOrNull(0)?.toIntOrNull() ?: 1, parts.getOrNull(1)?.toIntOrNull() ?: 1)
     }
     else -> RepeatRule.None
+}
+
+// ────────── Previews ──────────
+// 신규 · 편집 · 파트너 읽기전용 · 공동 · 종일 다섯 케이스로 UI 분기 (canEdit · owner · allDay ·
+// showsTimeRows · 삭제 카드) 를 검토. picker 시트는 열지 않은 상태 (visible=false) 라
+// 화면 본체만 렌더된다.
+
+private val PreviewToday: LocalDate = LocalDate(2026, 9, 10)
+
+/** 신규 · 일정 (기본 진입) — 세그먼트 Schedule · 종일 off · 공개범위/반복/주체 모두 노출. */
+@Preview
+@Composable
+private fun CreateScheduleScreenPreview_NewSchedule() {
+    LinkerTheme {
+        CreateScheduleScreen(
+            initial = ScheduleDraft(
+                title = "",
+                startDate = PreviewToday,
+                endDate = PreviewToday,
+                type = ScheduleType.Schedule,
+                allDay = false,
+                startTime = "14:00",
+                endTime = "15:00",
+            ),
+            editing = false,
+        )
+    }
+}
+
+/** 신규 · 할 일 — 세그먼트 Task 선택. 종일 토글/시각 행 자체가 사라진다. */
+@Preview
+@Composable
+private fun CreateScheduleScreenPreview_NewTask() {
+    LinkerTheme {
+        CreateScheduleScreen(
+            initial = ScheduleDraft(
+                title = "택배 보내기",
+                startDate = PreviewToday,
+                endDate = PreviewToday,
+                type = ScheduleType.Task,
+            ),
+            editing = false,
+        )
+    }
+}
+
+/** 편집 가능 (owner=Me) — 하단 "일정 삭제" 카드 노출. #240 스크롤 하단 잘림 케이스 검토용. */
+@Preview
+@Composable
+private fun CreateScheduleScreenPreview_EditableSchedule() {
+    LinkerTheme {
+        CreateScheduleScreen(
+            initial = ScheduleDraft(
+                title = "치과 예약",
+                startDate = PreviewToday,
+                endDate = PreviewToday,
+                type = ScheduleType.Schedule,
+                allDay = false,
+                startTime = "10:00",
+                endTime = "11:00",
+                owner = ScheduleOwner.Me,
+                createdBy = "me",
+            ),
+            editing = true,
+        )
+    }
+}
+
+/** 공동 일정 (owner=Us) — "공개 범위" 섹션이 논리 상 사라져 화면이 한 블록 짧아진다. */
+@Preview
+@Composable
+private fun CreateScheduleScreenPreview_UsSchedule() {
+    LinkerTheme {
+        CreateScheduleScreen(
+            initial = ScheduleDraft(
+                title = "제주도 여행",
+                startDate = LocalDate(2026, 10, 3),
+                endDate = LocalDate(2026, 10, 6),
+                type = ScheduleType.Schedule,
+                allDay = true,
+                owner = ScheduleOwner.Us,
+                createdBy = "me",
+            ),
+            editing = true,
+        )
+    }
+}
+
+/** 파트너 일정 (읽기 전용) — 저장 버튼 비활성 + 세그먼트 tap 무시 + 삭제 카드 숨김. */
+@Preview
+@Composable
+private fun CreateScheduleScreenPreview_PartnerReadOnly() {
+    LinkerTheme {
+        CreateScheduleScreen(
+            initial = ScheduleDraft(
+                title = "상대방 근무",
+                startDate = PreviewToday,
+                endDate = PreviewToday,
+                type = ScheduleType.Schedule,
+                allDay = false,
+                startTime = "09:00",
+                endTime = "18:00",
+                owner = ScheduleOwner.Partner,
+                createdBy = "partner",
+            ),
+            editing = true,
+        )
+    }
 }
