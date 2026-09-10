@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -181,7 +182,7 @@ private fun OutlookRow(accountEmail: String?, onClick: () -> Unit) {
         Image(
             painter = painterResource(Res.drawable.ic_outlook),
             contentDescription = null,
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(22.dp)
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(

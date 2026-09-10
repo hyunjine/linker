@@ -227,13 +227,18 @@ fun App() {
             //  - Authenticated: 프로필/커플 상태 조회 → 미완성 단계로 자동 진입 (재로그인 시 온보딩 스킵)
             val status by sessionStatus.collectAsState()
             // 세션 · 커플 상태 변할 때 저장된 MSAL 계정 있으면 상단 상태에 반영 + 초기 sync 시도.
+            // MSAL/Graph/네트워크 오류는 여기서 무조건 catch — 앱 부팅 flow 를 절대 막지 않도록.
             LaunchedEffect(status, coupleRefreshTick) {
                 if (status is SessionStatus.Authenticated) {
-                    outlookAccountEmail = outlookAuth.currentAccount()?.email
+                    runCatching { outlookAuth.currentAccount()?.email }
+                        .onSuccess { outlookAccountEmail = it }
+                        .onFailure { println("[Outlook] currentAccount 실패: $it") }
                     if (outlookAccountEmail != null) {
-                        val from = oneMonthAgo().plus(-30, DateTimeUnit.DAY)
-                        outlookSync.syncRange(from, oneMonthAhead())
-                        scheduleRefreshTick++
+                        runCatching {
+                            val from = oneMonthAgo().plus(-30, DateTimeUnit.DAY)
+                            outlookSync.syncRange(from, oneMonthAhead())
+                        }.onSuccess { scheduleRefreshTick++ }
+                            .onFailure { println("[Outlook] 초기 sync 실패: $it") }
                     }
                 }
             }
@@ -376,26 +381,30 @@ fun App() {
                             onOutlookConnectClick = {
                                 println("[Outlook] 드로워 연동 탭 → login() 호출 시작")
                                 scope.launch {
-                                    val r = outlookAuth.login()
-                                    println("[Outlook] login() 반환: ${r::class.simpleName}")
-                                    when (r) {
-                                        is OutlookAuthResult.Success -> {
-                                            outlookAccountEmail = r.email
-                                            println("[Outlook] 계정 세팅: ${r.email}, sync 시작")
-                                            val from = oneMonthAgo().plus(-30, DateTimeUnit.DAY)
-                                            outlookSync.syncRange(from, oneMonthAhead())
-                                            scheduleRefreshTick++
+                                    runCatching {
+                                        val r = outlookAuth.login()
+                                        println("[Outlook] login() 반환: ${r::class.simpleName}")
+                                        when (r) {
+                                            is OutlookAuthResult.Success -> {
+                                                outlookAccountEmail = r.email
+                                                println("[Outlook] 계정 세팅: ${r.email}, sync 시작")
+                                                val from = oneMonthAgo().plus(-30, DateTimeUnit.DAY)
+                                                outlookSync.syncRange(from, oneMonthAhead())
+                                                scheduleRefreshTick++
+                                            }
+                                            is OutlookAuthResult.Failure -> println("[Outlook] login 실패: ${r.reason}")
+                                            OutlookAuthResult.Cancelled -> println("[Outlook] 사용자 취소")
                                         }
-                                        is OutlookAuthResult.Failure -> println("[Outlook] login 실패: ${r.reason}")
-                                        OutlookAuthResult.Cancelled -> println("[Outlook] 사용자 취소")
-                                    }
+                                    }.onFailure { println("[Outlook] login flow 예외: $it") }
                                 }
                             },
                             onOutlookDisconnectClick = {
                                 scope.launch {
-                                    outlookSync.disconnect()
-                                    outlookAccountEmail = null
-                                    scheduleRefreshTick++
+                                    runCatching {
+                                        outlookSync.disconnect()
+                                        outlookAccountEmail = null
+                                        scheduleRefreshTick++
+                                    }.onFailure { println("[Outlook] disconnect 예외: $it") }
                                 }
                             },
                         )
