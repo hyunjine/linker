@@ -670,6 +670,8 @@ private val ScheduleDraftSaver = androidx.compose.runtime.saveable.Saver<Schedul
             d.repeatEndDate?.toString(),
             d.owner.name,
             d.isPrivate,
+            d.source,
+            d.externalId,
         )
     },
     restore = { list ->
@@ -685,6 +687,8 @@ private val ScheduleDraftSaver = androidx.compose.runtime.saveable.Saver<Schedul
             repeatEndDate = (list[8] as String?)?.let { LocalDate.parse(it) },
             owner = ScheduleOwner.valueOf(list[9] as String),
             isPrivate = (list.getOrNull(10) as? Boolean) ?: false,
+            source = (list.getOrNull(11) as? String) ?: "internal",
+            externalId = list.getOrNull(12) as? String,
         )
     },
 )

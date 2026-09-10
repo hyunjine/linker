@@ -52,6 +52,10 @@ object SchedulesRepository {
         @SerialName("is_done") val isDone: Boolean,
         @SerialName("is_private") val isPrivate: Boolean = false,
         @SerialName("series_id") val seriesId: String? = null,
+        /** `internal` | `outlook` — mirror 여부. 기본 `internal`. */
+        val source: String = "internal",
+        /** Graph event.id (outlook mirror 일 때만). */
+        @SerialName("external_id") val externalId: String? = null,
     )
 
     /**
@@ -644,6 +648,8 @@ private fun SchedulesRepository.Row.toDraft(
         isPrivate = isPrivate,
         createdBy = createdBy,
         seriesId = seriesId,
+        source = source,
+        externalId = externalId,
     )
 }
 
