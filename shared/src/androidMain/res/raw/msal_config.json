@@ -1,0 +1,16 @@
+{
+  "client_id": "4978b49b-6810-4e3e-9ee8-bea4631667f9",
+  "authorization_user_agent": "DEFAULT",
+  "redirect_uri": "msauth://com.hyunjine.linker/myvj9EztmeEdfcIg7MfUwOAbG58%3D",
+  "account_mode": "SINGLE",
+  "broker_redirect_uri_registered": false,
+  "authorities": [
+    {
+      "type": "AAD",
+      "audience": {
+        "type": "AzureADandPersonalMicrosoftAccount",
+        "tenant_id": "common"
+      }
+    }
+  ]
+}
