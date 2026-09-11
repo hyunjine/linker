@@ -44,7 +44,6 @@ import com.hyunjine.linker.designsystem.theme.TextSecondary
 import linker.shared.generated.resources.Res
 import linker.shared.generated.resources.ic_cal_31
 import linker.shared.generated.resources.ic_check
-import linker.shared.generated.resources.ic_outlook
 import linker.shared.generated.resources.ic_setting_outline
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
@@ -179,11 +178,6 @@ private fun OutlookRow(accountEmail: String?, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Image(
-            painter = painterResource(Res.drawable.ic_outlook),
-            contentDescription = null,
-            modifier = Modifier.size(22.dp)
-        )
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = if (accountEmail == null) "Outlook 연동" else "Outlook 연동됨",
