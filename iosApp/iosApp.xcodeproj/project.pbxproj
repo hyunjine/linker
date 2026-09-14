@@ -280,7 +280,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\n# 스크립트 로직은 유지보수 편의를 위해 별도 파일 (ci_scripts/compile_kotlin_framework.sh) 로 분리.\n# pbxproj 는 그 파일을 호출만 한다 — JDK 자동 확보 · gradle embedAndSignAppleFrameworkForXcode 실행.\nsh \"$SRCROOT/../ci_scripts/compile_kotlin_framework.sh\"";
+			shellScript = "# 스크립트 로직은 유지보수 편의를 위해 별도 파일 (ci_scripts/compile_kotlin_framework.sh) 로 분리.\n# pbxproj 는 그 파일을 호출만 한다 — JDK 자동 확보 · gradle embedAndSignAppleFrameworkForXcode 실행.\n# 과거엔 OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED=YES 시 조기 종료했으나 Android Studio 가\n# 이 env 를 붙여 호출하면서도 자체적으론 KMP framework 를 빌드하지 않아 `import Shared`\n# 실패. 항상 gradle 실행하도록 통일.\nsh \"$SRCROOT/../ci_scripts/compile_kotlin_framework.sh\"";
 		};
 		BD6748AF30454ABF001737E5 /* Upload Crashlytics dSYM */ = {
 			isa = PBXShellScriptBuildPhase;
