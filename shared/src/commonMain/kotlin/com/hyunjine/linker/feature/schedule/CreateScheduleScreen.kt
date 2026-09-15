@@ -49,6 +49,7 @@ import com.hyunjine.linker.designsystem.common.AlertActionStyle
 import com.hyunjine.linker.designsystem.common.AppAlertDialog
 import com.hyunjine.linker.designsystem.common.AppSwitch
 import com.hyunjine.linker.designsystem.common.AppTopBar
+import com.hyunjine.linker.designsystem.common.SaveActionPill
 import com.hyunjine.linker.designsystem.common.SegmentedControl
 import com.hyunjine.linker.designsystem.common.liquidGlass
 import com.hyunjine.linker.designsystem.common.TimePickerSheet
@@ -148,10 +149,14 @@ fun CreateScheduleScreen(
                 title = if (editing) "일정 수정" else "일정 추가",
                 onBack = onBack,
                 trailing = {
-                    SaveAction(enabled = canEdit) {
-                        if (isSeriesEdit) scopeChoiceDialog = true
-                        else onSave(draft, null)
-                    }
+                    SaveActionPill(
+                        label = "저장",
+                        enabled = canEdit,
+                        onClick = {
+                            if (isSeriesEdit) scopeChoiceDialog = true
+                            else onSave(draft, null)
+                        },
+                    )
                 },
             )
 
@@ -393,33 +398,6 @@ private fun compareHhMm(a: String, b: String): Int {
 }
 
 // ────────── Building blocks ──────────
-
-@Composable
-private fun SaveAction(enabled: Boolean, onClick: () -> Unit) {
-    val pretendard = LocalPretendardFontFamily.current
-    // iOS 26 primary tinted 리퀴드 글래스 pill. `Modifier.liquidGlass` 의 fill 만 PrimaryBlue 로 교체 —
-    // 흰색 rim 하이라이트는 그대로 유지해 back circle 과 톤을 맞춤.
-    Box(
-        modifier = Modifier
-            .height(36.dp)
-            .clip(CircleShape)
-            .liquidGlass(shape = CircleShape, fill = SolidColor(PrimaryBlue))
-            .clickable(enabled = enabled, onClick = onClick)
-            .alpha(if (enabled) 1f else 0.5f)
-            .padding(horizontal = 14.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = "저장",
-            style = TextStyle(
-                fontFamily = pretendard,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp,
-                color = OnPrimary,
-            ),
-        )
-    }
-}
 
 @Composable
 private fun TitleCard(title: String, enabled: Boolean, onChange: (String) -> Unit) {
