@@ -16,6 +16,29 @@
 				<string>com.googleusercontent.apps.319241271170-m6kj85v1smlad0p75g7kcsevd5lk889t</string>
 			</array>
 		</dict>
+		<!-- MSAL (Outlook 로그인) redirect URI scheme. Azure Portal 에 등록된
+		     `msauth.com.hyunjine.linker://auth` 와 매칭. -->
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>msal</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>msauth.com.hyunjine.linker</string>
+			</array>
+		</dict>
+	</array>
+	<!-- msauthv2/msauthv3 (Microsoft Authenticator broker 감지용 쿼리 스킴).
+	     최신 MSAL SDK 는 MSALPublicClientApplication 초기화 단계에서 이 두 스킴 등록을
+	     필수 검증한다 (없으면 init 실패 → "The required query schemes ... are not registered").
+	     broker 위임으로 인한 stuck 은 OutlookAuthProvider.acquireInteractive 에서
+	     webviewType = .authenticationSession 강제로 별도 차단하므로, 여기 스킴 등록은
+	     init 통과 용도이며 runtime 에서 broker 가 호출되지 않는다. -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>msauthv2</string>
+		<string>msauthv3</string>
 	</array>
 	<!-- Silent Push (content-available: 1) 를 백그라운드에서 받으려면 필수 (#194).
 	     매일 KST 자정에 서버가 발송해 앱을 잠깐 깨워 위젯 payload 를 갱신한다. -->

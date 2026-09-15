@@ -31,3 +31,8 @@ GOOGLE_WEB_CLIENT_ID=319241271170-talfk79qn5qdu8lkjm27rhm7r52ocfep.apps.googleus
 
 // data.go.kr 특일정보 API key (URL-encoded 원본)
 HOLIDAY_API_KEY=MDrnWhPMe%2FUxsbwq%2FchXWEaPt81DPw%2BIkTIDFm0O8n%2BKF29ZHGKyyA1FbhY2oW39RnRUkwHMyDzGmclKFrJHnQ%3D%3D
+
+// Microsoft Entra ID (Azure AD) 앱 등록의 Application (client) ID.
+// Multi-tenant + personal accounts 로 등록 → tenant 는 코드에서 `common` 사용.
+// MSAL SDK (iOS/Android) 및 Graph API 접근 audience 로 소비.
+OUTLOOK_CLIENT_ID=4978b49b-6810-4e3e-9ee8-bea4631667f9

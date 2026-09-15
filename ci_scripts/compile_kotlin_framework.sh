@@ -5,16 +5,14 @@
 # 별도 shell 파일로 분리. pbxproj 는 이 파일을 호출만 한다.
 #
 # 흐름:
-#   1. `OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED=YES` 면 IDE 인덱싱용 skip (기본 IntelliJ/Xcode 통합).
-#   2. JAVA_HOME 결정 순서: 기존 env → 로컬 흔한 경로 (homebrew/JVM) → 마지막 fallback 으로
+#   1. JAVA_HOME 결정 순서: 기존 env → 로컬 흔한 경로 (homebrew/JVM) → 마지막 fallback 으로
 #      Adoptium Temurin JDK 21 자동 다운로드. ci_post_clone.sh 가 안 돌아도 이 스텝이
 #      혼자 자립하도록 하기 위함 (Xcode Cloud 에서 ci_post_clone.sh 미실행 사례 대응).
-#   3. `./gradlew :shared:embedAndSignAppleFrameworkForXcode` 로 KMP 프레임워크 빌드/서명.
-
-if [ "YES" = "$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED" ]; then
-  echo "Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED=YES"
-  exit 0
-fi
+#   2. `./gradlew :shared:embedAndSignAppleFrameworkForXcode` 로 KMP 프레임워크 빌드/서명.
+#
+# 과거엔 `OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED=YES` 시 gradle 을 스킵했으나, Android Studio 가
+# xcodebuild 를 이 env 로 감싸 호출하면서도 정작 자체적으론 KMP framework 를 빌드하지 않아
+# `import Shared` 가 실패하는 문제 발생. 항상 gradle 을 돌리도록 통일 (incremental 이라 재실행 비용 미미).
 
 # ── JAVA_HOME 확보 ──────────────────────────────────────────
 resolve_java_home() {
@@ -99,5 +97,12 @@ export PATH="$JAVA_HOME/bin:$PATH"
 "$JAVA_HOME/bin/java" -version 2>&1 | head -1
 
 # ── Gradle build ────────────────────────────────────────────
+# 시뮬레이터 · 실기기 두 프레임워크를 한 번의 gradle invocation 으로 미리 링크한 뒤,
+# 마지막에 embedAndSign 이 현재 타깃(SDK_NAME/ARCHS)에 맞는 산출물을 골라 iosApp 에 embed.
+# 두 아키텍처 모두 pre-warm 해두면 device↔simulator 전환 시 재링크가 없어 즉시 Run 가능.
 cd "$SRCROOT/.."
-./gradlew :shared:embedAndSignAppleFrameworkForXcode --stacktrace
+./gradlew \
+  :shared:linkDebugFrameworkIosSimulatorArm64 \
+  :shared:linkDebugFrameworkIosArm64 \
+  :shared:embedAndSignAppleFrameworkForXcode \
+  --stacktrace

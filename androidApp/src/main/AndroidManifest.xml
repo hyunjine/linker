@@ -40,6 +40,37 @@
             </intent-filter>
         </service>
 
+        <!--
+          MSAL (Outlook 로그인) redirect callback.
+          scheme + host + path 세 값이 Azure Portal 에 등록된 Android Redirect URI
+          와 정확히 일치해야 한다:
+            msauth://com.hyunjine.linker/myvj9EztmeEdfcIg7MfUwOAbG58%3D
+          path 는 URL-encoded 서명 해시 (debug keystore SHA1 → base64 → %3D 이스케이프).
+          release 서명이 다르므로 release 빌드 준비 시 별도 <data> 추가 필요.
+        -->
+        <activity
+            android:name="com.microsoft.identity.client.BrowserTabActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="msauth"
+                    android:host="com.hyunjine.linker"
+                    android:path="/myvj9EztmeEdfcIg7MfUwOAbG58%3D" />
+            </intent-filter>
+        </activity>
+
     </application>
+
+    <!-- MSAL 이 Chrome Custom Tab 을 띄우기 위해 브라우저 패키지 가시성 요구 (Android 11+). -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="https" />
+        </intent>
+    </queries>
 
 </manifest>

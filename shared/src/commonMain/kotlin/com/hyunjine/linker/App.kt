@@ -13,45 +13,31 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import androidx.savedstate.serialization.SavedStateConfiguration
+import com.hyunjine.linker.auth.OutlookAuthResult
+import com.hyunjine.linker.auth.rememberOutlookAuthClient
 import com.hyunjine.linker.auth.sessionStatus
 import com.hyunjine.linker.auth.signOut
 import com.hyunjine.linker.data.remote.AnniversariesRepository
-import com.hyunjine.linker.data.remote.CouplesRepository
+import com.hyunjine.linker.data.remote.OutlookSyncService
 import com.hyunjine.linker.data.remote.UsersRepository
-import com.hyunjine.linker.feature.anniversary.AnniversariesScreen
+import com.hyunjine.linker.designsystem.theme.LinkerTheme
 import com.hyunjine.linker.feature.anniversary.AnniversaryUi
-import com.hyunjine.linker.feature.couple.CoupleInviteCodeScreen
-import com.hyunjine.linker.feature.couple.CoupleJoinScreen
-import com.hyunjine.linker.feature.couple.CoupleLinkScreen
-import com.hyunjine.linker.feature.profile.ProfileSetupScreen
-import com.hyunjine.linker.feature.schedule.CreateScheduleScreen
-import com.hyunjine.linker.feature.search.SearchAnniversaryItem
-import com.hyunjine.linker.feature.search.SearchResults
-import com.hyunjine.linker.feature.search.SearchScheduleItem
-import com.hyunjine.linker.feature.search.SearchScreen
 import com.hyunjine.linker.feature.auth.AuthGateMode
 import com.hyunjine.linker.feature.auth.AuthGateScreen
-import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.plus
-import kotlinx.datetime.toLocalDateTime
-import androidx.compose.ui.graphics.Color
-import com.hyunjine.linker.platform.rememberCopyToClipboard
-import com.hyunjine.linker.platform.rememberShareText
-import com.hyunjine.linker.designsystem.theme.CalendarPurple
-import com.hyunjine.linker.designsystem.theme.LinkerTheme
-import com.hyunjine.linker.designsystem.theme.calendarColorFor
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserInfo
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
-import kotlinx.serialization.modules.subclass
 
 /**
  * 앱 최상위 네비게이션 그래프. Navigation3 [NavDisplay] 로 백스택을 직접 소유한다.
@@ -211,11 +197,38 @@ fun App() {
             // 드로워 "상대방 연결" 진입은 이 상태를 hide/show 로 반영.
             var coupleRefreshTick by remember { mutableStateOf(0) }
 
+            // Outlook 연동 상태 · 서비스. MSAL 로컬 계정이 있으면 이메일 문자열, 없으면 null.
+            // 연동/해제 시 캘린더 chip 재fetch 하도록 scheduleRefreshTick 도 bump.
+            val outlookAuth = rememberOutlookAuthClient()
+            val outlookSync = remember(outlookAuth) { OutlookSyncService(outlookAuth) }
+            var outlookAccountEmail by remember { mutableStateOf<String?>(null) }
+            // 이전 login coroutine 이 in-flight 동안 사용자가 드로워 재탭·연타 시 MSAL 웹뷰가
+            // 중첩·재현되지 않도록 하는 guard. Swift MSAL SDK 가 완료 콜백을 흘려도 이 guard 로
+            // 결국 사용자 재탭이 필요한 상태로 복귀 (자동 재시도 X).
+            var outlookLoginInFlight by remember { mutableStateOf(false) }
+            // 초기 sync 트리거는 status 선언 후 별도 LaunchedEffect (아래) 에서 처리.
+
             // 세션 상태 기반 부트스트랩 라우팅.
             //  - Initializing / NotAuthenticated / RefreshFailure: AuthRoute 유지
             //    (내부 AuthGateScreen 이 mode 로 splash ↔ login 시각 전환)
             //  - Authenticated: 프로필/커플 상태 조회 → 미완성 단계로 자동 진입 (재로그인 시 온보딩 스킵)
             val status by sessionStatus.collectAsState()
+            // 세션 · 커플 상태 변할 때 저장된 MSAL 계정 있으면 상단 상태에 반영 + 초기 sync 시도.
+            // MSAL/Graph/네트워크 오류는 여기서 무조건 catch — 앱 부팅 flow 를 절대 막지 않도록.
+            LaunchedEffect(status, coupleRefreshTick) {
+                if (status is SessionStatus.Authenticated) {
+                    runCatching { outlookAuth.currentAccount()?.email }
+                        .onSuccess { outlookAccountEmail = it }
+                        .onFailure { println("[Outlook] currentAccount 실패: $it") }
+                    if (outlookAccountEmail != null) {
+                        runCatching {
+                            val from = oneMonthAgo().plus(-30, DateTimeUnit.DAY)
+                            outlookSync.syncRange(from, oneMonthAhead())
+                        }.onSuccess { scheduleRefreshTick++ }
+                            .onFailure { println("[Outlook] 초기 sync 실패: $it") }
+                    }
+                }
+            }
             LaunchedEffect(status) {
                 println("[Auth] sessionStatus = ${status::class.simpleName}")
                 when (val s = status) {
@@ -351,6 +364,45 @@ fun App() {
                             profileRefreshTick = profileRefreshTick,
                             scheduleRefreshTick = scheduleRefreshTick,
                             coupleRefreshTick = coupleRefreshTick,
+                            outlookAccountEmail = outlookAccountEmail,
+                            onOutlookConnectClick = {
+                                if (outlookLoginInFlight) {
+                                    println("[Outlook] login in-flight — 재탭 무시")
+                                } else {
+                                    outlookLoginInFlight = true
+//                                    println("[Outlook] 드로워 연결 탭 → login() 호출 시작")
+                                    scope.launch {
+                                        try {
+                                            val r = outlookAuth.login()
+                                            println("[Outlook] login() 반환: ${r::class.simpleName}")
+                                            when (r) {
+                                                is OutlookAuthResult.Success -> {
+                                                    outlookAccountEmail = r.email
+                                                    println("[Outlook] 계정 세팅: ${r.email}, sync 시작")
+                                                    val from = oneMonthAgo().plus(-30, DateTimeUnit.DAY)
+                                                    outlookSync.syncRange(from, oneMonthAhead())
+                                                    scheduleRefreshTick++
+                                                }
+                                                is OutlookAuthResult.Failure -> println("[Outlook] login 실패: ${r.reason}")
+                                                OutlookAuthResult.Cancelled -> println("[Outlook] 사용자 취소")
+                                            }
+                                        } catch (t: Throwable) {
+                                            println("[Outlook] login flow 예외: $t")
+                                        } finally {
+                                            outlookLoginInFlight = false
+                                        }
+                                    }
+                                }
+                            },
+                            onOutlookDisconnectClick = {
+                                scope.launch {
+                                    runCatching {
+                                        outlookSync.disconnect()
+                                        outlookAccountEmail = null
+                                        scheduleRefreshTick++
+                                    }.onFailure { println("[Outlook] disconnect 예외: $it") }
+                                }
+                            },
                         )
                     }
                     entry<SearchRoute> {

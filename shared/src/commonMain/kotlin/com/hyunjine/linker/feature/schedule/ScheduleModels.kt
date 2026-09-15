@@ -100,6 +100,13 @@ data class ScheduleDraft(
      * 이 draft 가 반복 시리즈의 일원이면 해당 series_id. 편집 저장 시 시리즈 batch 처리 여부 판단에 사용.
      */
     val seriesId: String? = null,
+    /**
+     * 스케줄 origin. `"internal"` (앱 자체 생성) or `"outlook"` (Microsoft Graph mirror).
+     * 편집 저장/삭제 시 상위 (Route) 가 이 값을 보고 Graph API 도 함께 update/delete.
+     */
+    val source: String = "internal",
+    /** 외부 provider 의 이벤트 id (Graph event.id). [source] == "internal" 이면 null. */
+    val externalId: String? = null,
 ) {
     val isEditableByCurrentUser: Boolean get() = owner != ScheduleOwner.Partner
 

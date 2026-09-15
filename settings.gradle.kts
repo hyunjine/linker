@@ -35,6 +35,15 @@ dependencyResolutionManagement {
             }
         }
         mavenCentral()
+        // MSAL 이 transitive 로 Surface Duo 전용 `com.microsoft.device.display:display-mask`
+        // 를 요구하는데 Maven Central 미배포 · Microsoft 공식 Duo SDK 저장소에만 있음.
+        // 범위는 그 그룹 한정으로 좁혀 다른 dep 해석 속도에는 영향 없게.
+        maven {
+            url = uri("https://pkgs.dev.azure.com/MicrosoftDeviceSDK/DuoSDK-Public/_packaging/Duo-SDK-Feed/maven/v1")
+            mavenContent {
+                includeGroupAndSubgroups("com.microsoft.device")
+            }
+        }
     }
 }
 
