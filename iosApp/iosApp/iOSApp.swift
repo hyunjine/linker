@@ -1,6 +1,7 @@
 import SwiftUI
 import Shared
 import GoogleSignIn
+import MSAL
 
 @main
 struct iOSApp: App {
@@ -49,6 +50,20 @@ struct iOSApp: App {
             }
         }
 
+        // Outlook (MSAL) 로그인 브리지 — 4개 handler 를 shared 의 OutlookAuthClient 가 호출.
+        OutlookAuthBridge.shared.loginHandler = { callback in
+            OutlookAuthProvider.shared.signIn { result in callback(result) }
+        }
+        OutlookAuthBridge.shared.signOutHandler = { callback in
+            OutlookAuthProvider.shared.signOut { callback() }
+        }
+        OutlookAuthBridge.shared.currentAccountHandler = { callback in
+            OutlookAuthProvider.shared.currentAccount { account in callback(account) }
+        }
+        OutlookAuthBridge.shared.accessTokenHandler = { callback in
+            OutlookAuthProvider.shared.accessToken { token in callback(token) }
+        }
+
         // Supabase 클라이언트 lazy 초기화 트리거. 링킹 · Secrets 주입 조기 검증.
         print("[Supabase] project = \(SupabaseProvider.shared.warmUp())")
 
@@ -61,8 +76,13 @@ struct iOSApp: App {
         WindowGroup {
             ContentView()
                 .onOpenURL { url in
-                    // Google Sign-In 웹 콜백 (REVERSED_CLIENT_ID 스킴) 처리.
+                    // 두 provider 중 어느 스킴 콜백이든 각 SDK 가 판단 후 처리.
+                    // Google (REVERSED_CLIENT_ID) 도 MSAL (msauth.<bundleId>) 도 통과시켜야 한다.
                     _ = GIDSignIn.sharedInstance.handle(url)
+                    _ = MSALPublicClientApplication.handleMSALResponse(
+                        url,
+                        sourceApplication: nil
+                    )
                 }
                 .onAppear {
                     // 첫 진입 시 위젯 payload 갱신 (세션 없으면 shared 가 빈 items 로 반환).

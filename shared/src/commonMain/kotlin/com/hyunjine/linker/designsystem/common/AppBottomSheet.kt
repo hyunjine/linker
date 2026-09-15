@@ -63,6 +63,9 @@ fun AppBottomSheet(
     onDismissRequest: () -> Unit,
     modifier: Modifier = Modifier,
     dragHandle: @Composable (() -> Unit)? = { AppDragHandle() },
+    /** 시트 컨테이너 배경 컬러. 기본 [SurfaceCard] (흰 카드). 편집용 시트는 일정 추가 화면
+     *  톤과 통일하기 위해 [SurfaceGray] 전달. */
+    containerColor: Color = SurfaceCard,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     if (!visible) return
@@ -74,7 +77,7 @@ fun AppBottomSheet(
         // corner radius 가 화면 밖으로 나가 페이지처럼 보이는 문제가 있었다.
         modifier = modifier.windowInsetsPadding(WindowInsets.statusBars),
         sheetState = sheetState,
-        containerColor = SurfaceCard,
+        containerColor = containerColor,
         dragHandle = dragHandle,
         contentWindowInsets = { WindowInsets(0) },
         content = content,

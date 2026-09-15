@@ -12,16 +12,22 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
@@ -56,8 +62,25 @@ fun AppInputCard(
     imeAction: ImeAction = ImeAction.Done,
     onImeAction: (() -> Unit)? = null,
     focusRequester: FocusRequester? = null,
+    /** 초기 렌더 시점에 커서를 텍스트 끝으로 이동. 편집 시트에서 prefilled 값을 이어서 수정할
+     *  때 커서가 문자열 처음이 아니라 마지막에 놓이게 하려면 true. */
+    initialCursorAtEnd: Boolean = false,
 ) {
     val font = LocalPretendardFontFamily.current
+    // BasicTextField String 오버로드는 커서 위치를 제어할 수 없어 처음 focus 시 offset 0 에 들어감.
+    // TextFieldValue 로 내부 관리해 최초 selection 을 텍스트 끝으로 이동 (편집 시트의 prefilled UX).
+    // 외부 value 가 바뀌면 (부모가 재설정 · 계정 전환 등) text 만 갱신 · 커서는 새 끝으로.
+    var tfv by remember {
+        mutableStateOf(
+            TextFieldValue(
+                text = value,
+                selection = if (initialCursorAtEnd) TextRange(value.length) else TextRange.Zero,
+            ),
+        )
+    }
+    if (tfv.text != value) {
+        tfv = tfv.copy(text = value, selection = TextRange(value.length))
+    }
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -72,7 +95,7 @@ fun AppInputCard(
             style = TextStyle(color = TextPrimary, fontSize = 17.sp, fontFamily = font),
         )
         Box(Modifier.fillMaxWidth()) {
-            if (value.isEmpty() && placeholder != null) {
+            if (tfv.text.isEmpty() && placeholder != null) {
                 Text(
                     text = placeholder,
                     style = TextStyle(color = TextSecondary, fontSize = 17.sp, fontFamily = font),
@@ -84,8 +107,12 @@ fun AppInputCard(
                 Modifier.fillMaxWidth()
             }
             BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
+                value = tfv,
+                onValueChange = { new ->
+                    val textChanged = new.text != tfv.text
+                    tfv = new
+                    if (textChanged) onValueChange(new.text)
+                },
                 modifier = fieldModifier,
                 textStyle = TextStyle(color = TextPrimary, fontSize = 17.sp, fontFamily = font),
                 singleLine = true,

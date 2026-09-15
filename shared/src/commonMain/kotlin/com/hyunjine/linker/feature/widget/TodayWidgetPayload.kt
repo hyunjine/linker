@@ -1,11 +1,11 @@
 package com.hyunjine.linker.feature.widget
 
-import androidx.compose.ui.graphics.Color
 import com.hyunjine.linker.data.remote.SchedulesRepository
 import com.hyunjine.linker.data.remote.SupabaseProvider
 import com.hyunjine.linker.data.remote.UsersRepository
 import com.hyunjine.linker.designsystem.theme.CalendarPurple
 import com.hyunjine.linker.designsystem.theme.calendarColorFor
+import com.hyunjine.linker.designsystem.theme.toRgbHex
 import com.hyunjine.linker.feature.main.resolveOwnerForViewer
 import com.hyunjine.linker.feature.main.toKoreanClock
 import io.github.jan.supabase.auth.auth
@@ -88,15 +88,6 @@ object TodayWidgetPayloadBuilder {
             partnerColorHex = calendarColorFor(partner?.calendarColor ?: "pink").toRgbHex(),
             usColorHex = CalendarPurple.toRgbHex(),
         )
-    }
-
-    /** Compose [Color] → "#RRGGBB" 문자열. KMP 호환 (String.format 회피). */
-    private fun Color.toRgbHex(): String {
-        val r = (red * 255f).toInt().coerceIn(0, 255)
-        val g = (green * 255f).toInt().coerceIn(0, 255)
-        val b = (blue * 255f).toInt().coerceIn(0, 255)
-        fun Int.h2() = toString(16).padStart(2, '0').uppercase()
-        return "#${r.h2()}${g.h2()}${b.h2()}"
     }
 
     private fun SchedulesRepository.Row.toWidgetItem(viewerId: String?): SortableItem {
