@@ -32,6 +32,7 @@ import com.github.skydoves.colorpicker.compose.ColorEnvelope
 import com.github.skydoves.colorpicker.compose.HsvColorPicker
 import com.github.skydoves.colorpicker.compose.rememberColorPickerController
 import com.hyunjine.linker.designsystem.theme.CalendarBlue
+import com.hyunjine.linker.designsystem.theme.LinkerTheme
 import com.hyunjine.linker.designsystem.theme.ProvidePretendard
 import com.hyunjine.linker.designsystem.theme.SurfaceCard
 import com.hyunjine.linker.designsystem.theme.SurfaceGray
@@ -63,6 +64,9 @@ fun CustomColorSheet(
         onDismissRequest = onDismissRequest,
         // 자체 X/✓ 툴바를 갖는 편집 시트 컨벤션 — 드래그 핸들 숨김.
         dragHandle = null,
+        // 일정 추가 화면 배경 (SurfaceGray) 과 톤 통일 — 리퀴드 글래스 X/저장 버튼이
+        // 흰 배경 위에 얹혔을 때 대비가 약해 안 보이던 문제 해결.
+        containerColor = SurfaceGray,
     ) {
         CustomColorSheetContent(
             initialHex = initialHex,
@@ -108,7 +112,7 @@ private fun CustomColorSheetContent(
     fun submit() {
         if (isValid) onConfirm("#$hex")
     }
-
+    println(isValid)
     Column(
         modifier = Modifier
             .fillMaxSize()

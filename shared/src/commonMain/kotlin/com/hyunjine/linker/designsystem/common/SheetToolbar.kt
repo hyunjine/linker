@@ -12,7 +12,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
@@ -25,7 +24,6 @@ import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.designsystem.theme.OnPrimary
 import com.hyunjine.linker.designsystem.theme.PrimaryBlue
 import com.hyunjine.linker.designsystem.theme.ProvidePretendard
-import com.hyunjine.linker.designsystem.theme.SurfaceCard
 import com.hyunjine.linker.designsystem.theme.TextPrimary
 
 /**
@@ -78,7 +76,8 @@ fun SheetToolbar(
 }
 
 /**
- * ✕ 원형 dismiss 버튼. iOS 26 sheet 상단 우측 close 스타일 근사 — 44dp 원 · SurfaceCard fill · TextPrimary 심볼.
+ * ✕ 원형 dismiss 버튼. iOS 26 리퀴드 글래스 원형 서피스 (BackCircleButton 과 동일 톤) 위에
+ * 유니코드 ✕ 심볼. 시트 좌측 · 일정 추가 화면 좌측 back 버튼과 시각 통일.
  */
 @Composable
 fun CircleCloseButton(
@@ -89,8 +88,8 @@ fun CircleCloseButton(
     Box(
         modifier = modifier
             .size(44.dp)
+            .liquidGlass(shape = CircleShape)
             .clip(CircleShape)
-            .background(SurfaceCard)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -107,8 +106,11 @@ fun CircleCloseButton(
 }
 
 /**
- * iOS 26 리퀴드 글래스 primary pill. 중앙에 [label] 텍스트, disabled 시 알파 감쇠.
- * `CreateScheduleScreen.SaveAction` 과 시각 동일 — 상단바 · 시트 양쪽에서 공용.
+ * iOS 26 리퀴드 글래스 primary pill. 중앙에 [label] 텍스트, disabled 시 색상 opacity 감쇠.
+ *
+ * disabled 표현을 `.alpha()` 대신 fill/text 컬러 자체의 alpha 로 처리 — Compose skia iOS 에서
+ * `.alpha()` 가 만드는 graphicsLayer 가 인접한 canvas 컴포저블 (HsvColorPicker 등) 의
+ * recomposition 과 얽히면서 pill fill 이 사라지는 케이스 회피.
  */
 @Composable
 fun SaveActionPill(
@@ -118,13 +120,14 @@ fun SaveActionPill(
     modifier: Modifier = Modifier,
 ) {
     val font = LocalPretendardFontFamily.current
+    val pillColor = if (enabled) PrimaryBlue else PrimaryBlue.copy(alpha = 0.5f)
+    val textColor = if (enabled) OnPrimary else OnPrimary.copy(alpha = 0.5f)
     Box(
         modifier = modifier
             .height(36.dp)
             .clip(CircleShape)
-            .liquidGlass(shape = CircleShape, fill = SolidColor(PrimaryBlue))
+            .liquidGlass(shape = CircleShape, fill = SolidColor(pillColor))
             .clickable(enabled = enabled, onClick = onClick)
-            .alpha(if (enabled) 1f else 0.5f)
             .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center,
     ) {
@@ -134,7 +137,7 @@ fun SaveActionPill(
                 fontFamily = font,
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 15.sp,
-                color = OnPrimary,
+                color = textColor,
             ),
         )
     }
