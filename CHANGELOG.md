@@ -13,29 +13,49 @@ Release 노트로 자동 게시된다 (`.github/workflows/release.yml`).
 ## [1.3.0] - 2026-09-15
 
 ### 신규 기능
-- Outlook 캘린더 동기화 (MSAL 로그인 · Graph API mirror · 드로워 진입)
-- 캘린더 컬러 커스텀 (HSV 색상휠 + Brightness 슬라이더 + hex 코드 입력)
-- 스케줄 알림 시각 사용자 설정
-  - 시간 있는 일정: 정각 / 5·10·15·30분 전 / 1시간 전 (기본 5분 전)
-  - 종일 · 할 일: 하루 중 알림 시각 (5분 스텝, 기본 09:00)
-- 드로워에 릴리즈 노트 항목 추가 (GitHub Releases 실시간 조회 · 접기/펼치기)
+- **Outlook 캘린더 연동** — 드로워에서 Microsoft 계정으로 로그인하면 내 Outlook 일정이 앱에 함께 표시돼요
+- **캘린더 컬러 커스텀** — 8개 프리셋 외에도 색상휠 · 밝기 슬라이더 · HEX 코드 입력으로 원하는 색을 지정할 수 있어요
+- **알림 시각 설정** — 일정/할 일 만들 때 언제 알림 받을지 직접 골라요
+  - 시간 있는 일정: 정각 / 5분 / 10분 / 15분 / 30분 / 1시간 전 (기본 5분 전)
+  - 종일 · 할 일: 하루 중 원하는 시각 (기본 오전 9시)
+- **릴리즈 노트** — 드로워 하단에서 앱 버전별 변경사항을 바로 확인할 수 있어요
 
 ### 개선
-- 편집 시트 상단 툴바 통일 (`SheetToolbar`) — 일정 추가 화면과 톤 일치
-- `SaveActionPill` 공용화 (일정 추가 · 프로필 편집 시트 공통)
-- `AppInputCard` TextFieldValue 개편 · 커서 위치 제어 옵션 추가 (닉네임 시트 편집 UX)
-- `AppBottomSheet` `containerColor` 파라미터 추가 · 편집 시트는 `SurfaceGray` 로 통일
-- Compose Skia iOS graphicsLayer 이슈 회피 — 저장 pill disabled 를 color opacity 로 처리
+- 편집 시트 (닉네임 · 커스텀 색상 · 반복 · 알림 등) 상단바 · "저장" 버튼 톤을 일정 추가 화면과 통일
+- 닉네임 편집을 열면 커서가 텍스트 끝에 위치해 이어서 바로 수정 가능
+- 편집 시트 배경을 은은한 회색으로 변경 (일정 추가 화면과 자연스럽게 연결)
 
 ### 버그 수정
-- 위젯이 유저 캘린더 컬러 미반영 문제 (payload 컬러 hex 동기화 · 프로필 저장 시 위젯 refresh 트리거)
-- Android Studio 에서 iosApp 실행 시 shared 재컴파일 스킵되던 문제 (pbxproj OVERRIDE 조기 종료 제거)
-- MSAL SDK init 실패 (Info.plist `msauthv2` · `msauthv3` 쿼리 스킴 재등록)
+- 프로필 캘린더 컬러를 바꿔도 홈/잠금화면 위젯에 반영되지 않던 문제 해결
+- 색상휠 조작 시 "저장" 버튼 배경이 잠깐 사라지던 렌더링 문제 해결
 
-### 기타
+## [1.3.0 · 개발자 노트]
+
+> 이 섹션은 GitHub Release 본문에 포함되지 않고 CHANGELOG 내부에만 남긴다. `release.yml` 의
+> awk 파서는 첫 번째 `## [` 뒤 다음 `## [` 를 만나면 종료하므로 이 섹션은 자동으로 걸러진다.
+
+### 리팩터
+- `SheetToolbar` / `SaveActionPill` / `CircleCloseButton` 공용화 (편집 시트 · CreateScheduleScreen 상단바)
+- `AppInputCard` 를 String → 내부 `TextFieldValue` 관리로 개편 · `initialCursorAtEnd` 옵션
+- `AppBottomSheet` `containerColor` 파라미터 추가
+- `Color.toRgbHex` 공용 확장 (theme) 으로 승격 · TodayWidgetPayload 중복 헬퍼 제거
+- Compose Skia iOS graphicsLayer 이슈 회피 — 저장 pill disabled 를 `.alpha()` modifier 대신 컬러 자체 opacity 로
+
+### 인프라 · 빌드
 - release-drafter 도입 — dev 머지 PR 라벨 기반 draft release 자동 초안
-- gradle parallel · GC · CDS 튜닝 · compile-kotlin-framework 프리워머
-- Supabase migrations 2건 (`schedules.reminder_minutes_before`, `schedules.reminder_time`) · `send_schedule_start_reminders` REPLACE
+- gradle parallel · GC · CDS 튜닝
+- `compile_kotlin_framework.sh` pre-warm (sim · device 두 아키텍처 동시 링크)
+- pbxproj `OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED` 조기 종료 실제 제거 (Android Studio 에서 iosApp 실행 시 shared 재컴파일 스킵되던 문제)
+
+### DB · 백엔드
+- Migrations 2건 (`schedules.reminder_minutes_before`, `schedules.reminder_time`)
+- `send_schedule_start_reminders()` REPLACE — offset 매칭 · per-row `reminder_time` 지원
+- 위젯 payload 에 `meColorHex` · `partnerColorHex` · `usColorHex` 필드 추가 (앱 프로필 컬러 → 위젯)
+- `ProfileEditViewModel.save.onSuccess` 에서 `refreshTodayWidget()` 호출
+
+### iOS-specific
+- MSAL init 실패 해소 — Info.plist `LSApplicationQueriesSchemes` 에 `msauthv2` · `msauthv3` 재등록
+- Outlook 로그인 재탭 in-flight guard (MSAL 웹뷰 중첩 방지)
 
 ## [1.2.0] - 2026-09-08
 
