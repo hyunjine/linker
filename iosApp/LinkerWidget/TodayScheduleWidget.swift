@@ -80,7 +80,12 @@ struct TodayScheduleWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: TodayScheduleProvider()) { entry in
             TodayScheduleView(entry: entry)
-                .containerBackground(.background, for: .widget)
+                // 홈화면 위젯은 반투명 material 로 벽지가 은은히 비치도록 (이슈 #174).
+                // Lock screen accessory 는 iOS 가 자체 시스템 톤을 씌우므로 아래 배경은
+                // 사실상 무시됨 (AccessoryWidgetBackground 별도 사용).
+                .containerBackground(for: .widget) {
+                    Rectangle().fill(.ultraThinMaterial)
+                }
         }
         .configurationDisplayName("오늘 일정")
         .description("현진이랑민교의 오늘 스케줄과 할 일을 한눈에.")
@@ -149,30 +154,44 @@ private struct CircularView: View {
 private struct RectangularView: View {
     let entry: TodayScheduleEntry
     var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(todayHeader).font(.caption2).foregroundStyle(.secondary)
-            if let items = entry.payload?.items, !items.isEmpty {
-                ForEach(items.prefix(2)) { item in
-                    HStack(spacing: 4) {
-                        if let t = item.timeLabel { Text(t).font(.caption2).monospacedDigit() }
-                        Text(item.title).font(.caption).lineLimit(1)
-                    }
+        // 잠금화면 rectangular 는 세로 공간이 극도로 제한적. 날짜 헤더는 iOS 잠금화면 상단
+        // 시계/날짜와 중복되어 있어 제거 (#174) — 확보한 여유로 일정 row 를 하나 더 노출.
+        // 홈화면과 동일 패턴 (ViewThatFits) 을 쓰되 rectangular 전용 컴팩트 row 로.
+        if let items = entry.payload?.items, !items.isEmpty {
+            ViewThatFits(in: .vertical) {
+                ForEach(0..<items.count, id: \.self) { hiddenCount in
+                    rectangularContent(items: items, hiddenCount: hiddenCount)
                 }
-            } else {
-                Text("일정 없음").font(.caption).foregroundStyle(.secondary)
+            }
+        } else {
+            VStack(alignment: .leading) {
+                Text("오늘 일정 없음").font(.caption).foregroundStyle(.secondary)
             }
         }
     }
 
-    private var todayHeader: String {
-        let f = DateFormatter(); f.dateFormat = "M월 d일 (E)"; f.locale = Locale(identifier: "ko_KR")
-        return f.string(from: entry.date)
+    @ViewBuilder
+    private func rectangularContent(items: [WidgetSchedule], hiddenCount: Int) -> some View {
+        let shown = items.count - hiddenCount
+        VStack(alignment: .leading, spacing: 2) {
+            ForEach(items.prefix(shown)) { item in
+                HStack(spacing: 4) {
+                    if let t = item.timeLabel { Text(t).font(.caption2).monospacedDigit() }
+                    Text(item.title).font(.caption).lineLimit(1)
+                }
+            }
+            if hiddenCount > 0 {
+                Text("+\(hiddenCount)개")
+                    .font(.caption2).foregroundStyle(.secondary)
+            }
+        }
     }
 }
 
 private struct SmallView: View {
     let entry: TodayScheduleEntry
     var body: some View {
+        let colors = OwnerColors(payload: entry.payload)
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(todayHeader).font(.caption).foregroundStyle(.secondary)
@@ -182,13 +201,7 @@ private struct SmallView: View {
                 }
             }
             if let items = entry.payload?.items, !items.isEmpty {
-                ForEach(items.prefix(2)) { item in
-                    ScheduleRowSmall(item: item)
-                }
-                if (entry.payload?.items.count ?? 0) > 2 {
-                    Text("+\((entry.payload?.items.count ?? 0) - 2)개")
-                        .font(.caption2).foregroundStyle(.secondary)
-                }
+                AdaptiveScheduleList(items: items, rowSize: .small, colors: colors)
             } else {
                 Text("오늘 일정이 없어요")
                     .font(.caption).foregroundStyle(.secondary)
@@ -206,6 +219,7 @@ private struct SmallView: View {
 private struct MediumView: View {
     let entry: TodayScheduleEntry
     var body: some View {
+        let colors = OwnerColors(payload: entry.payload)
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(todayHeader).font(.caption).foregroundStyle(.secondary)
@@ -215,13 +229,7 @@ private struct MediumView: View {
                 }
             }
             if let items = entry.payload?.items, !items.isEmpty {
-                ForEach(items.prefix(4)) { item in
-                    ScheduleRowMedium(item: item)
-                }
-                if (entry.payload?.items.count ?? 0) > 4 {
-                    Text("+\((entry.payload?.items.count ?? 0) - 4)개 더")
-                        .font(.caption2).foregroundStyle(.secondary)
-                }
+                AdaptiveScheduleList(items: items, rowSize: .medium, colors: colors)
             } else {
                 Text("오늘 일정이 없어요").font(.subheadline).foregroundStyle(.secondary)
             }
@@ -235,11 +243,61 @@ private struct MediumView: View {
     }
 }
 
+/// 위젯 높이가 허용하는 만큼 일정 row 를 채우고, 넘치는 항목만 `+N개` 로 표시하는 리스트.
+///
+/// `ViewThatFits` 는 자식들을 순서대로 시도해 부모가 제안한 space 에 맞는 첫 view 를 렌더한다.
+/// - 첫 시도: 전체 항목 노출 · 오버플로 없음
+/// - 이후: 마지막 항목부터 하나씩 숨기고 대신 `+숨긴수개` 표시
+/// - 최소 1개 + `+N개` 는 항상 fit 가정 (실제 안 되면 SwiftUI 가 마지막 것 선택)
+///
+/// 항목 수 상한은 실무 상 payload 개수 (`TodayWidgetPayload` 가 이미 제한) — 여기선 방어적으로
+/// 최대 10 candidate 를 만든다 (11개 이상은 첫 후보로 자동 통과 후 iOS 가 clip).
+private struct AdaptiveScheduleList: View {
+    let items: [WidgetSchedule]
+    let rowSize: RowSize
+    let colors: OwnerColors
+
+    enum RowSize { case small, medium }
+
+    var body: some View {
+        ViewThatFits(in: .vertical) {
+            ForEach(candidateHiddenCounts, id: \.self) { hiddenCount in
+                content(hiddenCount: hiddenCount)
+            }
+        }
+    }
+
+    /// 시도할 "숨긴 항목 수" 후보 리스트. 0 부터 items.count-1 까지 오름차순 → 오버플로 최소가
+    /// 우선. `ViewThatFits` 가 앞에서부터 fit 되는 첫 후보를 채택.
+    private var candidateHiddenCounts: [Int] {
+        Array(0..<items.count)
+    }
+
+    @ViewBuilder
+    private func content(hiddenCount: Int) -> some View {
+        let shownCount = items.count - hiddenCount
+        VStack(alignment: .leading, spacing: rowSize == .small ? 4 : 6) {
+            ForEach(items.prefix(shownCount)) { item in
+                switch rowSize {
+                case .small: ScheduleRowSmall(item: item, colors: colors)
+                case .medium: ScheduleRowMedium(item: item, colors: colors)
+                }
+            }
+            if hiddenCount > 0 {
+                Text("+\(hiddenCount)개")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
 private struct ScheduleRowSmall: View {
     let item: WidgetSchedule
+    let colors: OwnerColors
     var body: some View {
         HStack(spacing: 6) {
-            OwnerDot(kind: item.ownerKind).frame(width: 6, height: 6)
+            OwnerDot(kind: item.ownerKind, colors: colors).frame(width: 6, height: 6)
             Text(item.title).font(.caption).lineLimit(1)
             Spacer()
         }
@@ -248,9 +306,10 @@ private struct ScheduleRowSmall: View {
 
 private struct ScheduleRowMedium: View {
     let item: WidgetSchedule
+    let colors: OwnerColors
     var body: some View {
         HStack(spacing: 8) {
-            OwnerDot(kind: item.ownerKind).frame(width: 8, height: 8)
+            OwnerDot(kind: item.ownerKind, colors: colors).frame(width: 8, height: 8)
             if let t = item.timeLabel {
                 Text(t).font(.caption2).monospacedDigit().foregroundStyle(.secondary)
                     .frame(minWidth: 56, alignment: .leading)
@@ -264,15 +323,65 @@ private struct ScheduleRowMedium: View {
 
 private struct OwnerDot: View {
     let kind: String
+    /// 상위에서 payload 로부터 계산된 소유자 컬러 팔레트. `kind` 로 셋 중 하나 선택.
+    let colors: OwnerColors
+
     var body: some View {
-        Circle().fill(color)
+        Circle().fill(colors.color(for: kind))
     }
-    private var color: Color {
+}
+
+/// 뷰어 관점 me/partner/us 컬러 팔레트. Kotlin payload 의 hex 를 파싱해 만들고,
+/// 없으면 시스템 fallback (`Color.kt` 기본값과 일치) 사용. rows 로 흘려서 하드코딩 제거.
+struct OwnerColors {
+    let me: Color
+    let partner: Color
+    let us: Color
+
+    static let fallback = OwnerColors(me: .blue, partner: .pink, us: .purple)
+
+    init(me: Color, partner: Color, us: Color) {
+        self.me = me; self.partner = partner; self.us = us
+    }
+
+    init(payload: WidgetTodayPayload?) {
+        let m = (payload?.meColorHex).flatMap { Color(hex: $0) }
+        let p = (payload?.partnerColorHex).flatMap { Color(hex: $0) }
+        let u = (payload?.usColorHex).flatMap { Color(hex: $0) }
+        self.me = m ?? .blue
+        self.partner = p ?? .pink
+        self.us = u ?? .purple
+    }
+
+    func color(for kind: String) -> Color {
         switch kind {
-        case "me": return .blue
-        case "partner": return .pink
-        default: return .purple
+        case "me": return me
+        case "partner": return partner
+        case "us": return us
+        default: return me
         }
+    }
+}
+
+private extension Color {
+    /// "#RRGGBB" · "RRGGBB" · "#AARRGGBB" 를 파싱. 실패 시 nil.
+    init?(hex: String) {
+        var s = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if s.hasPrefix("#") { s.removeFirst() }
+        guard s.count == 6 || s.count == 8, let v = UInt64(s, radix: 16) else { return nil }
+        let a, r, g, b: Double
+        if s.count == 8 {
+            a = Double((v >> 24) & 0xFF) / 255.0
+            r = Double((v >> 16) & 0xFF) / 255.0
+            g = Double((v >> 8) & 0xFF) / 255.0
+            b = Double(v & 0xFF) / 255.0
+        } else {
+            a = 1.0
+            r = Double((v >> 16) & 0xFF) / 255.0
+            g = Double((v >> 8) & 0xFF) / 255.0
+            b = Double(v & 0xFF) / 255.0
+        }
+        self.init(.sRGB, red: r, green: g, blue: b, opacity: a)
     }
 }
 

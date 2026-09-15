@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -27,6 +28,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
@@ -34,6 +36,7 @@ import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderBg
 import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderFg
 import com.hyunjine.linker.designsystem.theme.DrawerButtonBg
 import com.hyunjine.linker.designsystem.theme.DrawerCheckBlue
+import com.hyunjine.linker.designsystem.theme.LinkerTheme
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.designsystem.theme.SurfaceCard
 import com.hyunjine.linker.designsystem.theme.TextPrimary
@@ -75,6 +78,7 @@ fun MainDrawerContent(
     onSettingsClick: () -> Unit = {},
     onAnniversaryClick: () -> Unit = {},
     onCoupleLinkClick: () -> Unit = {},
+    onReleaseNotesClick: () -> Unit = {},
     onToggleMyCalendar: (Boolean) -> Unit = {},
     onTogglePartnerCalendar: (Boolean) -> Unit = {},
     onToggleSharedCalendar: (Boolean) -> Unit = {},
@@ -83,6 +87,12 @@ fun MainDrawerContent(
     onLogout: () -> Unit = {},
     /** 파트너 조인 여부. false 면 "상대방 캘린더" · "공동 캘린더" 토글 자체를 감춘다. */
     hasPartner: Boolean = true,
+    /** Outlook 연결된 계정 이메일. null 이면 미연결 상태 — 행 탭 시 로그인 시트. */
+    outlookAccountEmail: String? = null,
+    /** Outlook 미연결일 때 행 탭 콜백 (MSAL 로그인 시트 즉시 트리거). */
+    onOutlookConnectClick: () -> Unit = {},
+    /** Outlook 연결됨 상태에서 행 탭 콜백 (연결 해제 확인 후 signOut · mirror 삭제). */
+    onOutlookDisconnectClick: () -> Unit = {},
 ) {
     Column(
         modifier = Modifier
@@ -100,6 +110,11 @@ fun MainDrawerContent(
         CoupleLinkRow(
             text = "상대방 연결",
             onClick = onCoupleLinkClick,
+        )
+        Spacer(Modifier.height(8.dp))
+        OutlookRow(
+            accountEmail = outlookAccountEmail,
+            onClick = if (outlookAccountEmail == null) onOutlookConnectClick else onOutlookDisconnectClick,
         )
         // 기념일 설정: 다음 버전에서 다시 열 예정 (기능 재설계 이슈 참조). 지금은 숨김.
 //        Spacer(Modifier.height(8.dp))
@@ -140,8 +155,79 @@ fun MainDrawerContent(
             onCheckedChange = onToggleSolarTerms,
         )
         Spacer(Modifier.height(16.dp))
+        ReleaseNotesRow(onClick = onReleaseNotesClick)
         LogoutRow(onClick = onLogout)
         Spacer(Modifier.height(16.dp))
+    }
+}
+
+/**
+ * Outlook 캘린더 연결 진입 행. 미연결 상태는 "Outlook 연결" 텍스트만, 연결됐으면 계정
+ * 이메일 서브텍스트 노출. 사용자가 탭하면 상태에 따라 로그인 시트 or 연결 해제.
+ * 시각은 다른 드로워 버튼과 통일 (Figma AllScheduleBtn 톤).
+ */
+@Composable
+private fun OutlookRow(accountEmail: String?, onClick: () -> Unit) {
+    val pretendard = LocalPretendardFontFamily.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(DrawerButtonBg)
+            .noRippleClickable(onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = if (accountEmail == null) "Outlook 연결" else "Outlook 연결됨",
+                style = TextStyle(
+                    fontFamily = pretendard,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp,
+                    color = TextPrimary,
+                ),
+            )
+            if (accountEmail != null) {
+                Text(
+                    text = accountEmail,
+                    style = TextStyle(
+                        fontFamily = pretendard,
+                        fontWeight = FontWeight.Normal,
+                        fontSize = 12.sp,
+                        color = TextSecondary,
+                    ),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * 드로워 하단 "릴리즈 노트" 진입 행. [LogoutRow] 와 동일한 텍스트 스타일이나 컬러만 다르게 —
+ * [TextPrimary] 로 로그아웃 대비 강조 (#255).
+ */
+@Composable
+private fun ReleaseNotesRow(onClick: () -> Unit) {
+    val pretendard = LocalPretendardFontFamily.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .noRippleClickable(onClick)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "릴리즈 노트",
+            style = TextStyle(
+                fontFamily = pretendard,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp,
+                color = TextPrimary,
+            ),
+        )
     }
 }
 
@@ -385,4 +471,39 @@ private fun CheckboxSquare(checked: Boolean) {
 private fun Modifier.noRippleClickable(onClick: () -> Unit): Modifier {
     val interaction = remember { MutableInteractionSource() }
     return this.clickable(interactionSource = interaction, indication = null, onClick = onClick)
+}
+
+
+@Composable
+@Preview(showBackground = true)
+private fun MainDrawerContentSoloPreview() {
+    LinkerTheme {
+        MainDrawerContent(
+            profileName = "김현진",
+            profileHandle = "@hyunjine",
+            displayState = DrawerDisplayState(),
+            hasPartner = false,
+            outlookAccountEmail = null,
+        )
+    }
+}
+
+@Composable
+@Preview(showBackground = true)
+private fun MainDrawerContentCouplePreview() {
+    LinkerTheme {
+        MainDrawerContent(
+            profileName = "김현진",
+            profileHandle = "@hyunjine",
+            displayState = DrawerDisplayState(
+                showMyCalendar = true,
+                showPartnerCalendar = true,
+                showSharedCalendar = false,
+                showHolidays = true,
+                showSolarTerms = false,
+            ),
+            hasPartner = true,
+            outlookAccountEmail = "hyunjine@outlook.com",
+        )
+    }
 }

@@ -43,15 +43,18 @@ jobs:
             exit 1
           fi
 
-          # CHANGELOG.md 에서 첫 `## [X.Y.Z]` 헤더 (Unreleased 는 스킵) 를 찾고
-          # 그 다음 `## ` 헤더 전까지를 노트 본문으로 추출.
+          # CHANGELOG.md 에서 첫 `## [X.Y.Z]` (순수 semver) 헤더를 찾고 그 다음 semver 헤더
+          # 전까지를 body 로 추출. 비-semver 헤더 (예: `## [X.Y.Z · 개발자 노트]`) 는 delimiter
+          # 로 취급하지 않고 body 안에 그대로 포함 — GitHub Release 본문엔 사용자·개발자 노트가
+          # 모두 게시된다. 앱은 body 를 받아 렌더할 때 `## [` 만나면 렌더링을 멈춰 사용자 섹션
+          # 만 노출한다 (ReleaseNotesScreen 참고).
           #
           # awk 로직:
-          #   - 상태 f=1: 첫 번째 non-Unreleased 버전 헤더를 만난 후 본문 수집
-          #   - 그 다음 `## ` 헤더 만나면 종료
+          #   - 상태 f=1: 첫 번째 non-Unreleased **semver** 헤더를 만난 후 본문 수집
+          #   - 그 다음 **semver** 헤더 만나면 종료 (개발자 노트 헤더는 무시)
           awk '
             /^## \[Unreleased\]/ { next }
-            /^## \[/ {
+            /^## \[[0-9]+\.[0-9]+\.[0-9]+\]/ {
               if (f) exit
               # 헤더 자체는 노트에 포함하지 않음 (GitHub Release 가 tag 로 제목 대체)
               match($0, /## \[([^]]+)\]/, m)

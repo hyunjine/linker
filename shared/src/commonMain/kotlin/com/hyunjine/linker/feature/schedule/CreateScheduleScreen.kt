@@ -2,6 +2,7 @@ package com.hyunjine.linker.feature.schedule
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,9 +12,15 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hyunjine.linker.designsystem.common.AlertAction
@@ -41,11 +49,15 @@ import com.hyunjine.linker.designsystem.common.AlertActionStyle
 import com.hyunjine.linker.designsystem.common.AppAlertDialog
 import com.hyunjine.linker.designsystem.common.AppSwitch
 import com.hyunjine.linker.designsystem.common.AppTopBar
+import com.hyunjine.linker.designsystem.common.ListBottomSheet
+import com.hyunjine.linker.feature.main.toKoreanClock
+import com.hyunjine.linker.designsystem.common.SaveActionPill
 import com.hyunjine.linker.designsystem.common.SegmentedControl
 import com.hyunjine.linker.designsystem.common.liquidGlass
 import com.hyunjine.linker.designsystem.common.TimePickerSheet
 import com.hyunjine.linker.designsystem.common.YearMonthDayPickerSheet
 import com.hyunjine.linker.designsystem.theme.Chevron
+import com.hyunjine.linker.designsystem.theme.LinkerTheme
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.designsystem.theme.OnPrimary
 import com.hyunjine.linker.designsystem.theme.PlaceholderText
@@ -96,6 +108,8 @@ fun CreateScheduleScreen(
     var startTimeSheet by remember { mutableStateOf(false) }
     var endTimeSheet by remember { mutableStateOf(false) }
     var repeatSheet by remember { mutableStateOf(false) }
+    var reminderSheet by remember { mutableStateOf(false) }
+    var reminderTimeSheet by remember { mutableStateOf(false) }
     // 반복 시리즈 인스턴스 편집일 때 저장 · 삭제 탭 → scope 선택 다이얼로그 노출.
     var scopeChoiceDialog by remember { mutableStateOf(false) }
     var deleteScopeDialog by remember { mutableStateOf(false) }
@@ -107,32 +121,60 @@ fun CreateScheduleScreen(
     // 고른 순간 화면 전체가 잠겨 다시 "나/공동" 으로 되돌릴 방법이 없어진다.
     val canEdit = !editing || (initial?.isEditableByCurrentUser ?: true)
 
+    // 화면 임의 지점 탭 → 키보드 dismiss. clickable(indication=null) 은 자식이 자체
+    // clickable 로 이벤트를 consume 하는 영역은 그대로 두고 (TextField, RowItem, 버튼),
+    // 나머지 빈 영역만 이 콜백을 발화시킨다. `pointerInput { detectTapGestures }` 는
+    // CMP iOS 에서 상위 scroll modifier 와 경쟁하면서 신뢰성이 떨어져 이 방식으로 교체 (#240).
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val dismissInteraction = remember { MutableInteractionSource() }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(SurfaceGray),
+            .background(SurfaceGray)
+            .clickable(
+                interactionSource = dismissInteraction,
+                indication = null,
+            ) {
+                focusManager.clearFocus()
+                keyboardController?.hide()
+            },
     ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.safeDrawing),
+                // safeDrawing = systemBars ∪ ime ∪ displayCutout. CMP iOS 에서 상단 노치 · 하단
+                // 홈 인디케이터 · 키보드 영역을 한 번에 커버. AnniversariesScreen · ProfileSetupScreen
+                // 과 동일 패턴 (#240).
+                .statusBarsPadding()
         ) {
             AppTopBar(
                 title = if (editing) "일정 수정" else "일정 추가",
                 onBack = onBack,
                 trailing = {
-                    SaveAction(enabled = canEdit) {
-                        if (isSeriesEdit) scopeChoiceDialog = true
-                        else onSave(draft, null)
-                    }
+                    SaveActionPill(
+                        label = "저장",
+                        enabled = canEdit,
+                        onClick = {
+                            if (isSeriesEdit) scopeChoiceDialog = true
+                            else onSave(draft, null)
+                        },
+                    )
                 },
             )
 
             Column(
                 modifier = Modifier
-                    .fillMaxSize()
+                    // AppTopBar 아래 남은 공간을 전부 차지 + 그 안에서 스크롤. `fillMaxSize` 대신
+                    // `weight(1f)` 를 쓰면 상위 Column 이 부모 높이를 이미 알기 때문에 scroll extent
+                    // 가 확정되어 마지막 아이템이 잘리는 케이스가 사라진다.
+                    .weight(1f)
+                    .fillMaxWidth()
                     .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 12.dp)
+                    .navigationBarsPadding()
+                ,
                 verticalArrangement = Arrangement.spacedBy(20.dp),
             ) {
                 TitleCard(
@@ -185,6 +227,29 @@ fun CreateScheduleScreen(
                     }
                 }
 
+                // 알림 (#251)
+                //  - 시간 있는 일정: 시작 시각 대비 offset (정각/5·10·15·30분전/1시간전)
+                //  - 종일 · 할 일: 하루 중 알림 받을 시각 ("HH:MM", 기본 09:00)
+                SectionBlock(label = "알림") {
+                    Card {
+                        if (draft.showsTimeRows) {
+                            RowItem(
+                                label = "알림",
+                                value = ReminderOffset.fromMinutes(draft.reminderMinutesBefore).label,
+                                onClick = { if (canEdit) reminderSheet = true },
+                                enabled = canEdit,
+                            )
+                        } else {
+                            RowItem(
+                                label = "알림",
+                                value = draft.reminderTime.toKoreanClock() ?: draft.reminderTime,
+                                onClick = { if (canEdit) reminderTimeSheet = true },
+                                enabled = canEdit,
+                            )
+                        }
+                    }
+                }
+
                 SectionBlock(label = "일정 주체") {
                     // "상대방" 은 picker 에서 제거 — 파트너에게 일정을 배정할 권한 없음.
                     // 파트너가 만든 스케줄 (기존 owner=Partner) 은 편집 화면에서 canEdit=false 로
@@ -233,7 +298,9 @@ fun CreateScheduleScreen(
                     }
                 }
 
-                Spacer(Modifier.height(24.dp))
+                // 마지막 카드 아래 breathing room. safeDrawing 이 하단 인셋은 커버하므로
+                // 여기는 순수 여백 목적 — 삭제 버튼과 화면 끝 사이 시각적 여유 (#240).
+                Spacer(Modifier.height(16.dp))
             }
         }
     }
@@ -301,6 +368,28 @@ fun CreateScheduleScreen(
         },
         onDismiss = { repeatSheet = false },
     )
+    // 알림 offset 선택 시트 (시간 있는 일정).
+    ListBottomSheet(
+        visible = reminderSheet,
+        options = ReminderOffset.Options,
+        selected = ReminderOffset.fromMinutes(draft.reminderMinutesBefore),
+        onSelect = { picked ->
+            draft = draft.copy(reminderMinutesBefore = picked.minutesBefore)
+            reminderSheet = false
+        },
+        onDismiss = { reminderSheet = false },
+        label = { it.label },
+    )
+    // 알림 시각 선택 시트 (종일 · 할 일). 5분 스텝 시각 wheel.
+    TimePickerSheet(
+        visible = reminderTimeSheet,
+        time = draft.reminderTime,
+        onConfirm = { picked ->
+            reminderTimeSheet = false
+            draft = draft.copy(reminderTime = picked)
+        },
+        onCancel = { reminderTimeSheet = false },
+    )
 
     // 반복 시리즈 편집 저장 시 scope 선택 다이얼로그 (이 스케줄만 · 이후 모든 반복 · 취소).
     if (scopeChoiceDialog) {
@@ -358,33 +447,6 @@ private fun compareHhMm(a: String, b: String): Int {
 }
 
 // ────────── Building blocks ──────────
-
-@Composable
-private fun SaveAction(enabled: Boolean, onClick: () -> Unit) {
-    val pretendard = LocalPretendardFontFamily.current
-    // iOS 26 primary tinted 리퀴드 글래스 pill. `Modifier.liquidGlass` 의 fill 만 PrimaryBlue 로 교체 —
-    // 흰색 rim 하이라이트는 그대로 유지해 back circle 과 톤을 맞춤.
-    Box(
-        modifier = Modifier
-            .height(36.dp)
-            .clip(CircleShape)
-            .liquidGlass(shape = CircleShape, fill = SolidColor(PrimaryBlue))
-            .clickable(enabled = enabled, onClick = onClick)
-            .alpha(if (enabled) 1f else 0.5f)
-            .padding(horizontal = 14.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = "저장",
-            style = TextStyle(
-                fontFamily = pretendard,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp,
-                color = OnPrimary,
-            ),
-        )
-    }
-}
 
 @Composable
 private fun TitleCard(title: String, enabled: Boolean, onChange: (String) -> Unit) {
@@ -635,6 +697,10 @@ private val ScheduleDraftSaver = androidx.compose.runtime.saveable.Saver<Schedul
             d.repeatEndDate?.toString(),
             d.owner.name,
             d.isPrivate,
+            d.source,
+            d.externalId,
+            d.reminderMinutesBefore,
+            d.reminderTime,
         )
     },
     restore = { list ->
@@ -650,6 +716,10 @@ private val ScheduleDraftSaver = androidx.compose.runtime.saveable.Saver<Schedul
             repeatEndDate = (list[8] as String?)?.let { LocalDate.parse(it) },
             owner = ScheduleOwner.valueOf(list[9] as String),
             isPrivate = (list.getOrNull(10) as? Boolean) ?: false,
+            source = (list.getOrNull(11) as? String) ?: "internal",
+            externalId = list.getOrNull(12) as? String,
+            reminderMinutesBefore = (list.getOrNull(13) as? Int) ?: ReminderOffset.Default.minutesBefore,
+            reminderTime = (list.getOrNull(14) as? String) ?: DefaultTaskReminderTime,
         )
     },
 )
@@ -664,4 +734,112 @@ private fun parseRepeat(s: String): RepeatRule = when {
         RepeatRule.Yearly(parts.getOrNull(0)?.toIntOrNull() ?: 1, parts.getOrNull(1)?.toIntOrNull() ?: 1)
     }
     else -> RepeatRule.None
+}
+
+// ────────── Previews ──────────
+// 신규 · 편집 · 파트너 읽기전용 · 공동 · 종일 다섯 케이스로 UI 분기 (canEdit · owner · allDay ·
+// showsTimeRows · 삭제 카드) 를 검토. picker 시트는 열지 않은 상태 (visible=false) 라
+// 화면 본체만 렌더된다.
+
+private val PreviewToday: LocalDate = LocalDate(2026, 9, 10)
+
+/** 신규 · 일정 (기본 진입) — 세그먼트 Schedule · 종일 off · 공개범위/반복/주체 모두 노출. */
+@Preview
+@Composable
+private fun CreateScheduleScreenPreview_NewSchedule() {
+    LinkerTheme {
+        CreateScheduleScreen(
+            initial = ScheduleDraft(
+                title = "",
+                startDate = PreviewToday,
+                endDate = PreviewToday,
+                type = ScheduleType.Schedule,
+                allDay = false,
+                startTime = "14:00",
+                endTime = "15:00",
+            ),
+            editing = false,
+        )
+    }
+}
+
+/** 신규 · 할 일 — 세그먼트 Task 선택. 종일 토글/시각 행 자체가 사라진다. */
+@Preview
+@Composable
+private fun CreateScheduleScreenPreview_NewTask() {
+    LinkerTheme {
+        CreateScheduleScreen(
+            initial = ScheduleDraft(
+                title = "택배 보내기",
+                startDate = PreviewToday,
+                endDate = PreviewToday,
+                type = ScheduleType.Task,
+            ),
+            editing = false,
+        )
+    }
+}
+
+/** 편집 가능 (owner=Me) — 하단 "일정 삭제" 카드 노출. #240 스크롤 하단 잘림 케이스 검토용. */
+@Preview
+@Composable
+private fun CreateScheduleScreenPreview_EditableSchedule() {
+    LinkerTheme {
+        CreateScheduleScreen(
+            initial = ScheduleDraft(
+                title = "치과 예약",
+                startDate = PreviewToday,
+                endDate = PreviewToday,
+                type = ScheduleType.Schedule,
+                allDay = false,
+                startTime = "10:00",
+                endTime = "11:00",
+                owner = ScheduleOwner.Me,
+                createdBy = "me",
+            ),
+            editing = true,
+        )
+    }
+}
+
+/** 공동 일정 (owner=Us) — "공개 범위" 섹션이 논리 상 사라져 화면이 한 블록 짧아진다. */
+@Preview
+@Composable
+private fun CreateScheduleScreenPreview_UsSchedule() {
+    LinkerTheme {
+        CreateScheduleScreen(
+            initial = ScheduleDraft(
+                title = "제주도 여행",
+                startDate = LocalDate(2026, 10, 3),
+                endDate = LocalDate(2026, 10, 6),
+                type = ScheduleType.Schedule,
+                allDay = true,
+                owner = ScheduleOwner.Us,
+                createdBy = "me",
+            ),
+            editing = true,
+        )
+    }
+}
+
+/** 파트너 일정 (읽기 전용) — 저장 버튼 비활성 + 세그먼트 tap 무시 + 삭제 카드 숨김. */
+@Preview
+@Composable
+private fun CreateScheduleScreenPreview_PartnerReadOnly() {
+    LinkerTheme {
+        CreateScheduleScreen(
+            initial = ScheduleDraft(
+                title = "상대방 근무",
+                startDate = PreviewToday,
+                endDate = PreviewToday,
+                type = ScheduleType.Schedule,
+                allDay = false,
+                startTime = "09:00",
+                endTime = "18:00",
+                owner = ScheduleOwner.Partner,
+                createdBy = "partner",
+            ),
+            editing = true,
+        )
+    }
 }

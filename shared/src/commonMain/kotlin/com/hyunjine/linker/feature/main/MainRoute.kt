@@ -29,11 +29,18 @@ fun MainRoute(
     onSearchClick: () -> Unit,
     onProfileEditClick: () -> Unit,
     onCoupleLinkClick: () -> Unit,
+    onReleaseNotesClick: () -> Unit,
     onLogout: () -> Unit,
     profileRefreshTick: Int,
     scheduleRefreshTick: Int,
     coupleRefreshTick: Int,
     onDrawerProfileHandle: (nickname: String, birthDate: String?, imageUrl: String?) -> Unit = { _, _, _ -> },
+    /** Outlook 연동된 계정 이메일. null 이면 미연동. */
+    outlookAccountEmail: String? = null,
+    /** Outlook 연동 진입 (드로워 하단 행 탭). */
+    onOutlookConnectClick: () -> Unit = {},
+    /** Outlook 연동 해제 (이미 연동된 상태에서 드로워 하단 행 탭). */
+    onOutlookDisconnectClick: () -> Unit = {},
 ) {
     val viewModel: MainViewModel = viewModel { MainViewModel() }
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -79,6 +86,7 @@ fun MainRoute(
         onSearchClick = onSearchClick,
         onProfileEditClick = onProfileEditClick,
         onCoupleLinkClick = onCoupleLinkClick,
+        onReleaseNotesClick = onReleaseNotesClick,
         onLogout = onLogout,
         profileName = uiState.myProfile?.nickname.orEmpty(),
         profileHandle = uiState.myProfile?.birthDate?.let(::isoToHandleBirthDate).orEmpty(),
@@ -86,6 +94,9 @@ fun MainRoute(
         displayState = displayState,
         onDisplayStateChange = viewModel::updateDrawerDisplay,
         hasPartner = uiState.hasPartner,
+        outlookAccountEmail = outlookAccountEmail,
+        onOutlookConnectClick = onOutlookConnectClick,
+        onOutlookDisconnectClick = onOutlookDisconnectClick,
     )
 }
 

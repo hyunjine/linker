@@ -19,6 +19,36 @@ enum class ScheduleType(val label: String) {
     Schedule("일정"),
 }
 
+/**
+ * 시간 있는 일정의 시작 시각 기준 **몇 분 전** 에 알림을 보낼지 (#251).
+ * DB `schedules.reminder_minutes_before` INT 컬럼에 저장. pg_cron 이 이 값을 반영해
+ * `start_time - (N * 1 minute)` 시각에 푸시를 발송.
+ *
+ * 종일 · 할 일은 별도 09:00 KST 발송 로직을 유지 — offset 개념이 안 맞아 이 이슈에선 미적용.
+ */
+enum class ReminderOffset(val minutesBefore: Int, val label: String) {
+    AtTime(0, "정각"),
+    FiveMinutes(5, "5분 전"),
+    TenMinutes(10, "10분 전"),
+    FifteenMinutes(15, "15분 전"),
+    ThirtyMinutes(30, "30분 전"),
+    OneHour(60, "1시간 전");
+
+    companion object {
+        /** 시트 · 저장 default. */
+        val Default: ReminderOffset = FiveMinutes
+
+        /** [ListBottomSheet] 표시 순서. */
+        val Options: List<ReminderOffset> = listOf(
+            AtTime, FiveMinutes, TenMinutes, FifteenMinutes, ThirtyMinutes, OneHour,
+        )
+
+        /** DB 값 → enum. 알 수 없는 값 (마이그레이션 전 데이터 · 사용자 임의값) 은 default. */
+        fun fromMinutes(minutes: Int): ReminderOffset =
+            entries.firstOrNull { it.minutesBefore == minutes } ?: Default
+    }
+}
+
 /** 일정 소유자. 편집·삭제 권한 판단에 사용. */
 enum class ScheduleOwner(val label: String) {
     Me("나"),
@@ -84,6 +114,17 @@ data class ScheduleDraft(
     val endTime: String? = defaultEndTimeNow(),
     val repeat: RepeatRule = RepeatRule.None,
     val repeatEndDate: LocalDate? = null,
+    /**
+     * 시작 시각 대비 몇 분 전에 푸시 알림을 보낼지 (#251). 기본 5분 전.
+     * 시간 없는 일정 · 할 일에는 UI 상 노출되지 않으며 pg_cron 도 무시 (09:00 발송 로직 유지).
+     */
+    val reminderMinutesBefore: Int = ReminderOffset.Default.minutesBefore,
+    /**
+     * 종일 일정 · 할 일의 알림 시각 ("HH:MM", 5분 스텝) (#251).
+     * 기본 09:00 KST. pg_cron 이 매 분 실행되며 `current_hhmm = reminder_time` 매칭 시 발송.
+     * 시간 있는 일정에는 UI 미노출 · pg_cron 도 무시 ([reminderMinutesBefore] 사용).
+     */
+    val reminderTime: String = DefaultTaskReminderTime,
     val owner: ScheduleOwner = ScheduleOwner.Me,
     /**
      * 비공개 여부. `true` 면 파트너에게 SELECT 자체가 안 되도록 RLS 가 감춘다.
@@ -100,6 +141,13 @@ data class ScheduleDraft(
      * 이 draft 가 반복 시리즈의 일원이면 해당 series_id. 편집 저장 시 시리즈 batch 처리 여부 판단에 사용.
      */
     val seriesId: String? = null,
+    /**
+     * 스케줄 origin. `"internal"` (앱 자체 생성) or `"outlook"` (Microsoft Graph mirror).
+     * 편집 저장/삭제 시 상위 (Route) 가 이 값을 보고 Graph API 도 함께 update/delete.
+     */
+    val source: String = "internal",
+    /** 외부 provider 의 이벤트 id (Graph event.id). [source] == "internal" 이면 null. */
+    val externalId: String? = null,
 ) {
     val isEditableByCurrentUser: Boolean get() = owner != ScheduleOwner.Partner
 
@@ -109,6 +157,9 @@ data class ScheduleDraft(
     /** 종일 토글 UI 를 노출할지 (할 일 유형에서는 개념상 필요 없음). */
     val showsAllDayToggle: Boolean get() = type == ScheduleType.Schedule
 }
+
+/** 종일 · 할 일의 알림 시각 기본값. 카카오/구글 캘린더 관습에 맞춘 오전 9시. */
+internal const val DefaultTaskReminderTime: String = "09:00"
 
 /**
  * 신규 draft 의 시작 시각 기본값. 현재 시각을 5분 단위로 올림해 "HH:MM" 로 반환.

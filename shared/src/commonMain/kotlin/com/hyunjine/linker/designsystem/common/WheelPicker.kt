@@ -1,6 +1,8 @@
 package com.hyunjine.linker.designsystem.common
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.FlingBehavior
+import androidx.compose.foundation.gestures.ScrollScope
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
@@ -39,6 +41,13 @@ import kotlin.math.abs
 import kotlinx.coroutines.flow.drop
 
 /**
+ * flick velocity 를 이 배율로 감쇠시켜 fling 관성을 잘라낸다. 0f 면 관성 완전 제거
+ * (플릭해도 손 뗀 순간 바로 정지 후 snap), 1f 면 Compose 기본 (관성 길게 남음).
+ * iOS UIPickerView 대비 빠릿한 응답성을 목표로 0.15 f 채택 — flick 이 "있는 듯 마는 듯".
+ */
+private const val FLING_VELOCITY_SCALE = 0.15f
+
+/**
  * iOS UIPickerView 스타일의 세로 스크롤 휠 피커.
  *
  * `LazyColumn` + `rememberSnapFlingBehavior` 조합으로 항목이 한 칸씩 스냅되며,
@@ -72,16 +81,27 @@ fun WheelPicker(
     require(visibleItemCount % 2 == 1) { "visibleItemCount must be odd" }
     val halfCount = visibleItemCount / 2
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = selectedIndex)
-    val fling = rememberSnapFlingBehavior(listState)
+    // 기본 `rememberSnapFlingBehavior` 는 iOS UIPickerView 대비 관성이 길게 남아
+    // "휘리릭" 감이 강하다. flick velocity 를 크게 잘라 관성을 최소화하고 snap 이
+    // 즉시 붙도록 감싼다 — flick 이 거의 없는 것처럼 빠릿한 응답성.
+    val baseFling = rememberSnapFlingBehavior(listState)
+    val fling = remember(baseFling) {
+        object : FlingBehavior {
+            override suspend fun ScrollScope.performFling(initialVelocity: Float): Float =
+                with(baseFling) { performFling(initialVelocity * FLING_VELOCITY_SCALE) }
+        }
+    }
     val font = LocalPretendardFontFamily.current
     val fireHaptic = rememberSelectionHaptic()
 
-    // 스크롤이 멈춘 뒤 firstVisibleItemIndex 가 곧 선택된 인덱스.
-    // scrollInProgress 가 false 로 떨어질 때만 방출해 스크롤 중 중복 콜백 방지.
+    // 스크롤 중에도 중앙 아이템 인덱스를 상위로 즉시 방출한다. 이렇게 해두면
+    // 사용자가 스크롤 중 상단 "완료" 를 눌러 시트를 닫아도 그 시점에 화면 중앙에
+    // 있던 값이 부모 state 에 이미 반영돼 최근접 항목이 그대로 확정된다.
+    // 스냅 애니메이션이 짧아 (fling 감쇠 0.15f) 과도한 중복 콜백 우려는 낮음.
     LaunchedEffect(listState, items) {
-        snapshotFlow { listState.isScrollInProgress to listState.firstVisibleItemIndex }
-            .collect { (scrolling, idx) ->
-                if (!scrolling && idx != selectedIndex && idx in items.indices) {
+        snapshotFlow { listState.firstVisibleItemIndex }
+            .collect { idx ->
+                if (idx != selectedIndex && idx in items.indices) {
                     onSelectedChange(idx)
                 }
             }

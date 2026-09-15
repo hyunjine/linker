@@ -54,6 +54,7 @@ import coil3.compose.AsyncImage
 import com.hyunjine.linker.platform.rememberImagePicker
 import com.hyunjine.linker.designsystem.common.AppBottomSheet
 import com.hyunjine.linker.designsystem.common.AppTopBar
+import com.hyunjine.linker.designsystem.common.CustomColorSheet
 import com.hyunjine.linker.designsystem.common.PrimaryButton
 import com.hyunjine.linker.designsystem.common.SectionLabel
 import com.hyunjine.linker.designsystem.common.YearMonthDayPickerSheet
@@ -68,6 +69,9 @@ import com.hyunjine.linker.designsystem.theme.CalendarPink
 import com.hyunjine.linker.designsystem.theme.CalendarPurple
 import com.hyunjine.linker.designsystem.theme.CalendarYellow
 import com.hyunjine.linker.designsystem.theme.Chevron
+import com.hyunjine.linker.designsystem.theme.calendarColorFor
+import com.hyunjine.linker.designsystem.theme.isCustomHexColorId
+import com.hyunjine.linker.designsystem.theme.toRgbHex
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.designsystem.theme.OnPrimary
 import com.hyunjine.linker.designsystem.theme.PrimaryBlue
@@ -126,6 +130,7 @@ fun ProfileSetupScreen(
     // 시트 표시 여부. 프로세스 재구성/구성 변경 상황에서도 유지.
     var showBirthDateSheet by rememberSaveable { mutableStateOf(false) }
     var showNicknameSheet by rememberSaveable { mutableStateOf(false) }
+    var showCustomColorSheet by rememberSaveable { mutableStateOf(false) }
     // 화면이 직접 소유하는 편집 상태 (uncontrolled). 상위는 콜백으로만 최종 값을 수신.
     // 입력 파라미터를 key 로 걸어야 계정 전환 · 프리필 변경 시 이전 세션 값이 복원되지 않음
     // (기본 rememberSaveable 은 최초 1회만 저장 → 로그아웃/재로그인 후에도 옛 계정 정보 표시되는 버그).
@@ -184,6 +189,7 @@ fun ProfileSetupScreen(
                         currentColorId = it
                         onSelectColor(it)
                     },
+                    onCustomClick = { showCustomColorSheet = true },
                 )
             }
 
@@ -239,6 +245,7 @@ fun ProfileSetupScreen(
         visible = showNicknameSheet,
         onDismissRequest = { showNicknameSheet = false },
         dragHandle = null,    // 자체 X/✓ 툴바를 그리므로 드래그 핸들 숨김
+        containerColor = SurfaceGray,   // 일정 추가 화면과 톤 통일 (#247)
     ) {
         NicknameEditSheet(
             initial = currentNickname,
@@ -250,6 +257,19 @@ fun ProfileSetupScreen(
             },
         )
     }
+
+    CustomColorSheet(
+        visible = showCustomColorSheet,
+        // 현재 선택된 컬러 (프리셋이든 커스텀 hex 든) 를 hex 로 변환해 넘김 —
+        // 시트가 그 컬러에서 시작하고, 사용자는 미세 조정만 하거나 취소로 원복.
+        initialHex = calendarColorFor(currentColorId).toRgbHex(),
+        onDismissRequest = { showCustomColorSheet = false },
+        onConfirm = { hex ->
+            showCustomColorSheet = false
+            currentColorId = hex
+            onSelectColor(hex)
+        },
+    )
 }
 
 private fun formatBirthDate(d: BirthDate): String =
@@ -403,6 +423,7 @@ private fun ColorPickerCard(
     colors: List<CalendarColorOption>,
     selectedId: String,
     onSelect: (String) -> Unit,
+    onCustomClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -411,7 +432,7 @@ private fun ColorPickerCard(
             .clip(RoundedCornerShape(12.dp))
             .background(SurfaceCard)
             .padding(horizontal = 20.dp, vertical = 10.dp),
-        // 8개 스와치가 카드 내부 폭에 맞도록 SpaceBetween으로 균등 분배.
+        // 8개 프리셋 + 1개 커스텀 스와치가 카드 내부 폭에 맞도록 SpaceBetween 으로 균등 분배.
         // 스와치 간 실제 간격은 화면 폭에 따라 자동 계산되며 잘림이 발생하지 않음.
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
@@ -423,6 +444,12 @@ private fun ColorPickerCard(
                 onClick = { onSelect(option.id) },
             )
         }
+        // 커스텀 hex 가 현재 컬러면 그 hex 로 선택 링 (프리셋과 동일 하이라이트).
+        // 프리셋이 선택된 상태면 링 없이 rest 무지개.
+        CustomColorSwatch(
+            ringColor = if (isCustomHexColorId(selectedId)) calendarColorFor(selectedId) else null,
+            onClick = onCustomClick,
+        )
     }
 }
 
@@ -465,12 +492,81 @@ private fun ColorSwatch(
 }
 
 /**
+ * 팔레트 끝의 9번째 스와치. iOS 캘린더 앱의 "커스텀 색상" 진입 버튼 톤.
+ * 항상 무지개 링 + 안쪽 흰 원 으로 렌더 — 커스터마이즈 진입 affordance 이자, 커스텀 hex 가
+ * 현재 선택된 상태에선 [ringColor] 로 주변에 선택 링을 그려 프리셋 스와치와 동일한 하이라이트.
+ *
+ * @param ringColor 선택 링 컬러. null 이면 링 없이 rest 상태. 커스텀 hex 가 현재 컬러일 때
+ *  해당 hex Color 를 넘겨 다른 프리셋 스와치와 동일한 선택 시각을 준다.
+ */
+@Composable
+private fun CustomColorSwatch(
+    ringColor: Color?,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .size(32.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        val rainbow = androidx.compose.ui.graphics.Brush.sweepGradient(
+            listOf(
+                Color(0xFFFF3B30), Color(0xFFFF9500), Color(0xFFFFCC00),
+                Color(0xFF34C759), Color(0xFF008AFF), Color(0xFFAF52DE),
+                Color(0xFFFF375F), Color(0xFFFF3B30),
+            ),
+        )
+        if (ringColor != null) {
+            // 선택 상태 — 프리셋 스와치와 동일한 사이즈/배치. 외곽 32dp 링 + 내부 22dp 무지개.
+            Box(
+                Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .border(width = 2.dp, color = ringColor, shape = CircleShape),
+            )
+            Box(
+                Modifier
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(rainbow),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    Modifier
+                        .size(14.dp)
+                        .clip(CircleShape)
+                        .background(SurfaceCard),
+                )
+            }
+        } else {
+            // rest — 28dp 무지개 + 18dp 흰 원.
+            Box(
+                Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(rainbow),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    Modifier
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .background(SurfaceCard),
+                )
+            }
+        }
+    }
+}
+
+/**
  * 닉네임 편집 시트 콘텐츠. AppBottomSheet 안에 배치되며, 자체 상단 툴바
- * (X 닫기 / 닉네임 타이틀 / ✓ 확인)를 그리므로 시트의 드래그 핸들은 숨긴다.
+ * ([SheetToolbar]) 를 그리므로 시트의 드래그 핸들은 숨긴다.
  *
  * @param initial 시트가 열릴 때 표시할 초기 닉네임. 최초 focus 시 커서가 문자열 끝에 위치.
  * @param onCancel X 버튼 또는 시트 dismiss 시 호출. 저장 없이 닫는 신호.
- * @param onConfirm ✓ 버튼 또는 키보드 return 시 호출. 최종 확정 닉네임을 전달.
+ * @param onConfirm 저장 pill 또는 키보드 return 시 호출. 최종 확정 닉네임을 전달.
  */
 @Composable
 private fun NicknameEditSheet(
@@ -478,7 +574,6 @@ private fun NicknameEditSheet(
     onCancel: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
-    val font = LocalPretendardFontFamily.current
     var value by remember { mutableStateOf(initial) }
     val focusRequester = remember { FocusRequester() }
     // 시트가 열리면 즉시 필드에 포커스 → iOS/Android 모두 시스템 키보드 자동 표시.
@@ -491,37 +586,12 @@ private fun NicknameEditSheet(
             .padding(horizontal = 16.dp, vertical = 16.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        // 상단 툴바: X | 닉네임 | ✓
-        Box(Modifier.fillMaxWidth().height(44.dp)) {
-            CircleIconButton(
-                symbol = "✕",
-                background = SurfaceCard,
-                iconColor = TextPrimary,
-                iconWeight = FontWeight.Medium,
-                iconSize = 18.sp,
-                onClick = onCancel,
-                modifier = Modifier.align(Alignment.CenterStart),
-            )
-            Text(
-                text = "닉네임",
-                modifier = Modifier.align(Alignment.Center),
-                style = TextStyle(
-                    color = TextPrimary,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    fontFamily = font,
-                ),
-            )
-            CircleIconButton(
-                symbol = "✓",
-                background = PrimaryBlue,
-                iconColor = OnPrimary,
-                iconWeight = FontWeight.Bold,
-                iconSize = 22.sp,
-                onClick = { onConfirm(value.trim()) },
-                modifier = Modifier.align(Alignment.CenterEnd),
-            )
-        }
+        com.hyunjine.linker.designsystem.common.SheetToolbar(
+            title = "닉네임",
+            onCancel = onCancel,
+            onConfirm = { onConfirm(value.trim()) },
+            confirmEnabled = value.trim().isNotEmpty(),
+        )
 
         com.hyunjine.linker.designsystem.common.AppInputCard(
             label = "닉네임",
@@ -529,51 +599,8 @@ private fun NicknameEditSheet(
             onValueChange = { value = it },
             focusRequester = focusRequester,
             onImeAction = { onConfirm(value.trim()) },
-        )
-    }
-}
-
-/**
- * 원형 아이콘 버튼 — X / ✓ 같은 간단한 심볼용.
- * 별도 Icon 리소스 없이 유니코드 문자만으로 그린다.
- *
- * @param symbol 표시할 문자(예: "✕", "✓").
- * @param background 배경 원 색상.
- * @param iconColor 심볼 색상.
- * @param iconWeight 심볼 폰트 굵기.
- * @param iconSize 심볼 폰트 크기.
- * @param onClick 탭 콜백.
- * @param modifier 외부 [Modifier].
- * @param diameter 원 지름 (기본 44dp — 44pt 최소 터치 영역).
- */
-@Composable
-private fun CircleIconButton(
-    symbol: String,
-    background: Color,
-    iconColor: Color,
-    iconWeight: FontWeight,
-    iconSize: androidx.compose.ui.unit.TextUnit,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    diameter: androidx.compose.ui.unit.Dp = 44.dp,
-) {
-    val font = LocalPretendardFontFamily.current
-    Box(
-        modifier = modifier
-            .size(diameter)
-            .clip(CircleShape)
-            .background(background)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = symbol,
-            style = TextStyle(
-                color = iconColor,
-                fontSize = iconSize,
-                fontWeight = iconWeight,
-                fontFamily = font,
-            ),
+            // 편집 진입 시 커서를 기존 닉네임 끝에 두어 바로 이어서 수정 가능.
+            initialCursorAtEnd = true,
         )
     }
 }
