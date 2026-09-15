@@ -97,12 +97,20 @@ export PATH="$JAVA_HOME/bin:$PATH"
 "$JAVA_HOME/bin/java" -version 2>&1 | head -1
 
 # ── Gradle build ────────────────────────────────────────────
-# 시뮬레이터 · 실기기 두 프레임워크를 한 번의 gradle invocation 으로 미리 링크한 뒤,
-# 마지막에 embedAndSign 이 현재 타깃(SDK_NAME/ARCHS)에 맞는 산출물을 골라 iosApp 에 embed.
-# 두 아키텍처 모두 pre-warm 해두면 device↔simulator 전환 시 재링크가 없어 즉시 Run 가능.
+# CONFIGURATION 에 따라 분기:
+#  - Debug (로컬 dev · AS 실행): sim/device 두 debug framework 를 미리 링크한 뒤 embedAndSign.
+#    device↔simulator 스위치 시 재링크 없음. 로컬 메모리는 충분.
+#  - Release (Xcode Cloud archive · TestFlight): 릴리즈 타깃 하나만 필요.
+#    embedAndSign 하나만 실행해 K/N 컴파일러 JVM OOM 회피 (Xcode Cloud 러너 heap 제한).
 cd "$SRCROOT/.."
-./gradlew \
-  :shared:linkDebugFrameworkIosSimulatorArm64 \
-  :shared:linkDebugFrameworkIosArm64 \
-  :shared:embedAndSignAppleFrameworkForXcode \
-  --stacktrace
+if [ "$CONFIGURATION" = "Release" ]; then
+  echo "[Compile Kotlin Framework] Release archive — single target embedAndSign"
+  ./gradlew :shared:embedAndSignAppleFrameworkForXcode --stacktrace
+else
+  echo "[Compile Kotlin Framework] Debug — pre-warm sim + device frameworks"
+  ./gradlew \
+    :shared:linkDebugFrameworkIosSimulatorArm64 \
+    :shared:linkDebugFrameworkIosArm64 \
+    :shared:embedAndSignAppleFrameworkForXcode \
+    --stacktrace
+fi
