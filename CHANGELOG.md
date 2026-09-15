@@ -10,6 +10,33 @@ Release 노트로 자동 게시된다 (`.github/workflows/release.yml`).
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-09-15
+
+### 신규 기능
+- Outlook 캘린더 동기화 (MSAL 로그인 · Graph API mirror · 드로워 진입)
+- 캘린더 컬러 커스텀 (HSV 색상휠 + Brightness 슬라이더 + hex 코드 입력)
+- 스케줄 알림 시각 사용자 설정
+  - 시간 있는 일정: 정각 / 5·10·15·30분 전 / 1시간 전 (기본 5분 전)
+  - 종일 · 할 일: 하루 중 알림 시각 (5분 스텝, 기본 09:00)
+- 드로워에 릴리즈 노트 항목 추가 (GitHub Releases 실시간 조회 · 접기/펼치기)
+
+### 개선
+- 편집 시트 상단 툴바 통일 (`SheetToolbar`) — 일정 추가 화면과 톤 일치
+- `SaveActionPill` 공용화 (일정 추가 · 프로필 편집 시트 공통)
+- `AppInputCard` TextFieldValue 개편 · 커서 위치 제어 옵션 추가 (닉네임 시트 편집 UX)
+- `AppBottomSheet` `containerColor` 파라미터 추가 · 편집 시트는 `SurfaceGray` 로 통일
+- Compose Skia iOS graphicsLayer 이슈 회피 — 저장 pill disabled 를 color opacity 로 처리
+
+### 버그 수정
+- 위젯이 유저 캘린더 컬러 미반영 문제 (payload 컬러 hex 동기화 · 프로필 저장 시 위젯 refresh 트리거)
+- Android Studio 에서 iosApp 실행 시 shared 재컴파일 스킵되던 문제 (pbxproj OVERRIDE 조기 종료 제거)
+- MSAL SDK init 실패 (Info.plist `msauthv2` · `msauthv3` 쿼리 스킴 재등록)
+
+### 기타
+- release-drafter 도입 — dev 머지 PR 라벨 기반 draft release 자동 초안
+- gradle parallel · GC · CDS 튜닝 · compile-kotlin-framework 프리워머
+- Supabase migrations 2건 (`schedules.reminder_minutes_before`, `schedules.reminder_time`) · `send_schedule_start_reminders` REPLACE
+
 ## [1.2.0] - 2026-09-08
 
 ### 신규 기능
