@@ -73,6 +73,18 @@ fun calendarColorFor(id: String?): Color {
 fun isCustomHexColorId(id: String?): Boolean =
     id != null && id.startsWith('#') && parseHexColor(id) != null
 
+/**
+ * [Color] → "#RRGGBB" 문자열. 알파 채널은 무시. KMP 호환 (String.format 없이 직접 변환).
+ * 커스텀 컬러 시트에 현재 프리셋 · 커스텀 hex 상관없이 통일된 hex 로 initialHex 를 넘길 때 사용.
+ */
+fun Color.toRgbHex(): String {
+    val r = (red * 255f).toInt().coerceIn(0, 255)
+    val g = (green * 255f).toInt().coerceIn(0, 255)
+    val b = (blue * 255f).toInt().coerceIn(0, 255)
+    fun Int.h2() = toString(16).padStart(2, '0').uppercase()
+    return "#${r.h2()}${g.h2()}${b.h2()}"
+}
+
 /** "#RRGGBB" · "#RRGGBBAA" → [Color]. 잘못된 형식이면 null. 대소문자 무관. */
 private fun parseHexColor(hex: String): Color? {
     val s = hex.removePrefix("#")

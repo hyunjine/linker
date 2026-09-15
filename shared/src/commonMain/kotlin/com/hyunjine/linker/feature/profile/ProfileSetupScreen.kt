@@ -71,6 +71,7 @@ import com.hyunjine.linker.designsystem.theme.CalendarYellow
 import com.hyunjine.linker.designsystem.theme.Chevron
 import com.hyunjine.linker.designsystem.theme.calendarColorFor
 import com.hyunjine.linker.designsystem.theme.isCustomHexColorId
+import com.hyunjine.linker.designsystem.theme.toRgbHex
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.designsystem.theme.OnPrimary
 import com.hyunjine.linker.designsystem.theme.PrimaryBlue
@@ -244,6 +245,7 @@ fun ProfileSetupScreen(
         visible = showNicknameSheet,
         onDismissRequest = { showNicknameSheet = false },
         dragHandle = null,    // 자체 X/✓ 툴바를 그리므로 드래그 핸들 숨김
+        containerColor = SurfaceGray,   // 일정 추가 화면과 톤 통일 (#247)
     ) {
         NicknameEditSheet(
             initial = currentNickname,
@@ -258,8 +260,9 @@ fun ProfileSetupScreen(
 
     CustomColorSheet(
         visible = showCustomColorSheet,
-        // 이미 커스텀 hex 를 골라둔 상태면 그 값을 prefill — 미세 조정 편리.
-        initialHex = if (isCustomHexColorId(currentColorId)) currentColorId else "",
+        // 현재 선택된 컬러 (프리셋이든 커스텀 hex 든) 를 hex 로 변환해 넘김 —
+        // 시트가 그 컬러에서 시작하고, 사용자는 미세 조정만 하거나 취소로 원복.
+        initialHex = calendarColorFor(currentColorId).toRgbHex(),
         onDismissRequest = { showCustomColorSheet = false },
         onConfirm = { hex ->
             showCustomColorSheet = false
@@ -423,9 +426,6 @@ private fun ColorPickerCard(
     onCustomClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // selectedId 가 프리셋 목록에 없으면 커스텀 hex 로 간주. 마지막 스와치가 그 컬러로 렌더되고
-    // 선택 링을 두른다. 프리셋 id 면 커스텀 스와치는 무지개 그라디언트 + "+" 로 add 유도 상태.
-    val isCustomSelected = isCustomHexColorId(selectedId)
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -444,9 +444,10 @@ private fun ColorPickerCard(
                 onClick = { onSelect(option.id) },
             )
         }
+        // 커스텀 hex 가 현재 컬러면 그 hex 로 선택 링 (프리셋과 동일 하이라이트).
+        // 프리셋이 선택된 상태면 링 없이 rest 무지개.
         CustomColorSwatch(
-            hexColor = if (isCustomSelected) calendarColorFor(selectedId) else null,
-            selected = isCustomSelected,
+            ringColor = if (isCustomHexColorId(selectedId)) calendarColorFor(selectedId) else null,
             onClick = onCustomClick,
         )
     }
@@ -491,15 +492,16 @@ private fun ColorSwatch(
 }
 
 /**
- * 팔레트 끝의 9번째 스와치. iOS 캘린더 앱의 "커스텀 색상" 버튼 톤.
- *  - [hexColor] 가 주어지면 그 컬러로 원을 그리고, `selected` 시 링 두름.
- *  - [hexColor] 가 null 이면 무지개 그라디언트 링에 얇은 흰 원 안쪽 → 커스텀 색을 아직 안
- *    골랐다는 시각적 신호. 탭 시 시트를 열어 hex 를 입력받는다.
+ * 팔레트 끝의 9번째 스와치. iOS 캘린더 앱의 "커스텀 색상" 진입 버튼 톤.
+ * 항상 무지개 링 + 안쪽 흰 원 으로 렌더 — 커스터마이즈 진입 affordance 이자, 커스텀 hex 가
+ * 현재 선택된 상태에선 [ringColor] 로 주변에 선택 링을 그려 프리셋 스와치와 동일한 하이라이트.
+ *
+ * @param ringColor 선택 링 컬러. null 이면 링 없이 rest 상태. 커스텀 hex 가 현재 컬러일 때
+ *  해당 hex Color 를 넘겨 다른 프리셋 스와치와 동일한 선택 시각을 준다.
  */
 @Composable
 private fun CustomColorSwatch(
-    hexColor: Color?,
-    selected: Boolean,
+    ringColor: Color?,
     onClick: () -> Unit,
 ) {
     Box(
@@ -516,31 +518,30 @@ private fun CustomColorSwatch(
                 Color(0xFFFF375F), Color(0xFFFF3B30),
             ),
         )
-        if (hexColor != null) {
-            // 사용자가 이미 커스텀 컬러를 골라둔 상태 — 그 컬러로 렌더 · 선택 링.
-            if (selected) {
+        if (ringColor != null) {
+            // 선택 상태 — 프리셋 스와치와 동일한 사이즈/배치. 외곽 32dp 링 + 내부 22dp 무지개.
+            Box(
+                Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .border(width = 2.dp, color = ringColor, shape = CircleShape),
+            )
+            Box(
+                Modifier
+                    .size(22.dp)
+                    .clip(CircleShape)
+                    .background(rainbow),
+                contentAlignment = Alignment.Center,
+            ) {
                 Box(
                     Modifier
-                        .size(32.dp)
+                        .size(14.dp)
                         .clip(CircleShape)
-                        .border(width = 2.dp, color = hexColor, shape = CircleShape),
-                )
-                Box(
-                    Modifier
-                        .size(22.dp)
-                        .clip(CircleShape)
-                        .background(hexColor),
-                )
-            } else {
-                Box(
-                    Modifier
-                        .size(28.dp)
-                        .clip(CircleShape)
-                        .background(hexColor),
+                        .background(SurfaceCard),
                 )
             }
         } else {
-            // 아직 커스텀 미지정. 무지개 링 + 중앙 "+" 로 add affordance.
+            // rest — 28dp 무지개 + 18dp 흰 원.
             Box(
                 Modifier
                     .size(28.dp)
@@ -553,8 +554,7 @@ private fun CustomColorSwatch(
                         .size(18.dp)
                         .clip(CircleShape)
                         .background(SurfaceCard),
-                    contentAlignment = Alignment.Center,
-                ) { }
+                )
             }
         }
     }
@@ -599,6 +599,8 @@ private fun NicknameEditSheet(
             onValueChange = { value = it },
             focusRequester = focusRequester,
             onImeAction = { onConfirm(value.trim()) },
+            // 편집 진입 시 커서를 기존 닉네임 끝에 두어 바로 이어서 수정 가능.
+            initialCursorAtEnd = true,
         )
     }
 }
