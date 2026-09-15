@@ -52,6 +52,17 @@ object SchedulesRepository {
         @SerialName("is_done") val isDone: Boolean,
         @SerialName("is_private") val isPrivate: Boolean = false,
         @SerialName("series_id") val seriesId: String? = null,
+        /**
+         * 시작 시각 대비 몇 분 전에 알림 (#251). pg_cron send_schedule_start_reminders
+         * 가 `start_time - (N * interval '1 minute')` 시각에 매칭. 시간 없는 일정·할 일
+         * 에는 무시 ([reminderTime] 사용).
+         */
+        @SerialName("reminder_minutes_before") val reminderMinutesBefore: Int = 5,
+        /**
+         * 종일 일정 · 할 일의 알림 시각 ("HH:MM:SS"). 기본 09:00:00 (#251).
+         * 시간 있는 일정에는 무시 ([reminderMinutesBefore] 사용).
+         */
+        @SerialName("reminder_time") val reminderTime: String = "09:00:00",
         /** `internal` | `outlook` — mirror 여부. 기본 `internal`. */
         val source: String = "internal",
         /** Graph event.id (outlook mirror 일 때만). */
@@ -78,6 +89,8 @@ object SchedulesRepository {
         @SerialName("end_time") val endTime: String? = null,
         @SerialName("is_private") val isPrivate: Boolean = false,
         @SerialName("series_id") val seriesId: String? = null,
+        @SerialName("reminder_minutes_before") val reminderMinutesBefore: Int = 5,
+        @SerialName("reminder_time") val reminderTime: String = "09:00:00",
     )
 
     /** `schedule_repeat_rules` row. 필요한 필드만 nullable — CHECK 제약은 서버가 검증. */
@@ -268,6 +281,8 @@ object SchedulesRepository {
             set("start_time", draft.startTimeForDb())
             set("end_time", draft.endTimeForDb())
             set("is_private", draft.isPrivate)
+            set("reminder_minutes_before", draft.reminderMinutesBefore)
+            set("reminder_time", "${draft.reminderTime}:00")
             set("series_id", null as String?)
         }) {
             filter { eq("id", id) }
@@ -321,6 +336,8 @@ object SchedulesRepository {
                 set("start_time", draft.startTimeForDb())
                 set("end_time", draft.endTimeForDb())
                 set("is_private", draft.isPrivate)
+                set("reminder_minutes_before", draft.reminderMinutesBefore)
+                set("reminder_time", "${draft.reminderTime}:00")
             }) {
                 filter {
                     eq("series_id", seriesId)
@@ -442,6 +459,8 @@ object SchedulesRepository {
             set("start_time", draft.startTimeForDb())
             set("end_time", draft.endTimeForDb())
             set("is_private", draft.isPrivate)
+            set("reminder_minutes_before", draft.reminderMinutesBefore)
+            set("reminder_time", "${draft.reminderTime}:00")
         }) {
             filter { eq("id", id) }
         }
@@ -471,6 +490,8 @@ object SchedulesRepository {
             set("start_time", draft.startTimeForDb())
             set("end_time", draft.endTimeForDb())
             set("is_private", draft.isPrivate)
+            set("reminder_minutes_before", draft.reminderMinutesBefore)
+            set("reminder_time", "${draft.reminderTime}:00")
         }) {
             filter { eq("series_id", seriesId) }
         }
@@ -593,6 +614,8 @@ private fun ScheduleDraft.toInsertPayload(
     endTime = endTimeForDb(),
     isPrivate = isPrivate,
     seriesId = seriesId,
+    reminderMinutesBefore = reminderMinutesBefore,
+    reminderTime = "$reminderTime:00", // "HH:MM" → "HH:MM:SS" for Postgres TIME
 )
 
 private fun ScheduleType.toDbValue(): String = when (this) {
@@ -646,6 +669,8 @@ private fun SchedulesRepository.Row.toDraft(
             else -> ScheduleOwner.Us
         },
         isPrivate = isPrivate,
+        reminderMinutesBefore = reminderMinutesBefore,
+        reminderTime = reminderTime.take(5), // "HH:MM:SS" → "HH:MM"
         createdBy = createdBy,
         seriesId = seriesId,
         source = source,
