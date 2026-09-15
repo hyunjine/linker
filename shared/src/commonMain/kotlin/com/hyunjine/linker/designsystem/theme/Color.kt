@@ -43,17 +43,57 @@ val CalendarPink = Color(0xFFFF375F)
 val CalendarPurple = Color(0xFFAF52DE)
 val CalendarGray = Color(0xFF8E8E93)
 
-/** `public.users.calendar_color` 문자열 → 팔레트 Color 매핑. 알 수 없는 값은 [CalendarBlue]. */
-fun calendarColorFor(id: String?): Color = when (id) {
-    "blue" -> CalendarBlue
-    "mint" -> CalendarMint
-    "green" -> CalendarGreen
-    "yellow" -> CalendarYellow
-    "orange" -> CalendarOrange
-    "pink" -> CalendarPink
-    "purple" -> CalendarPurple
-    "gray" -> CalendarGray
-    else -> CalendarBlue
+/**
+ * `public.users.calendar_color` 문자열 → 팔레트 Color 매핑.
+ *
+ * 값 형식:
+ *  - 프리셋 id (`blue` / `mint` / ...): 하드코딩 팔레트 반환
+ *  - 커스텀 hex (`#RRGGBB` · `#RRGGBBAA`): 파싱해 [Color] 반환 (사용자 #247 커스텀 컬러)
+ *
+ * 알 수 없는 값 · 파싱 실패는 [CalendarBlue] fallback (기존 동작 유지).
+ */
+fun calendarColorFor(id: String?): Color {
+    if (id != null && id.startsWith('#')) {
+        parseHexColor(id)?.let { return it }
+    }
+    return when (id) {
+        "blue" -> CalendarBlue
+        "mint" -> CalendarMint
+        "green" -> CalendarGreen
+        "yellow" -> CalendarYellow
+        "orange" -> CalendarOrange
+        "pink" -> CalendarPink
+        "purple" -> CalendarPurple
+        "gray" -> CalendarGray
+        else -> CalendarBlue
+    }
+}
+
+/** [id] 가 커스텀 hex 컬러 (`#RRGGBB` · `#RRGGBBAA`) 형식이면 true. 프리셋 id 와 구분용. */
+fun isCustomHexColorId(id: String?): Boolean =
+    id != null && id.startsWith('#') && parseHexColor(id) != null
+
+/** "#RRGGBB" · "#RRGGBBAA" → [Color]. 잘못된 형식이면 null. 대소문자 무관. */
+private fun parseHexColor(hex: String): Color? {
+    val s = hex.removePrefix("#")
+    if (s.length != 6 && s.length != 8) return null
+    val v = s.toLongOrNull(16) ?: return null
+    val a: Int
+    val r: Int
+    val g: Int
+    val b: Int
+    if (s.length == 8) {
+        a = ((v shr 24) and 0xFF).toInt()
+        r = ((v shr 16) and 0xFF).toInt()
+        g = ((v shr 8) and 0xFF).toInt()
+        b = (v and 0xFF).toInt()
+    } else {
+        a = 0xFF
+        r = ((v shr 16) and 0xFF).toInt()
+        g = ((v shr 8) and 0xFF).toInt()
+        b = (v and 0xFF).toInt()
+    }
+    return Color(red = r, green = g, blue = b, alpha = a)
 }
 
 // 메인 캘린더 화면 (월 그리드)

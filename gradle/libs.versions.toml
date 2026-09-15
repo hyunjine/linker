@@ -24,6 +24,7 @@ firebaseBom = "34.4.0"
 googleServices = "4.4.4"
 androidxCredentials = "1.5.0"
 googleIdentityId = "1.1.1"
+colorpickerCompose = "1.2.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -65,6 +66,10 @@ supabase-storage = { module = "io.github.jan-tennert.supabase:storage-kt", versi
 # Coil3 (KMP). AsyncImage 로 URL 로부터 아바타 로딩. 네트워크는 ktor engine 재사용.
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 coil-network-ktor = { module = "io.coil-kt.coil3:coil-network-ktor3", version.ref = "coil" }
+
+# Skydoves ColorPicker (KMP). HsvColorPicker · Brightness/Alpha 슬라이더 · hex code 반환.
+# 프로필 커스텀 색상 시트 (#247) 에서 사용. Android/iOS 공통 컴포저블.
+colorpicker-compose = { module = "com.github.skydoves:colorpicker-compose", version.ref = "colorpickerCompose" }
 
 # Google Sign-In (Android). Credential Manager (androidx.credentials) + Google ID helper.
 # iOS 는 SPM 의 google-signin-ios 로 별도 통합.

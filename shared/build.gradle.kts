@@ -166,6 +166,7 @@ kotlin {
             implementation(libs.supabase.storage)
             implementation(libs.coil.compose)
             implementation(libs.coil.network.ktor)
+            implementation(libs.colorpicker.compose)
         }
         commonMain {
             kotlin.srcDir(generateSecrets.map { generatedSecretsDir })
