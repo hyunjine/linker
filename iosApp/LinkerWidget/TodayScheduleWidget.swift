@@ -191,6 +191,7 @@ private struct RectangularView: View {
 private struct SmallView: View {
     let entry: TodayScheduleEntry
     var body: some View {
+        let colors = OwnerColors(payload: entry.payload)
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(todayHeader).font(.caption).foregroundStyle(.secondary)
@@ -200,7 +201,7 @@ private struct SmallView: View {
                 }
             }
             if let items = entry.payload?.items, !items.isEmpty {
-                AdaptiveScheduleList(items: items, rowSize: .small)
+                AdaptiveScheduleList(items: items, rowSize: .small, colors: colors)
             } else {
                 Text("오늘 일정이 없어요")
                     .font(.caption).foregroundStyle(.secondary)
@@ -218,6 +219,7 @@ private struct SmallView: View {
 private struct MediumView: View {
     let entry: TodayScheduleEntry
     var body: some View {
+        let colors = OwnerColors(payload: entry.payload)
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text(todayHeader).font(.caption).foregroundStyle(.secondary)
@@ -227,7 +229,7 @@ private struct MediumView: View {
                 }
             }
             if let items = entry.payload?.items, !items.isEmpty {
-                AdaptiveScheduleList(items: items, rowSize: .medium)
+                AdaptiveScheduleList(items: items, rowSize: .medium, colors: colors)
             } else {
                 Text("오늘 일정이 없어요").font(.subheadline).foregroundStyle(.secondary)
             }
@@ -253,6 +255,7 @@ private struct MediumView: View {
 private struct AdaptiveScheduleList: View {
     let items: [WidgetSchedule]
     let rowSize: RowSize
+    let colors: OwnerColors
 
     enum RowSize { case small, medium }
 
@@ -276,8 +279,8 @@ private struct AdaptiveScheduleList: View {
         VStack(alignment: .leading, spacing: rowSize == .small ? 4 : 6) {
             ForEach(items.prefix(shownCount)) { item in
                 switch rowSize {
-                case .small: ScheduleRowSmall(item: item)
-                case .medium: ScheduleRowMedium(item: item)
+                case .small: ScheduleRowSmall(item: item, colors: colors)
+                case .medium: ScheduleRowMedium(item: item, colors: colors)
                 }
             }
             if hiddenCount > 0 {
@@ -291,9 +294,10 @@ private struct AdaptiveScheduleList: View {
 
 private struct ScheduleRowSmall: View {
     let item: WidgetSchedule
+    let colors: OwnerColors
     var body: some View {
         HStack(spacing: 6) {
-            OwnerDot(kind: item.ownerKind).frame(width: 6, height: 6)
+            OwnerDot(kind: item.ownerKind, colors: colors).frame(width: 6, height: 6)
             Text(item.title).font(.caption).lineLimit(1)
             Spacer()
         }
@@ -302,9 +306,10 @@ private struct ScheduleRowSmall: View {
 
 private struct ScheduleRowMedium: View {
     let item: WidgetSchedule
+    let colors: OwnerColors
     var body: some View {
         HStack(spacing: 8) {
-            OwnerDot(kind: item.ownerKind).frame(width: 8, height: 8)
+            OwnerDot(kind: item.ownerKind, colors: colors).frame(width: 8, height: 8)
             if let t = item.timeLabel {
                 Text(t).font(.caption2).monospacedDigit().foregroundStyle(.secondary)
                     .frame(minWidth: 56, alignment: .leading)
@@ -318,15 +323,65 @@ private struct ScheduleRowMedium: View {
 
 private struct OwnerDot: View {
     let kind: String
+    /// 상위에서 payload 로부터 계산된 소유자 컬러 팔레트. `kind` 로 셋 중 하나 선택.
+    let colors: OwnerColors
+
     var body: some View {
-        Circle().fill(color)
+        Circle().fill(colors.color(for: kind))
     }
-    private var color: Color {
+}
+
+/// 뷰어 관점 me/partner/us 컬러 팔레트. Kotlin payload 의 hex 를 파싱해 만들고,
+/// 없으면 시스템 fallback (`Color.kt` 기본값과 일치) 사용. rows 로 흘려서 하드코딩 제거.
+struct OwnerColors {
+    let me: Color
+    let partner: Color
+    let us: Color
+
+    static let fallback = OwnerColors(me: .blue, partner: .pink, us: .purple)
+
+    init(me: Color, partner: Color, us: Color) {
+        self.me = me; self.partner = partner; self.us = us
+    }
+
+    init(payload: WidgetTodayPayload?) {
+        let m = (payload?.meColorHex).flatMap { Color(hex: $0) }
+        let p = (payload?.partnerColorHex).flatMap { Color(hex: $0) }
+        let u = (payload?.usColorHex).flatMap { Color(hex: $0) }
+        self.me = m ?? .blue
+        self.partner = p ?? .pink
+        self.us = u ?? .purple
+    }
+
+    func color(for kind: String) -> Color {
         switch kind {
-        case "me": return .blue
-        case "partner": return .pink
-        default: return .purple
+        case "me": return me
+        case "partner": return partner
+        case "us": return us
+        default: return me
         }
+    }
+}
+
+private extension Color {
+    /// "#RRGGBB" · "RRGGBB" · "#AARRGGBB" 를 파싱. 실패 시 nil.
+    init?(hex: String) {
+        var s = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if s.hasPrefix("#") { s.removeFirst() }
+        guard s.count == 6 || s.count == 8, let v = UInt64(s, radix: 16) else { return nil }
+        let a, r, g, b: Double
+        if s.count == 8 {
+            a = Double((v >> 24) & 0xFF) / 255.0
+            r = Double((v >> 16) & 0xFF) / 255.0
+            g = Double((v >> 8) & 0xFF) / 255.0
+            b = Double(v & 0xFF) / 255.0
+        } else {
+            a = 1.0
+            r = Double((v >> 16) & 0xFF) / 255.0
+            g = Double((v >> 8) & 0xFF) / 255.0
+            b = Double(v & 0xFF) / 255.0
+        }
+        self.init(.sRGB, red: r, green: g, blue: b, opacity: a)
     }
 }
 

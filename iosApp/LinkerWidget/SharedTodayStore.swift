@@ -21,6 +21,28 @@ struct WidgetTodayPayload: Codable {
     let date: String
     /// 오늘의 스케줄/할 일. 시각 오름차순 (nil 은 뒤).
     let items: [WidgetSchedule]
+    /// 뷰어 관점 소유자별 색상 hex ("#RRGGBB"). `OwnerDot` 이 `ownerKind` 로 셋 중 하나 선택.
+    /// 앱 프로필 `users.calendar_color` 반영. Kotlin 이 최신값을 이 payload 로 실어 보냄 →
+    /// 사용자가 앱에서 색을 바꾸면 다음 refresh 부터 위젯 색도 즉시 갱신.
+    /// 구버전 payload 호환 위해 optional — nil 이면 위젯이 시스템 fallback 컬러 사용.
+    let meColorHex: String?
+    let partnerColorHex: String?
+    let usColorHex: String?
+
+    /// 프리뷰 · 샘플 payload 편의를 위한 default init. 컬러 hex 는 선택 (nil = fallback).
+    init(
+        date: String,
+        items: [WidgetSchedule],
+        meColorHex: String? = nil,
+        partnerColorHex: String? = nil,
+        usColorHex: String? = nil,
+    ) {
+        self.date = date
+        self.items = items
+        self.meColorHex = meColorHex
+        self.partnerColorHex = partnerColorHex
+        self.usColorHex = usColorHex
+    }
 }
 
 /// App Group 을 통해 앱 ↔ 위젯 데이터 브릿지.
