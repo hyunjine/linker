@@ -29,7 +29,12 @@
 			</array>
 		</dict>
 	</array>
-	<!-- MSAL 이 브로커/설치된 다른 MSAL 앱을 감지하기 위해 요구하는 스킴 화이트리스트 (iOS 9+). -->
+	<!-- msauthv2/msauthv3 (Microsoft Authenticator broker 감지용 쿼리 스킴).
+	     최신 MSAL SDK 는 MSALPublicClientApplication 초기화 단계에서 이 두 스킴 등록을
+	     필수 검증한다 (없으면 init 실패 → "The required query schemes ... are not registered").
+	     broker 위임으로 인한 stuck 은 OutlookAuthProvider.acquireInteractive 에서
+	     webviewType = .authenticationSession 강제로 별도 차단하므로, 여기 스킴 등록은
+	     init 통과 용도이며 runtime 에서 broker 가 호출되지 않는다. -->
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>msauthv2</string>

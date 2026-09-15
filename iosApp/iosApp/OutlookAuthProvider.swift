@@ -9,9 +9,10 @@ import UIKit
 /// - `MSALPublicClientApplication` 인스턴스는 최초 접근 시 lazy 생성 후 재사용 (SDK 권장).
 /// - refresh_token 은 iOS Keychain 에 저장돼 앱 재시작 후에도 자동 로그인 유지.
 ///
-/// Info.plist 요구사항 (별도 커밋으로 이미 반영):
-///   - `CFBundleURLTypes` → scheme `msauth.com.hyunjine.linker`
-///   - `LSApplicationQueriesSchemes` → `msauthv2`, `msauthv3`
+/// Info.plist 요구사항:
+///   - `CFBundleURLTypes` → scheme `msauth.com.hyunjine.linker` (redirect 복귀용)
+///   - `LSApplicationQueriesSchemes` → `msauthv2`, `msauthv3` (MSAL init 검증 통과용,
+///     실제 broker 호출은 아래 acquireInteractive 의 `.authenticationSession` 강제로 차단)
 ///
 /// iOSApp `body.onOpenURL` 에서 `MSALPublicClientApplication.handleMSALResponse(url, sourceApplication:)` 호출 필수.
 final class OutlookAuthProvider: NSObject {
@@ -159,6 +160,10 @@ final class OutlookAuthProvider: NSObject {
         completion: @escaping (OutlookAuthResult) -> Void
     ) {
         let webParams = MSALWebviewParameters(authPresentationViewController: presenter)
+        // Microsoft Authenticator (broker) 앱이 설치돼 있으면 MSAL 기본값이 broker 로 위임 —
+        // Authenticator 가 뜨고 redirect 복귀 실패 시 completion 이 영영 안 돌아오는 스턱 발생.
+        // ASWebAuthenticationSession 로 명시 → broker 우회, 앱 내 안전한 로그인 시트만 사용.
+        webParams.webviewType = .authenticationSession
         let params = MSALInteractiveTokenParameters(scopes: scopes, webviewParameters: webParams)
         application.acquireToken(with: params) { result, error in
             if let error = error {
