@@ -90,6 +90,9 @@ private data object AnniversariesRoute : NavKey
 @Serializable
 private data object SearchRoute : NavKey
 
+@Serializable
+private data object ReleaseNotesRoute : NavKey
+
 private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
     serializersModule = SerializersModule {
         polymorphic(NavKey::class) {
@@ -103,6 +106,7 @@ private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
             subclass(CreateScheduleRoute::class, CreateScheduleRoute.serializer())
             subclass(AnniversariesRoute::class, AnniversariesRoute.serializer())
             subclass(SearchRoute::class, SearchRoute.serializer())
+            subclass(ReleaseNotesRoute::class, ReleaseNotesRoute.serializer())
         }
     }
 }
@@ -355,6 +359,7 @@ fun App() {
                             onSearchClick = { backStack.add(SearchRoute) },
                             onProfileEditClick = { backStack.add(ProfileEditRoute) },
                             onCoupleLinkClick = { backStack.add(CoupleLinkRoute) },
+                            onReleaseNotesClick = { backStack.add(ReleaseNotesRoute) },
                             onLogout = {
                                 scope.launch {
                                     runCatching { signOut() }
@@ -414,6 +419,11 @@ fun App() {
                     }
                     entry<AnniversariesRoute> {
                         com.hyunjine.linker.feature.anniversary.AnniversariesRoute(
+                            onBack = { backStack.removeLastOrNull() },
+                        )
+                    }
+                    entry<ReleaseNotesRoute> {
+                        com.hyunjine.linker.feature.release.ReleaseNotesRoute(
                             onBack = { backStack.removeLastOrNull() },
                         )
                     }

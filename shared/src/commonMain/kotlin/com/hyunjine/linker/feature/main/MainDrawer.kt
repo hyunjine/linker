@@ -78,6 +78,7 @@ fun MainDrawerContent(
     onSettingsClick: () -> Unit = {},
     onAnniversaryClick: () -> Unit = {},
     onCoupleLinkClick: () -> Unit = {},
+    onReleaseNotesClick: () -> Unit = {},
     onToggleMyCalendar: (Boolean) -> Unit = {},
     onTogglePartnerCalendar: (Boolean) -> Unit = {},
     onToggleSharedCalendar: (Boolean) -> Unit = {},
@@ -154,6 +155,7 @@ fun MainDrawerContent(
             onCheckedChange = onToggleSolarTerms,
         )
         Spacer(Modifier.height(16.dp))
+        ReleaseNotesRow(onClick = onReleaseNotesClick)
         LogoutRow(onClick = onLogout)
         Spacer(Modifier.height(16.dp))
     }
@@ -200,6 +202,32 @@ private fun OutlookRow(accountEmail: String?, onClick: () -> Unit) {
                 )
             }
         }
+    }
+}
+
+/**
+ * 드로워 하단 "릴리즈 노트" 진입 행. [LogoutRow] 와 동일한 텍스트 스타일이나 컬러만 다르게 —
+ * [TextPrimary] 로 로그아웃 대비 강조 (#255).
+ */
+@Composable
+private fun ReleaseNotesRow(onClick: () -> Unit) {
+    val pretendard = LocalPretendardFontFamily.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .noRippleClickable(onClick)
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "릴리즈 노트",
+            style = TextStyle(
+                fontFamily = pretendard,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp,
+                color = TextPrimary,
+            ),
+        )
     }
 }
 
