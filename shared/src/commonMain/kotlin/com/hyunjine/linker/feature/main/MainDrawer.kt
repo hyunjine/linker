@@ -445,12 +445,37 @@ private fun Modifier.noRippleClickable(onClick: () -> Unit): Modifier {
     return this.clickable(interactionSource = interaction, indication = null, onClick = onClick)
 }
 
+
 @Composable
 @Preview(showBackground = true)
-private fun OutlookRow() {
+private fun MainDrawerContentSoloPreview() {
     LinkerTheme {
-        OutlookRow(
-            null, {}
+        MainDrawerContent(
+            profileName = "김현진",
+            profileHandle = "@hyunjine",
+            displayState = DrawerDisplayState(),
+            hasPartner = false,
+            outlookAccountEmail = null,
+        )
+    }
+}
+
+@Composable
+@Preview(showBackground = true)
+private fun MainDrawerContentCouplePreview() {
+    LinkerTheme {
+        MainDrawerContent(
+            profileName = "김현진",
+            profileHandle = "@hyunjine",
+            displayState = DrawerDisplayState(
+                showMyCalendar = true,
+                showPartnerCalendar = true,
+                showSharedCalendar = false,
+                showHolidays = true,
+                showSolarTerms = false,
+            ),
+            hasPartner = true,
+            outlookAccountEmail = "hyunjine@outlook.com",
         )
     }
 }

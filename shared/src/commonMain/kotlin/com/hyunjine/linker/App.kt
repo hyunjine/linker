@@ -18,43 +18,26 @@ import com.hyunjine.linker.auth.rememberOutlookAuthClient
 import com.hyunjine.linker.auth.sessionStatus
 import com.hyunjine.linker.auth.signOut
 import com.hyunjine.linker.data.remote.AnniversariesRepository
-import com.hyunjine.linker.data.remote.CouplesRepository
 import com.hyunjine.linker.data.remote.OutlookSyncService
 import com.hyunjine.linker.data.remote.UsersRepository
-import com.hyunjine.linker.feature.anniversary.AnniversariesScreen
+import com.hyunjine.linker.designsystem.theme.LinkerTheme
 import com.hyunjine.linker.feature.anniversary.AnniversaryUi
-import com.hyunjine.linker.feature.couple.CoupleInviteCodeScreen
-import com.hyunjine.linker.feature.couple.CoupleJoinScreen
-import com.hyunjine.linker.feature.couple.CoupleLinkScreen
-import com.hyunjine.linker.feature.profile.ProfileSetupScreen
-import com.hyunjine.linker.feature.schedule.CreateScheduleScreen
-import com.hyunjine.linker.feature.search.SearchAnniversaryItem
-import com.hyunjine.linker.feature.search.SearchResults
-import com.hyunjine.linker.feature.search.SearchScheduleItem
-import com.hyunjine.linker.feature.search.SearchScreen
 import com.hyunjine.linker.feature.auth.AuthGateMode
 import com.hyunjine.linker.feature.auth.AuthGateScreen
-import kotlinx.datetime.DateTimeUnit
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.plus
-import kotlinx.datetime.toLocalDateTime
-import androidx.compose.ui.graphics.Color
-import com.hyunjine.linker.platform.rememberCopyToClipboard
-import com.hyunjine.linker.platform.rememberShareText
-import com.hyunjine.linker.designsystem.theme.CalendarPurple
-import com.hyunjine.linker.designsystem.theme.LinkerTheme
-import com.hyunjine.linker.designsystem.theme.calendarColorFor
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserInfo
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.datetime.DateTimeUnit
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
-import kotlinx.serialization.modules.subclass
 
 /**
  * 앱 최상위 네비게이션 그래프. Navigation3 [NavDisplay] 로 백스택을 직접 소유한다.
@@ -219,6 +202,10 @@ fun App() {
             val outlookAuth = rememberOutlookAuthClient()
             val outlookSync = remember(outlookAuth) { OutlookSyncService(outlookAuth) }
             var outlookAccountEmail by remember { mutableStateOf<String?>(null) }
+            // 이전 login coroutine 이 in-flight 동안 사용자가 드로워 재탭·연타 시 MSAL 웹뷰가
+            // 중첩·재현되지 않도록 하는 guard. Swift MSAL SDK 가 완료 콜백을 흘려도 이 guard 로
+            // 결국 사용자 재탭이 필요한 상태로 복귀 (자동 재시도 X).
+            var outlookLoginInFlight by remember { mutableStateOf(false) }
             // 초기 sync 트리거는 status 선언 후 별도 LaunchedEffect (아래) 에서 처리.
 
             // 세션 상태 기반 부트스트랩 라우팅.
@@ -379,23 +366,32 @@ fun App() {
                             coupleRefreshTick = coupleRefreshTick,
                             outlookAccountEmail = outlookAccountEmail,
                             onOutlookConnectClick = {
-                                println("[Outlook] 드로워 연동 탭 → login() 호출 시작")
-                                scope.launch {
-                                    runCatching {
-                                        val r = outlookAuth.login()
-                                        println("[Outlook] login() 반환: ${r::class.simpleName}")
-                                        when (r) {
-                                            is OutlookAuthResult.Success -> {
-                                                outlookAccountEmail = r.email
-                                                println("[Outlook] 계정 세팅: ${r.email}, sync 시작")
-                                                val from = oneMonthAgo().plus(-30, DateTimeUnit.DAY)
-                                                outlookSync.syncRange(from, oneMonthAhead())
-                                                scheduleRefreshTick++
+                                if (outlookLoginInFlight) {
+                                    println("[Outlook] login in-flight — 재탭 무시")
+                                } else {
+                                    outlookLoginInFlight = true
+//                                    println("[Outlook] 드로워 연결 탭 → login() 호출 시작")
+                                    scope.launch {
+                                        try {
+                                            val r = outlookAuth.login()
+                                            println("[Outlook] login() 반환: ${r::class.simpleName}")
+                                            when (r) {
+                                                is OutlookAuthResult.Success -> {
+                                                    outlookAccountEmail = r.email
+                                                    println("[Outlook] 계정 세팅: ${r.email}, sync 시작")
+                                                    val from = oneMonthAgo().plus(-30, DateTimeUnit.DAY)
+                                                    outlookSync.syncRange(from, oneMonthAhead())
+                                                    scheduleRefreshTick++
+                                                }
+                                                is OutlookAuthResult.Failure -> println("[Outlook] login 실패: ${r.reason}")
+                                                OutlookAuthResult.Cancelled -> println("[Outlook] 사용자 취소")
                                             }
-                                            is OutlookAuthResult.Failure -> println("[Outlook] login 실패: ${r.reason}")
-                                            OutlookAuthResult.Cancelled -> println("[Outlook] 사용자 취소")
+                                        } catch (t: Throwable) {
+                                            println("[Outlook] login flow 예외: $t")
+                                        } finally {
+                                            outlookLoginInFlight = false
                                         }
-                                    }.onFailure { println("[Outlook] login flow 예외: $it") }
+                                    }
                                 }
                             },
                             onOutlookDisconnectClick = {
