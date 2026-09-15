@@ -1,7 +1,11 @@
 package com.hyunjine.linker.feature.widget
 
+import androidx.compose.ui.graphics.Color
 import com.hyunjine.linker.data.remote.SchedulesRepository
 import com.hyunjine.linker.data.remote.SupabaseProvider
+import com.hyunjine.linker.data.remote.UsersRepository
+import com.hyunjine.linker.designsystem.theme.CalendarPurple
+import com.hyunjine.linker.designsystem.theme.calendarColorFor
 import com.hyunjine.linker.feature.main.resolveOwnerForViewer
 import com.hyunjine.linker.feature.main.toKoreanClock
 import io.github.jan.supabase.auth.auth
@@ -37,6 +41,14 @@ data class TodayWidgetPayload(
     /** "yyyy-MM-dd" — 위젯 timeline entry 유효성 판별용. */
     val date: String,
     val items: List<TodayWidgetSchedule>,
+    /**
+     * 뷰어 관점 소유자별 색상 hex ("#RRGGBB"). 위젯의 OwnerDot 이 [TodayWidgetSchedule.ownerKind]
+     * 로 이 세 값 중 하나를 골라 사용. 앱 UI 와 동일한 팔레트 (`calendarColorFor`) 를 넘겨줘야
+     * 사용자가 프로필에서 컬러를 바꿔도 위젯에 즉시 반영된다.
+     */
+    @SerialName("meColorHex") val meColorHex: String,
+    @SerialName("partnerColorHex") val partnerColorHex: String,
+    @SerialName("usColorHex") val usColorHex: String,
 )
 
 /**
@@ -65,7 +77,26 @@ object TodayWidgetPayloadBuilder {
             .map { it.toWidgetItem(viewerId) }
             .sortedWith(compareBy(nullsLast()) { it.sortKey() })
             .map { it.item }
-        return TodayWidgetPayload(date = today.toString(), items = items)
+        // 앱 UI 와 동일한 팔레트로 me/partner 컬러 hex 를 계산해 payload 에 실어준다.
+        // 실패해도 위젯이 렌더 자체는 되어야 하므로 default (파트너 pink, us purple) fallback.
+        val mine = runCatching { UsersRepository.myProfile() }.getOrNull()
+        val partner = runCatching { UsersRepository.partnerProfile() }.getOrNull()
+        return TodayWidgetPayload(
+            date = today.toString(),
+            items = items,
+            meColorHex = calendarColorFor(mine?.calendarColor).toRgbHex(),
+            partnerColorHex = calendarColorFor(partner?.calendarColor ?: "pink").toRgbHex(),
+            usColorHex = CalendarPurple.toRgbHex(),
+        )
+    }
+
+    /** Compose [Color] → "#RRGGBB" 문자열. KMP 호환 (String.format 회피). */
+    private fun Color.toRgbHex(): String {
+        val r = (red * 255f).toInt().coerceIn(0, 255)
+        val g = (green * 255f).toInt().coerceIn(0, 255)
+        val b = (blue * 255f).toInt().coerceIn(0, 255)
+        fun Int.h2() = toString(16).padStart(2, '0').uppercase()
+        return "#${r.h2()}${g.h2()}${b.h2()}"
     }
 
     private fun SchedulesRepository.Row.toWidgetItem(viewerId: String?): SortableItem {

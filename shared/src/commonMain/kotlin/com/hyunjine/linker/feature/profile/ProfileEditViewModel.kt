@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.hyunjine.linker.data.remote.AvatarsRepository
 import com.hyunjine.linker.data.remote.UsersRepository
 import com.hyunjine.linker.platform.encodeAvatarJpeg
+import com.hyunjine.linker.platform.refreshTodayWidget
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -62,6 +63,10 @@ class ProfileEditViewModel : ViewModel() {
             }.onSuccess {
                 println("[ProfileEdit] 저장 성공")
                 _uiState.value = _uiState.value.copy(saving = false)
+                // 캘린더 컬러가 바뀌었을 수 있으므로 오늘 위젯도 새 hex 로 갱신 (#246).
+                // profile 변경만 있고 스케줄은 그대로여도, payload 안의 me/partnerColorHex 는
+                // 프로필 값 기반이라 이 시점에 새로 build 해서 App Group 에 write 해야 위젯이 최신 색을 본다.
+                refreshTodayWidget()
                 onSaved()
             }.onFailure {
                 println("[ProfileEdit] 저장 실패: $it")
