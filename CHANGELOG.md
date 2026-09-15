@@ -31,8 +31,9 @@ Release 노트로 자동 게시된다 (`.github/workflows/release.yml`).
 
 ## [1.3.0 · 개발자 노트]
 
-> 이 섹션은 GitHub Release 본문에 포함되지 않고 CHANGELOG 내부에만 남긴다. `release.yml` 의
-> awk 파서는 첫 번째 `## [` 뒤 다음 `## [` 를 만나면 종료하므로 이 섹션은 자동으로 걸러진다.
+> 이 섹션은 GitHub Release 본문에는 함께 게시되지만, 앱의 릴리즈 노트 화면에서는 렌더링 되지 않는다.
+> `release.yml` 파서가 semver 헤더 사이만 추출해 이 섹션도 body 에 포함시키고, 앱의
+> `ReleaseNotesScreen` 마크다운 렌더러가 `## [` 라인을 만나면 렌더링을 중단한다.
 
 ### 리팩터
 - `SheetToolbar` / `SaveActionPill` / `CircleCloseButton` 공용화 (편집 시트 · CreateScheduleScreen 상단바)

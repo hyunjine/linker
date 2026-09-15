@@ -220,14 +220,22 @@ private fun MarkdownReleaseBody(body: String) {
         )
         return
     }
+    // GitHub Release 본문에는 사용자 섹션 + 개발자 섹션 (`## [X.Y.Z · 개발자 노트]`) 이 함께
+    // 담겨온다. 앱은 첫 번째 `## [` 라인 (= 개발자 섹션 시작) 을 delimiter 로 취급해 그 앞까지만
+    // 렌더링 — 사용자에게는 사용자 섹션만 노출.
+    val userLines = body.lineSequence()
+        .takeWhile { !it.trimStart().startsWith("## [") }
+        .toList()
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        body.lineSequence().forEach { rawLine ->
+        userLines.forEach { rawLine ->
             val line = rawLine.trimEnd('\r').trim()
             when {
                 line.isEmpty() -> Spacer(Modifier.height(2.dp))
 
-                line.startsWith("## ") -> Text(
-                    text = line.removePrefix("## "),
+                // `### 신규 기능` (h3) 또는 `## 신규 기능` (h2 · non-bracket, 하위 호환) 을
+                // 섹션 헤더로. 브라켓 헤더는 위 takeWhile 로 이미 걸러졌음.
+                line.startsWith("### ") || line.startsWith("## ") -> Text(
+                    text = line.trimStart('#').trim(),
                     modifier = Modifier.padding(top = 6.dp),
                     style = TextStyle(
                         color = TextPrimary,
