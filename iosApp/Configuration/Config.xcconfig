@@ -15,8 +15,8 @@ TEAM_ID=YCCX589JXZ
 PRODUCT_NAME=Linker
 PRODUCT_BUNDLE_IDENTIFIER=com.hyunjine.linker
 
-MARKETING_VERSION=1.2.0
-CURRENT_PROJECT_VERSION=3
+MARKETING_VERSION=1.3.0
+CURRENT_PROJECT_VERSION=4
 
 // Supabase (프로젝트 guxpohhhacljwhyiskdk).
 // 주의: 아래 URL 은 build.gradle.kts 가 자체 파싱해 씀. Xcode 의 xcconfig 프리프로세서
