@@ -1,0 +1,29 @@
+# dev 로 push (PR 머지 포함) 될 때마다 GitHub Releases 의 draft 를 자동 초안 · 갱신.
+# 설정은 `.github/release-drafter.yml`. 실제 릴리즈 게시는 별건 (`.github/workflows/release.yml`).
+name: Release Drafter
+
+on:
+  push:
+    branches: [dev]
+  # 라벨 변경만 있어도 draft 를 다시 그리도록 PR 이벤트도 트리거.
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+    branches: [dev]
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: release-drafter
+  cancel-in-progress: false
+
+jobs:
+  update-draft:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: release-drafter/release-drafter@v6
+        with:
+          config-name: release-drafter.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
