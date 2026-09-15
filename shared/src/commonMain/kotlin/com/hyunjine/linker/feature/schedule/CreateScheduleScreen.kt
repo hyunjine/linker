@@ -49,6 +49,8 @@ import com.hyunjine.linker.designsystem.common.AlertActionStyle
 import com.hyunjine.linker.designsystem.common.AppAlertDialog
 import com.hyunjine.linker.designsystem.common.AppSwitch
 import com.hyunjine.linker.designsystem.common.AppTopBar
+import com.hyunjine.linker.designsystem.common.ListBottomSheet
+import com.hyunjine.linker.feature.main.toKoreanClock
 import com.hyunjine.linker.designsystem.common.SaveActionPill
 import com.hyunjine.linker.designsystem.common.SegmentedControl
 import com.hyunjine.linker.designsystem.common.liquidGlass
@@ -106,6 +108,8 @@ fun CreateScheduleScreen(
     var startTimeSheet by remember { mutableStateOf(false) }
     var endTimeSheet by remember { mutableStateOf(false) }
     var repeatSheet by remember { mutableStateOf(false) }
+    var reminderSheet by remember { mutableStateOf(false) }
+    var reminderTimeSheet by remember { mutableStateOf(false) }
     // 반복 시리즈 인스턴스 편집일 때 저장 · 삭제 탭 → scope 선택 다이얼로그 노출.
     var scopeChoiceDialog by remember { mutableStateOf(false) }
     var deleteScopeDialog by remember { mutableStateOf(false) }
@@ -220,6 +224,29 @@ fun CreateScheduleScreen(
                             onClick = { if (canEdit) repeatSheet = true },
                             enabled = canEdit,
                         )
+                    }
+                }
+
+                // 알림 (#251)
+                //  - 시간 있는 일정: 시작 시각 대비 offset (정각/5·10·15·30분전/1시간전)
+                //  - 종일 · 할 일: 하루 중 알림 받을 시각 ("HH:MM", 기본 09:00)
+                SectionBlock(label = "알림") {
+                    Card {
+                        if (draft.showsTimeRows) {
+                            RowItem(
+                                label = "알림",
+                                value = ReminderOffset.fromMinutes(draft.reminderMinutesBefore).label,
+                                onClick = { if (canEdit) reminderSheet = true },
+                                enabled = canEdit,
+                            )
+                        } else {
+                            RowItem(
+                                label = "알림",
+                                value = draft.reminderTime.toKoreanClock() ?: draft.reminderTime,
+                                onClick = { if (canEdit) reminderTimeSheet = true },
+                                enabled = canEdit,
+                            )
+                        }
                     }
                 }
 
@@ -340,6 +367,28 @@ fun CreateScheduleScreen(
             repeatSheet = false
         },
         onDismiss = { repeatSheet = false },
+    )
+    // 알림 offset 선택 시트 (시간 있는 일정).
+    ListBottomSheet(
+        visible = reminderSheet,
+        options = ReminderOffset.Options,
+        selected = ReminderOffset.fromMinutes(draft.reminderMinutesBefore),
+        onSelect = { picked ->
+            draft = draft.copy(reminderMinutesBefore = picked.minutesBefore)
+            reminderSheet = false
+        },
+        onDismiss = { reminderSheet = false },
+        label = { it.label },
+    )
+    // 알림 시각 선택 시트 (종일 · 할 일). 5분 스텝 시각 wheel.
+    TimePickerSheet(
+        visible = reminderTimeSheet,
+        time = draft.reminderTime,
+        onConfirm = { picked ->
+            reminderTimeSheet = false
+            draft = draft.copy(reminderTime = picked)
+        },
+        onCancel = { reminderTimeSheet = false },
     )
 
     // 반복 시리즈 편집 저장 시 scope 선택 다이얼로그 (이 스케줄만 · 이후 모든 반복 · 취소).
@@ -650,6 +699,8 @@ private val ScheduleDraftSaver = androidx.compose.runtime.saveable.Saver<Schedul
             d.isPrivate,
             d.source,
             d.externalId,
+            d.reminderMinutesBefore,
+            d.reminderTime,
         )
     },
     restore = { list ->
@@ -667,6 +718,8 @@ private val ScheduleDraftSaver = androidx.compose.runtime.saveable.Saver<Schedul
             isPrivate = (list.getOrNull(10) as? Boolean) ?: false,
             source = (list.getOrNull(11) as? String) ?: "internal",
             externalId = list.getOrNull(12) as? String,
+            reminderMinutesBefore = (list.getOrNull(13) as? Int) ?: ReminderOffset.Default.minutesBefore,
+            reminderTime = (list.getOrNull(14) as? String) ?: DefaultTaskReminderTime,
         )
     },
 )

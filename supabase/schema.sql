@@ -133,6 +133,12 @@ CREATE TABLE IF NOT EXISTS public.schedules (
     -- 반복 시리즈 그룹핑. 같은 반복 규칙으로 생성된 인스턴스들은 동일 값을 공유.
     -- 편집 · 삭제 시 series_id 로 batch 처리 → 시리즈 전체 일괄 적용.
     series_id   UUID,
+    -- 시간 있는 일정의 알림 시각 offset (분). pg_cron 이 start_time - N*1min 에 발송 (#251).
+    -- 종일 · 할 일은 무시 (reminder_time 사용). Kotlin ReminderOffset enum: 0·5·10·15·30·60.
+    reminder_minutes_before INTEGER NOT NULL DEFAULT 5,
+    -- 종일 일정 · 할 일의 알림 시각 (KST HH:MM:SS). 기본 09:00 (#251).
+    -- 시간 있는 일정은 무시 (reminder_minutes_before 사용).
+    reminder_time TIME NOT NULL DEFAULT '09:00:00',
 
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
