@@ -45,7 +45,7 @@ Release 노트로 자동 게시된다 (`.github/workflows/release.yml`).
 ### 인프라 · 빌드
 - release-drafter 도입 — dev 머지 PR 라벨 기반 draft release 자동 초안
 - gradle parallel · GC · CDS 튜닝
-- `compile_kotlin_framework.sh` pre-warm (sim · device 두 아키텍처 동시 링크)
+- `compile_kotlin_framework.sh` pre-warm (sim · device 두 아키텍처 동시 링크) — CONFIGURATION=Release 시엔 embedAndSign 하나만 실행하도록 분기 (Xcode Cloud archive OOM 회피)
 - pbxproj `OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED` 조기 종료 실제 제거 (Android Studio 에서 iosApp 실행 시 shared 재컴파일 스킵되던 문제)
 
 ### DB · 백엔드
