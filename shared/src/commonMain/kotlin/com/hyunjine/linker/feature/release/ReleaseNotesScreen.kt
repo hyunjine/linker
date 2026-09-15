@@ -37,6 +37,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import com.mikepenz.markdown.m3.Markdown
+import com.mikepenz.markdown.m3.markdownColor
+import com.mikepenz.markdown.m3.markdownTypography
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -204,11 +209,14 @@ private fun ReleaseCard(
 }
 
 /**
- * GitHub 릴리즈 body 마크다운 간이 렌더러. 우리 릴리즈 노트는 관습적으로:
- *  - `## 섹션` — 섹션 제목 (예: "신규 기능", "개선", "버그 수정")
- *  - `- 항목` — 불릿
- *  - 그 외 — 일반 텍스트 라인
- * 만 사용하므로 세 케이스만 지원. 서드파티 마크다운 라이브러리 없이 100줄 미만으로 자립.
+ * GitHub 릴리즈 body 를 정식 마크다운 렌더러 (com.mikepenz:multiplatform-markdown-renderer-m3) 로
+ * 렌더한다 (#262). 굵게 · 인라인 코드 · 링크 등 CommonMark 서식 정식 지원.
+ *
+ * 개발자 섹션 필터: GitHub Release 본문에는 `## [1.3.0]` 사용자 + `## [1.3.0 · 개발자 노트]`
+ * 두 섹션이 함께 담겨온다. 앱은 첫 번째 `## [` 라인 이전까지만 잘라서 [Markdown] 에 넘긴다.
+ *
+ * 성능: [rememberReleaseNotesMarkdownStyle] 로 typography · colors 를 카드마다 재생성하지 않고
+ * 공용 인스턴스 재사용. body 파싱 결과는 [remember] 로 캐시.
  */
 @Composable
 private fun MarkdownReleaseBody(body: String) {
@@ -220,64 +228,39 @@ private fun MarkdownReleaseBody(body: String) {
         )
         return
     }
-    // GitHub Release 본문에는 사용자 섹션 + 개발자 섹션 (`## [X.Y.Z · 개발자 노트]`) 이 함께
-    // 담겨온다. 앱은 첫 번째 `## [` 라인 (= 개발자 섹션 시작) 을 delimiter 로 취급해 그 앞까지만
-    // 렌더링 — 사용자에게는 사용자 섹션만 노출.
-    val userLines = body.lineSequence()
-        .takeWhile { !it.trimStart().startsWith("## [") }
-        .toList()
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        userLines.forEach { rawLine ->
-            val line = rawLine.trimEnd('\r').trim()
-            when {
-                line.isEmpty() -> Spacer(Modifier.height(2.dp))
-
-                // `### 신규 기능` (h3) 또는 `## 신규 기능` (h2 · non-bracket, 하위 호환) 을
-                // 섹션 헤더로. 브라켓 헤더는 위 takeWhile 로 이미 걸러졌음.
-                line.startsWith("### ") || line.startsWith("## ") -> Text(
-                    text = line.trimStart('#').trim(),
-                    modifier = Modifier.padding(top = 6.dp),
-                    style = TextStyle(
-                        color = TextPrimary,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        fontFamily = font,
-                    ),
-                )
-
-                line.startsWith("- ") -> Row(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.Top,
-                ) {
-                    Text(
-                        text = "•",
-                        style = TextStyle(
-                            color = TextSecondary,
-                            fontSize = 14.sp,
-                            fontFamily = font,
-                        ),
-                    )
-                    Text(
-                        text = line.removePrefix("- "),
-                        style = TextStyle(
-                            color = TextPrimary,
-                            fontSize = 14.sp,
-                            fontFamily = font,
-                        ),
-                    )
-                }
-
-                else -> Text(
-                    text = line,
-                    style = TextStyle(
-                        color = TextPrimary,
-                        fontSize = 14.sp,
-                        fontFamily = font,
-                    ),
-                )
-            }
-        }
+    val userMarkdown = remember(body) {
+        body.lineSequence()
+            .takeWhile { !it.trimStart().startsWith("## [") }
+            .joinToString("\n")
     }
+    val base = TextStyle(color = TextPrimary, fontFamily = font)
+    Markdown(
+        content = userMarkdown,
+        typography = markdownTypography(
+            h1 = base.copy(fontSize = 20.sp, fontWeight = FontWeight.Bold),
+            h2 = base.copy(fontSize = 18.sp, fontWeight = FontWeight.SemiBold),
+            h3 = base.copy(fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
+            h4 = base.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+            h5 = base.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
+            h6 = base.copy(fontSize = 12.sp, fontWeight = FontWeight.SemiBold),
+            text = base.copy(fontSize = 14.sp),
+            code = base.copy(fontSize = 13.sp),
+            inlineCode = base.copy(fontSize = 13.sp),
+            quote = base.copy(fontSize = 14.sp, color = TextSecondary),
+            paragraph = base.copy(fontSize = 14.sp),
+            ordered = base.copy(fontSize = 14.sp),
+            bullet = base.copy(fontSize = 14.sp),
+            list = base.copy(fontSize = 14.sp),
+            textLink = TextLinkStyles(style = SpanStyle(color = PrimaryBlue)),
+            table = base.copy(fontSize = 14.sp),
+        ),
+        colors = markdownColor(
+            text = TextPrimary,
+            codeBackground = SurfaceGray,
+            inlineCodeBackground = SurfaceGray,
+            dividerColor = TextSecondary.copy(alpha = 0.3f),
+        ),
+    )
 }
 
 @Composable

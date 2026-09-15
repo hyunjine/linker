@@ -26,6 +26,7 @@ androidxCredentials = "1.5.0"
 googleIdentityId = "1.1.1"
 colorpickerCompose = "1.2.0"
 msal = "5.+"
+markdownRenderer = "0.43.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -71,6 +72,10 @@ coil-network-ktor = { module = "io.coil-kt.coil3:coil-network-ktor3", version.re
 # Skydoves ColorPicker (KMP). HsvColorPicker · Brightness/Alpha 슬라이더 · hex code 반환.
 # 프로필 커스텀 색상 시트 (#247) 에서 사용. Android/iOS 공통 컴포저블.
 colorpicker-compose = { module = "com.github.skydoves:colorpicker-compose", version.ref = "colorpickerCompose" }
+
+# Multiplatform Markdown Renderer (KMP). 릴리즈 노트 화면 (#262) 에서 GitHub Release body
+# 마크다운을 헤더 · 불릿 · **bold** · `inline code` · 링크 등 정식으로 렌더. m3 프리셋.
+markdown-renderer-m3 = { module = "com.mikepenz:multiplatform-markdown-renderer-m3", version.ref = "markdownRenderer" }
 
 # Google Sign-In (Android). Credential Manager (androidx.credentials) + Google ID helper.
 # iOS 는 SPM 의 google-signin-ios 로 별도 통합.
