@@ -97,5 +97,12 @@ export PATH="$JAVA_HOME/bin:$PATH"
 "$JAVA_HOME/bin/java" -version 2>&1 | head -1
 
 # ── Gradle build ────────────────────────────────────────────
+# 시뮬레이터 · 실기기 두 프레임워크를 한 번의 gradle invocation 으로 미리 링크한 뒤,
+# 마지막에 embedAndSign 이 현재 타깃(SDK_NAME/ARCHS)에 맞는 산출물을 골라 iosApp 에 embed.
+# 두 아키텍처 모두 pre-warm 해두면 device↔simulator 전환 시 재링크가 없어 즉시 Run 가능.
 cd "$SRCROOT/.."
-./gradlew :shared:embedAndSignAppleFrameworkForXcode --stacktrace
+./gradlew \
+  :shared:linkDebugFrameworkIosSimulatorArm64 \
+  :shared:linkDebugFrameworkIosArm64 \
+  :shared:embedAndSignAppleFrameworkForXcode \
+  --stacktrace
