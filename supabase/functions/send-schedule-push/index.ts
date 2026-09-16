@@ -21,6 +21,9 @@ interface Payload {
     title: string;
     start_date: string;
     type: string; // 'task' | 'schedule'
+    // INSERT 에서 채워짐 — 반복 시리즈면 UUID, standalone 이면 null (#263). 값이 있으면 알림 본문을
+    // "반복 일정/할 일" 로 표현하고 특정 날짜는 생략 (여러 인스턴스라 첫 날짜만 노출하면 오해).
+    series_id?: string | null;
     // START_REMINDER 에서만 채워짐 (pg_cron send_schedule_start_reminders 가 payload 조립).
     start_time?: string;   // 'HH:MM:SS'
     all_day?: boolean;
@@ -286,8 +289,15 @@ serve(async (req) => {
     const accessToken = await getFcmAccessToken(sa);
 
     const kindLabel = payload.record.type === "task" ? "할 일" : "일정";
-    const title = `${creatorName} 님이 ${kindLabel}을 추가했어요`;
-    const body = `${payload.record.title} · ${payload.record.start_date}`;
+    const isRepeat = payload.record.series_id != null;
+    // 반복이면 "반복 일정/할 일 설정" 톤. 단일 인스턴스는 기존 톤 유지.
+    const title = isRepeat
+      ? `${creatorName} 님이 반복 ${kindLabel}을 설정했어요`
+      : `${creatorName} 님이 ${kindLabel}을 추가했어요`;
+    // 반복은 여러 날짜라 첫 날짜만 노출하면 오해 소지. 제목만 표시.
+    const body = isRepeat
+      ? payload.record.title
+      : `${payload.record.title} · ${payload.record.start_date}`;
 
     for (const dev of devices) {
       await sendFcmMessage(
