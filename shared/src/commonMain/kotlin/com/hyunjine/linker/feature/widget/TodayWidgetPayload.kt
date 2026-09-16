@@ -36,6 +36,20 @@ data class TodayWidgetSchedule(
     @SerialName("isDone") val isDone: Boolean,
 )
 
+/**
+ * 4×2 split 위젯 (#244) 우측 컬럼 전용 미완료 할 일. 시각 · 완료 상태가 필요 없어 필드가 얇다.
+ * 지난 날짜의 미완료 항목도 그대로 담기며, [startDate] 가 오늘보다 과거이면 위젯이 "지연" 뱃지로 강조.
+ */
+@Serializable
+data class TodayWidgetOpenTask(
+    val id: String,
+    val title: String,
+    /** "yyyy-MM-dd" — overdue 판정용. */
+    @SerialName("startDate") val startDate: String,
+    /** "me" · "partner" · "us". 좌측 owner dot 색 결정. */
+    @SerialName("ownerKind") val ownerKind: String,
+)
+
 @Serializable
 data class TodayWidgetPayload(
     /** "yyyy-MM-dd" — 위젯 timeline entry 유효성 판별용. */
@@ -49,6 +63,12 @@ data class TodayWidgetPayload(
     @SerialName("meColorHex") val meColorHex: String,
     @SerialName("partnerColorHex") val partnerColorHex: String,
     @SerialName("usColorHex") val usColorHex: String,
+    /**
+     * 미완료 할 일 (#244 split 위젯 우측). `type='task' AND is_done=false AND start_date <= today`.
+     * 지난 날짜의 미완료 항목이 계속 누적. `oldest first` 로 정렬 (overdue 우선 노출).
+     * 기존 today 위젯은 이 필드를 무시하므로 하위호환 안전.
+     */
+    @SerialName("openTasks") val openTasks: List<TodayWidgetOpenTask> = emptyList(),
 )
 
 /**
@@ -77,6 +97,11 @@ object TodayWidgetPayloadBuilder {
             .map { it.toWidgetItem(viewerId) }
             .sortedWith(compareBy(nullsLast()) { it.sortKey() })
             .map { it.item }
+        // #244 split 위젯 우측: 오늘까지의 미완료 할 일 (start_date <= today).
+        // 실패해도 나머지 위젯은 렌더돼야 하므로 빈 리스트 fallback.
+        val openTasks = runCatching { SchedulesRepository.listOpenTasks(today) }
+            .getOrDefault(emptyList())
+            .map { it.toWidgetOpenTask(viewerId) }
         // 앱 UI 와 동일한 팔레트로 me/partner 컬러 hex 를 계산해 payload 에 실어준다.
         // 실패해도 위젯이 렌더 자체는 되어야 하므로 default (파트너 pink, us purple) fallback.
         val mine = runCatching { UsersRepository.myProfile() }.getOrNull()
@@ -87,6 +112,7 @@ object TodayWidgetPayloadBuilder {
             meColorHex = calendarColorFor(mine?.calendarColor).toRgbHex(),
             partnerColorHex = calendarColorFor(partner?.calendarColor ?: "pink").toRgbHex(),
             usColorHex = CalendarPurple.toRgbHex(),
+            openTasks = openTasks,
         )
     }
 
@@ -106,6 +132,14 @@ object TodayWidgetPayloadBuilder {
             time = if (type == "task" || allDay) null else startTime,
         )
     }
+
+    private fun SchedulesRepository.Row.toWidgetOpenTask(viewerId: String?): TodayWidgetOpenTask =
+        TodayWidgetOpenTask(
+            id = id,
+            title = title,
+            startDate = startDate,
+            ownerKind = resolveOwnerForViewer(ownerKind, createdBy, viewerId),
+        )
 
     private data class SortableItem(val item: TodayWidgetSchedule, val time: String?) {
         fun sortKey(): String? = time

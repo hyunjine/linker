@@ -16,6 +16,17 @@ struct WidgetSchedule: Codable, Identifiable, Hashable {
     let isDone: Bool
 }
 
+/// 4×2 split 위젯 (#244) 우측 컬럼에 나열되는 미완료 할 일.
+/// `startDate` 가 오늘보다 과거이면 위젯이 "지연" 뱃지로 강조 표시.
+struct WidgetOpenTask: Codable, Identifiable, Hashable {
+    let id: String
+    let title: String
+    /// "yyyy-MM-dd" — overdue 판정용 (오늘보다 과거면 지연).
+    let startDate: String
+    /// "me" · "partner" · "us" — 좌측 owner dot 색.
+    let ownerKind: String
+}
+
 struct WidgetTodayPayload: Codable {
     /// 오늘 날짜 (ISO yyyy-MM-dd). 위젯이 이 날짜 기준 헤더 표시.
     let date: String
@@ -28,20 +39,25 @@ struct WidgetTodayPayload: Codable {
     let meColorHex: String?
     let partnerColorHex: String?
     let usColorHex: String?
+    /// 4×2 split 위젯 (#244) 우측 컬럼 — 오늘까지의 미완료 할 일 (누적).
+    /// 구버전 payload 호환 위해 optional. 기존 today 위젯은 이 필드를 무시.
+    let openTasks: [WidgetOpenTask]?
 
-    /// 프리뷰 · 샘플 payload 편의를 위한 default init. 컬러 hex 는 선택 (nil = fallback).
+    /// 프리뷰 · 샘플 payload 편의를 위한 default init. 컬러 hex · openTasks 는 선택.
     init(
         date: String,
         items: [WidgetSchedule],
         meColorHex: String? = nil,
         partnerColorHex: String? = nil,
         usColorHex: String? = nil,
+        openTasks: [WidgetOpenTask]? = nil,
     ) {
         self.date = date
         self.items = items
         self.meColorHex = meColorHex
         self.partnerColorHex = partnerColorHex
         self.usColorHex = usColorHex
+        self.openTasks = openTasks
     }
 }
 
