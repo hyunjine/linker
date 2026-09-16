@@ -221,6 +221,8 @@ fun MainScreen(
     onOutlookConnectClick: () -> Unit = {},
     /** Outlook 연동 해제 (MSAL signOut · mirror rows 삭제). */
     onOutlookDisconnectClick: () -> Unit = {},
+    /** 소유자 pill 색 팔레트. 프로필 캘린더 컬러 · 공동 컬러로부터 파생 (#264). */
+    ownerColors: OwnerColors = OwnerColors.Default,
 ) {
     // Int.MAX_VALUE 크기의 pager 로 사실상 무한 좌우 스와이프. 중간에서 시작해 양쪽으로 무제한 이동.
     val anchorPage = remember { Int.MAX_VALUE / 2 }
@@ -383,6 +385,7 @@ fun MainScreen(
     DayDetailSheet(
         visible = sheetVisible && dayDetail != null,
         detail = dayDetail,
+        ownerColors = ownerColors,
         onDismiss = {
             sheetVisible = false
             selectedDateString = null

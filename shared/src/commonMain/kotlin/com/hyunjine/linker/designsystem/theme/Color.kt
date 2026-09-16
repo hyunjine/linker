@@ -130,10 +130,3 @@ val DrawerButtonBg = Color(0xFFF5F5F7)
 // 드로워 표시 옵션 체크박스 (Figma #599CFF)
 val DrawerCheckBlue = Color(0xFF599CFF)
 
-// 소유자 태그 pill (날짜 상세 시트)
-val OwnerMeBg = Color(0xFFFFF3D6)       // 나 배경 (옅은 노랑)
-val OwnerMeText = Color(0xFFB08800)     // 나 글자
-val OwnerPartnerBg = Color(0xFFFCE1EA)  // 상대방 배경 (옅은 분홍)
-val OwnerPartnerText = Color(0xFFC03A6B) // 상대방 글자
-val OwnerUsBg = Color(0xFFEEE1FA)       // 우리 배경 (옅은 보라)
-val OwnerUsText = Color(0xFF6E3AC0)     // 우리 글자

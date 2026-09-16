@@ -97,6 +97,7 @@ fun MainRoute(
         outlookAccountEmail = outlookAccountEmail,
         onOutlookConnectClick = onOutlookConnectClick,
         onOutlookDisconnectClick = onOutlookDisconnectClick,
+        ownerColors = uiState.ownerColors,
     )
 }
 
