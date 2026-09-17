@@ -125,7 +125,7 @@ FCM 토큰은 `users` 가 아니라 `user_devices` 에 있음 (`supabase/migrati
 
 ```kotlin
 Supabase.from("users")
-    .select(Columns.raw("id, nickname, avatar_kind, user_devices!inner(platform)")) {
+    .select(Columns.raw("id, nickname, profile_image_url, user_devices!inner(platform)")) {
         // !inner → device 가 하나 이상 있는 유저만 (푸시 가능 대상)
         order("nickname", Order.ASCENDING)
     }
@@ -133,8 +133,8 @@ Supabase.from("users")
     .map { row ->
         Account(
             id = row.id,
-            nickname = row.nickname,
-            avatarKind = row.avatarKind,
+            nickname = row.nickname ?: "",
+            profileImageUrl = row.profileImageUrl,
             platforms = row.userDevices.map { Platform.of(it.platform) }.toSet(),
         )
     }
@@ -142,13 +142,15 @@ Supabase.from("users")
 @Serializable
 data class AdminUserRowRaw(
     val id: String,
-    val nickname: String,
-    @SerialName("avatar_kind") val avatarKind: String?,
+    val nickname: String?,
+    @SerialName("profile_image_url") val profileImageUrl: String?,
     @SerialName("user_devices") val userDevices: List<Device>,
 ) {
     @Serializable data class Device(val platform: String)
 }
 ```
+
+`Account.profileImageUrl` 이 null 이면 이니셜 (닉네임 첫 글자) 을 렌더 · 있으면 이미지 렌더. 앱의 `AsyncImage` 폴백과 같은 규칙.
 
 배지 표시: `platforms` 를 순회하면서 각 플랫폼별 배지를 나열. iOS + Android 둘 다면 두 배지가 나란히 보임 (좌 iOS · 우 Android, 텍스트 색은 앱과 동일 톤).
 
