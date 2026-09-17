@@ -603,10 +603,19 @@ private fun Card(content: @Composable () -> Unit) {
 @Composable
 private fun RowItem(label: String, value: String, onClick: () -> Unit, enabled: Boolean) {
     val pretendard = LocalPretendardFontFamily.current
+    // 액션 컴포넌트 탭 시 키보드 dismiss (#270). 제목 입력 중 시각·반복·알림 행을 누르면 시트/피커가
+    // 키보드 위로 밀려 올라가는 어색한 레이아웃을 피하려고 onClick 직전에 focus/keyboard 를 내린다.
+    // 이 화면의 모든 sheet-opening 액션은 RowItem 을 거치므로 여기 한 곳에서 처리한다.
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = enabled, onClick = onClick)
+            .clickable(enabled = enabled) {
+                focusManager.clearFocus()
+                keyboardController?.hide()
+                onClick()
+            }
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
