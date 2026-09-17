@@ -4,6 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Linker · 관리자 콘솔</title>
+
+    <!--
+      Pretendard 웹 폰트를 CSS 로 사전 로드.
+      wasmJs 타깃의 Compose/Skia 는 CSS 등록 폰트를 시스템 폰트처럼 취급하므로 Text 컴포저블이
+      fontFamily 지정 없이도 한글 글리프를 렌더한다. Compose Resources 경유 로드는 wasmJs 에서
+      timing/async 이슈로 한글이 □ 로 렌더되는 회귀가 발견되어 (#290) CDN 방식으로 대체.
+    -->
+    <link rel="stylesheet" as="style" crossorigin
+          href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+
     <style>
         html, body {
             margin: 0;
@@ -12,6 +22,7 @@
             height: 100%;
             overflow: hidden;
             background-color: #F5F5FA;
+            font-family: 'Pretendard', system-ui, sans-serif;
         }
         #composeContainer {
             width: 100%;
