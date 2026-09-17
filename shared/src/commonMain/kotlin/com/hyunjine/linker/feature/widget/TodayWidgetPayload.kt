@@ -9,8 +9,11 @@ import com.hyunjine.linker.designsystem.theme.toRgbHex
 import com.hyunjine.linker.feature.main.resolveOwnerForViewer
 import com.hyunjine.linker.feature.main.toKoreanClock
 import io.github.jan.supabase.auth.auth
+import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.minus
+import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -69,6 +72,13 @@ data class TodayWidgetPayload(
      * 기존 today 위젯은 이 필드를 무시하므로 하위호환 안전.
      */
     @SerialName("openTasks") val openTasks: List<TodayWidgetOpenTask> = emptyList(),
+    /**
+     * 이번 달 (payload.date 가 속한 달) 각 날짜별 이벤트 owner 리스트. 캘린더 위젯 미니 달력의
+     * dot indicator 용. key = "yyyy-MM-dd", value = 그 날짜에 있는 이벤트들의 owner 집합
+     * (`me` · `partner` · `us`, 중복 제거). 이벤트 없는 날짜는 map 에서 아예 빠짐.
+     * 기존 위젯은 이 필드를 무시하므로 하위호환 안전.
+     */
+    @SerialName("monthEvents") val monthEvents: Map<String, List<String>> = emptyMap(),
 )
 
 /**
@@ -102,6 +112,16 @@ object TodayWidgetPayloadBuilder {
         val openTasks = runCatching { SchedulesRepository.listOpenTasks(today) }
             .getOrDefault(emptyList())
             .map { it.toWidgetOpenTask(viewerId) }
+        // 캘린더 위젯 미니 달력용 — 이번 달 (today 가 속한 달) 모든 이벤트를 하루 단위로 그룹핑해
+        // owner 리스트를 payload 에 실어준다. Swift 쪽이 각 날짜에 dot 을 렌더.
+        val firstOfMonth = LocalDate(today.year, today.month, 1)
+        val lastOfMonth = firstOfMonth.plus(DatePeriod(months = 1)).minus(DatePeriod(days = 1))
+        val monthEvents = runCatching { SchedulesRepository.listInRange(firstOfMonth, lastOfMonth) }
+            .getOrDefault(emptyList())
+            .groupBy { it.startDate }
+            .mapValues { (_, rows) ->
+                rows.map { resolveOwnerForViewer(it.ownerKind, it.createdBy, viewerId) }.distinct()
+            }
         // 앱 UI 와 동일한 팔레트로 me/partner 컬러 hex 를 계산해 payload 에 실어준다.
         // 실패해도 위젯이 렌더 자체는 되어야 하므로 default (파트너 pink, us purple) fallback.
         val mine = runCatching { UsersRepository.myProfile() }.getOrNull()
@@ -113,6 +133,7 @@ object TodayWidgetPayloadBuilder {
             partnerColorHex = calendarColorFor(partner?.calendarColor ?: "pink").toRgbHex(),
             usColorHex = CalendarPurple.toRgbHex(),
             openTasks = openTasks,
+            monthEvents = monthEvents,
         )
     }
 

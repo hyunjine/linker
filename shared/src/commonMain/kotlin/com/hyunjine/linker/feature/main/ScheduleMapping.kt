@@ -99,7 +99,7 @@ internal fun String.toDayOwner(): DayOwner = when (this) {
     else -> DayOwner.Us
 }
 
-/** "HH:MM:SS" → "오전 10:00" / "오후 2:00" 형식. null 은 null 그대로. */
+/** "HH:MM:SS" → "오전 10:00" / "오후 06:00" 형식. null 은 null 그대로. */
 internal fun String?.toKoreanClock(): String? {
     if (this.isNullOrBlank()) return null
     val h = substring(0, 2).toIntOrNull() ?: return null
@@ -110,5 +110,5 @@ internal fun String?.toKoreanClock(): String? {
         h == 12 -> "오후" to 12
         else -> "오후" to (h - 12)
     }
-    return "$period $hour12:$m"
+    return "$period ${hour12.toString().padStart(2, '0')}:$m"
 }

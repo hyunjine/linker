@@ -42,8 +42,12 @@ struct WidgetTodayPayload: Codable {
     /// 4×2 split 위젯 (#244) 우측 컬럼 — 오늘까지의 미완료 할 일 (누적).
     /// 구버전 payload 호환 위해 optional. 기존 today 위젯은 이 필드를 무시.
     let openTasks: [WidgetOpenTask]?
+    /// 캘린더 위젯 미니 달력용 — 이번 달 각 날짜별 이벤트 owner 리스트.
+    /// key = "yyyy-MM-dd", value = ["me", "partner", …] (중복 제거). 이벤트 없는 날은 map 에 없음.
+    /// 구버전 payload 호환 위해 optional.
+    let monthEvents: [String: [String]]?
 
-    /// 프리뷰 · 샘플 payload 편의를 위한 default init. 컬러 hex · openTasks 는 선택.
+    /// 프리뷰 · 샘플 payload 편의를 위한 default init. 컬러 hex · openTasks · monthEvents 는 선택.
     init(
         date: String,
         items: [WidgetSchedule],
@@ -51,6 +55,7 @@ struct WidgetTodayPayload: Codable {
         partnerColorHex: String? = nil,
         usColorHex: String? = nil,
         openTasks: [WidgetOpenTask]? = nil,
+        monthEvents: [String: [String]]? = nil,
     ) {
         self.date = date
         self.items = items
@@ -58,6 +63,7 @@ struct WidgetTodayPayload: Codable {
         self.partnerColorHex = partnerColorHex
         self.usColorHex = usColorHex
         self.openTasks = openTasks
+        self.monthEvents = monthEvents
     }
 }
 

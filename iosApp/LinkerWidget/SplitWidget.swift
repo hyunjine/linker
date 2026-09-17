@@ -85,14 +85,14 @@ private struct SplitView: View {
                     }
                 }
             }
-            SplitColumn(title: taskHeader(count: tasks.count), empty: "할 일 없음") {
+            SplitColumn(title: nil, empty: "할 일 없음") {
                 if tasks.isEmpty {
                     Text("할 일 없음").font(.caption).foregroundStyle(.secondary)
                 } else {
                     AdaptiveList(count: tasks.count) { shown, hidden in
                         VStack(alignment: .leading, spacing: 6) {
                             ForEach(tasks.prefix(shown)) { t in
-                                OpenTaskCell(item: t, colors: colors, today: entry.date)
+                                OpenTaskCell(item: t, colors: colors)
                             }
                             if hidden > 0 { OverflowLabel(count: hidden) }
                         }
@@ -106,25 +106,24 @@ private struct SplitView: View {
         let f = DateFormatter(); f.dateFormat = "M월 d일 (E)"; f.locale = Locale(identifier: "ko_KR")
         return f.string(from: entry.date)
     }
-
-    private func taskHeader(count: Int) -> String {
-        count > 0 ? "할 일 \(count)" : "할 일"
-    }
 }
 
 /// 좌·우 컬럼 공통 껍데기 (제목 + 컨텐츠 슬롯). 헤더 폰트·spacing 통일.
+/// title 이 nil 이면 헤더 텍스트는 감추되 **자리는 유지** — 좌우 컬럼 컨텐츠 상단 라인을
+/// 정렬하기 위한 트릭 (우측 컬럼에서 헤더 라벨을 없애도 좌측 date 헤더와 세로 정렬 유지).
 private struct SplitColumn<Content: View>: View {
-    let title: String
+    let title: String?
     let empty: String
     @ViewBuilder let content: () -> Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(title)
+            Text(title ?? " ")
                 .font(.caption)
                 .fontWeight(.medium)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
+                .opacity(title == nil ? 0 : 1)
             content()
             Spacer(minLength: 0)
         }
@@ -181,7 +180,6 @@ private struct ScheduleCell: View {
 private struct OpenTaskCell: View {
     let item: WidgetOpenTask
     let colors: OwnerColors
-    let today: Date
     var body: some View {
         HStack(spacing: 6) {
             Circle()
@@ -190,18 +188,8 @@ private struct OpenTaskCell: View {
             Text(item.title)
                 .font(.caption)
                 .lineLimit(1)
-                .foregroundStyle(overdue ? .red : .primary)
             Spacer(minLength: 0)
         }
-    }
-
-    /// `item.startDate` 가 오늘보다 과거이면 지연으로 판단해 빨간색으로 강조.
-    /// 파싱 실패 시엔 안전하게 non-overdue.
-    private var overdue: Bool {
-        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; f.timeZone = TimeZone.current
-        guard let d = f.date(from: item.startDate) else { return false }
-        let cal = Calendar.current
-        return cal.startOfDay(for: d) < cal.startOfDay(for: today)
     }
 }
 
