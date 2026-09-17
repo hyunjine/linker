@@ -178,11 +178,11 @@ Supabase Edge Function `send-announcement` 로 위임 (FCM 서비스 계정 키�
 
 ## 5. 모듈 · 기술 스택
 
-- 새 모듈 `:adminWeb` — Compose Multiplatform, target `wasmJs`.
-- 의존성: `:shared` 재사용 (Supabase 클라이언트 · 디자인 토큰 · Pretendard 폰트 · 공통 컴포저블).
-- Router: 이번 범위는 단일 화면. Navigation3 대신 자체 상태 관리 or Voyager 는 후속에서 결정.
-- 스타일: 앱과 동일한 Pretendard · Color 토큰 (`ui/theme/Color.kt` 재사용, 필요하면 웹 Light 팔레트 fallback).
-- 호스팅: GitHub Pages (`gh-pages` 브랜치 자동 배포 워크플로) — 별도 이슈에서 세팅.
+- 새 모듈 `:adminWeb` — Compose Multiplatform, target `wasmJs { browser() }`.
+- **`:shared` 와 독립.** `:shared` 는 Android · iOS 타깃만 갖고 있고 여러 platform 전용 `expect`/`actual` (FcmTokenBridge · WidgetRefresh · MSAL Android-only · ktor darwin/okhttp 등) 을 품고 있어 wasmJs 로 데려오는 비용이 큼. 관리자 콘솔에서 재사용 필요한 표면 (Supabase 클라이언트 초기화, Color 몇 개, 계정 스키마 정도) 은 좁으므로 **`:adminWeb` 안에 자체 구현** 으로 결정 (2026-09-17). 컬러 정의는 앱과 두 곳에 존재하나 수정 빈도가 낮아 감수. 재사용 표면이 커지면 별도 `:sharedCore` 로 분리하는 후속 이슈 검토.
+- Router: 로그인 · 콘솔 두 화면. Voyager (또는 자체 route 관리).
+- 스타일: Pretendard + 앱과 동일한 Color 팔레트 (`ui/theme/Color.kt` 를 참고하여 필요한 상수만 `:adminWeb` 에 카피).
+- 호스팅: GitHub Pages (`gh-pages` 브랜치 자동 배포 워크플로) — #276 참조.
 
 ## 6. 인증 · 로그인 · 세션
 
