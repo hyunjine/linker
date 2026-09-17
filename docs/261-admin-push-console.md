@@ -184,7 +184,7 @@ Supabase Edge Function `send-announcement` 로 위임 (FCM 서비스 계정 키�
 - **`:shared` 와 독립.** `:shared` 는 Android · iOS 타깃만 갖고 있고 여러 platform 전용 `expect`/`actual` (FcmTokenBridge · WidgetRefresh · MSAL Android-only · ktor darwin/okhttp 등) 을 품고 있어 wasmJs 로 데려오는 비용이 큼. 관리자 콘솔에서 재사용 필요한 표면 (Supabase 클라이언트 초기화, Color 몇 개, 계정 스키마 정도) 은 좁으므로 **`:adminWeb` 안에 자체 구현** 으로 결정 (2026-09-17). 컬러 정의는 앱과 두 곳에 존재하나 수정 빈도가 낮아 감수. 재사용 표면이 커지면 별도 `:sharedCore` 로 분리하는 후속 이슈 검토.
 - Router: 로그인 · 콘솔 두 화면. Voyager (또는 자체 route 관리).
 - 스타일: Pretendard + 앱과 동일한 Color 팔레트 (`ui/theme/Color.kt` 를 참고하여 필요한 상수만 `:adminWeb` 에 카피).
-- 호스팅: GitHub Pages (`gh-pages` 브랜치 자동 배포 워크플로) — #276 참조.
+- 호스팅: GitHub Pages (`gh-pages` 브랜치 자동 배포 워크플로 — `.github/workflows/adminweb-deploy.yml`, #276). `dev` push 시 `adminWeb/**` 변경 감지 → `:adminWeb:wasmJsBrowserDistribution` 산출물을 `gh-pages` 브랜치 `admin/` 하위로 배포. Supabase URL · anon key 는 `ADMIN_WEB_SUPABASE_URL` · `ADMIN_WEB_SUPABASE_ANON_KEY` GitHub Actions secret 으로 주입.
 
 ## 6. 인증 · 로그인 · 세션
 
@@ -240,7 +240,6 @@ if (rememberMe) {
 - 발송 이력 페이지 (누가 언제 무슨 메시지를 몇 명에게 보냈나).
 - 이미지 · 딥링크 첨부 옵션.
 - 예약 발송 (cron 스케줄).
-- CI · gh-pages 배포 워크플로.
 - 비밀번호 재설정 · 관리자 초대 (`admin_uids` 관리 UI).
 
 ## 9. 열린 결정
