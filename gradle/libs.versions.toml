@@ -60,10 +60,17 @@ ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "kto
 # supabase-kt (KMP). auth-kt: Supabase Auth (Apple · Google 소셜 로그인), postgrest-kt: 테이블 CRUD.
 # realtime-kt: postgres_changes 구독 (파트너 변경 즉시 sync).
 # storage-kt: avatars 버킷 업로드 (프로필 사진 저장).
+# functions-kt: Edge Functions 호출 (adminWeb 의 send-announcement 위임 등).
 supabase-auth = { module = "io.github.jan-tennert.supabase:auth-kt", version.ref = "supabase" }
 supabase-postgrest = { module = "io.github.jan-tennert.supabase:postgrest-kt", version.ref = "supabase" }
 supabase-realtime = { module = "io.github.jan-tennert.supabase:realtime-kt", version.ref = "supabase" }
 supabase-storage = { module = "io.github.jan-tennert.supabase:storage-kt", version.ref = "supabase" }
+supabase-functions = { module = "io.github.jan-tennert.supabase:functions-kt", version.ref = "supabase" }
+
+# Ktor CIO 엔진의 wasmJs 브라우저 변형. Ktor 3.x 부터 CIO 가 wasmJs 를 공식 지원한다.
+# supabase-kt 는 SupabaseClient 를 만들 때 HttpClient 엔진이 클래스패스에 있어야 하며,
+# adminWeb 는 wasmJs 단일 타깃이므로 CIO 하나만 얹으면 자동으로 해석된다.
+ktor-client-cio = { module = "io.ktor:ktor-client-cio", version.ref = "ktor" }
 
 # Coil3 (KMP). AsyncImage 로 URL 로부터 아바타 로딩. 네트워크는 ktor engine 재사용.
 coil-compose = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
