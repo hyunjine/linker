@@ -56,7 +56,9 @@ function corsHeaders(req: Request): HeadersInit {
   const allowOrigin = ALLOWED_ORIGINS.has(origin) ? origin : "https://hyunjine.github.io";
   return {
     "Access-Control-Allow-Origin": allowOrigin,
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    // supabase-kt/ktor 이 실제로 보내는 헤더 전부 포함해야 브라우저가 CORS 프리플라이트 후 POST 를 실제 발송.
+    // 초기 배포판은 4개만 허용 (authorization · x-client-info · apikey · content-type) 이었는데 supabase-kt 는 accept · prefer · content-profile 도 붙여 브라우저가 실 요청 차단 (function 로그엔 OPTIONS 만 남는 증상).
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, accept, prefer, content-profile, accept-profile, x-supabase-api-version",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
     "Vary": "Origin",
   };
