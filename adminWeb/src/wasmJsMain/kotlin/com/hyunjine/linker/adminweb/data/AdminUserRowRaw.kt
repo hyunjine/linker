@@ -14,14 +14,15 @@ import kotlinx.serialization.Serializable
  * @property nickname 닉네임. 온보딩 미완료면 서버에서 NULL 이지만, 이 스코프에서는
  *                    non-null 로 취급 (도메인 [Account.nickname] 도 non-null). NULL row 는
  *                    상위 리포지토리 매핑에서 빈 문자열로 대체.
- * @property avatarKind 아바타 종류. `users.avatar_kind` 컬럼. NULL 가능.
+ * @property profileImageUrl 프로필 이미지 URL. `users.profile_image_url` 컬럼. NULL 이면
+ *                           UI 는 이니셜로 폴백.
  * @property userDevices 이 유저의 기기 platform 리스트. embed 로 채워진다.
  */
 @Serializable
 data class AdminUserRowRaw(
     val id: String,
     val nickname: String? = null,
-    @SerialName("avatar_kind") val avatarKind: String? = null,
+    @SerialName("profile_image_url") val profileImageUrl: String? = null,
     @SerialName("user_devices") val userDevices: List<Device> = emptyList(),
 ) {
     /**

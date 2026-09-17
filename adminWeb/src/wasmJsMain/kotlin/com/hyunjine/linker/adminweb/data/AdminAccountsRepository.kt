@@ -31,7 +31,7 @@ object AdminAccountsRepository {
         val rows: List<AdminUserRowRaw> = AdminSupabase.client
             .from("users")
             .select(
-                columns = Columns.raw("id, nickname, avatar_kind, user_devices!inner(platform)"),
+                columns = Columns.raw("id, nickname, profile_image_url, user_devices!inner(platform)"),
             ) {
                 order(column = "nickname", order = Order.ASCENDING)
             }
@@ -41,7 +41,7 @@ object AdminAccountsRepository {
             Account(
                 id = row.id,
                 nickname = row.nickname.orEmpty(),
-                avatarKind = row.avatarKind,
+                profileImageUrl = row.profileImageUrl,
                 platforms = row.userDevices.map { Platform.of(it.platform) }.toSet(),
             )
         }

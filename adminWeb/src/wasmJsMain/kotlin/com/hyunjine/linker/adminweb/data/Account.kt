@@ -9,13 +9,13 @@ package com.hyunjine.linker.adminweb.data
  *
  * @property id `public.users.id` (auth.uid).
  * @property nickname 표시 닉네임. NULL 인 유저는 아직 온보딩 미완료이지만 device 가 있으면 목록에 노출.
- * @property avatarKind 아바타 종류 식별자 (프로필 이미지가 별도로 있는 경우 표시 로직에서 사용).
+ * @property profileImageUrl `users.profile_image_url` — 프로필 이미지 URL. NULL 이면 이니셜 폴백.
  * @property platforms 이 유저가 등록한 기기들의 플랫폼 집합. `user_devices` 가 하나 이상 존재함이
  *                     보장된 상태 (Postgrest `!inner` join) 이므로 비어있지 않다.
  */
 data class Account(
     val id: String,
     val nickname: String,
-    val avatarKind: String?,
+    val profileImageUrl: String?,
     val platforms: Set<Platform>,
 )
