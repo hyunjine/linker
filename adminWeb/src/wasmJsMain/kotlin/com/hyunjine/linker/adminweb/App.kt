@@ -16,7 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.hyunjine.linker.adminweb.auth.AdminAuthController
 import com.hyunjine.linker.adminweb.auth.AdminRoute
 import com.hyunjine.linker.adminweb.auth.LoginReason
-import com.hyunjine.linker.adminweb.console.ConsolePlaceholder
+import com.hyunjine.linker.adminweb.console.ConsoleScreen
 import com.hyunjine.linker.adminweb.login.LoginScreen
 import com.hyunjine.linker.adminweb.nav.AdminNavigator
 import com.hyunjine.linker.adminweb.ui.AdminColors
@@ -59,7 +59,7 @@ fun App(
                     initialReason = route.reason,
                     onLoginSuccess = { uid -> navigator.goToConsole(uid) },
                 )
-                is AdminRoute.Console -> ConsolePlaceholder()
+                is AdminRoute.Console -> ConsoleScreen(authController = authController)
                 is AdminRoute.SessionExpired -> LoginScreen(
                     controller = authController,
                     initialReason = LoginReason.None,
