@@ -54,12 +54,30 @@ const ALLOWED_ORIGINS = new Set<string>([
 function corsHeaders(req: Request): HeadersInit {
   const origin = req.headers.get("origin") ?? "";
   const allowOrigin = ALLOWED_ORIGINS.has(origin) ? origin : "https://hyunjine.github.io";
+  // CORS 스펙: `Allow-Credentials: true` 와 `*` 는 함께 못 씀 → credentials 모드 사용 SDK 를 위해
+  // credentials 는 켜 두고, 헤더는 supabase-kt / ktor 이 실제로 쓰는 것 + Postgrest-family SDK 가
+  // 붙일 수 있는 것을 총망라해 명시. `*` 로 열지 않는다.
+  //
+  // 또한 iOS Safari 는 preflight 응답을 최대 10분 캐시해 정책이 바뀌어도 낡은 응답을 계속 재사용,
+  // "Fail to fetch" 로 이어짐 (#293). `Max-Age: 0` 으로 캐시 자체를 무력화.
   return {
     "Access-Control-Allow-Origin": allowOrigin,
-    // supabase-kt/ktor 이 실제로 보내는 헤더 전부 포함해야 브라우저가 CORS 프리플라이트 후 POST 를 실제 발송.
-    // 초기 배포판은 4개만 허용 (authorization · x-client-info · apikey · content-type) 이었는데 supabase-kt 는 accept · prefer · content-profile 도 붙여 브라우저가 실 요청 차단 (function 로그엔 OPTIONS 만 남는 증상).
-    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, accept, prefer, content-profile, accept-profile, x-supabase-api-version",
+    "Access-Control-Allow-Credentials": "true",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": [
+      "authorization",
+      "apikey",
+      "content-type",
+      "accept",
+      "prefer",
+      "content-profile",
+      "accept-profile",
+      "x-client-info",
+      "x-supabase-api-version",
+      "x-supabase-region",
+      "range",
+    ].join(", "),
+    "Access-Control-Max-Age": "0",
     "Vary": "Origin",
   };
 }
