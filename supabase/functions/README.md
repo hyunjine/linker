@@ -28,3 +28,26 @@ Firebase Admin 서비스 계정 만들기:
 `schedules` INSERT 시 이 함수를 호출하도록 `pg_net` 기반 trigger 를 걸어야 함.
 
 Phase A 스켈레톤은 발송 로직 미구현. Phase B 에서 채운다.
+
+## send-announcement
+
+관리자 콘솔(#261) 에서 호출하는 공지 푸시 발송 함수. 요청 JWT 를 검증하고
+`ADMIN_UIDS` 화이트리스트를 다시 확인한 뒤 대상 유저의 모든 `user_devices` 로 병렬 발송.
+
+### 배포
+
+```
+supabase functions deploy send-announcement
+```
+
+### 요청 · 응답
+
+- Request: `{ "title": string, "body": string, "userIds": string[] | "all" }`
+- Response (200): `{ "sent": <n>, "failed": <n>, "errors": [{ "userId": "...", "reason": "..." }] }`
+- 401 · 403 · 400 은 각각 JWT 없음/무효 · 관리자 아님 · 유효성 실패.
+
+### 필요한 Secrets
+
+- `FCM_PROJECT_ID` · `FCM_SERVICE_ACCOUNT_JSON` — send-schedule-push 와 동일
+- `ADMIN_UIDS` — 관리자 auth uid 콤마 구분 리스트 (예: `uuid1,uuid2`)
+- `SUPABASE_URL` · `SUPABASE_ANON_KEY` · `SUPABASE_SERVICE_ROLE_KEY` — 기본 제공
