@@ -152,19 +152,27 @@ function isStaleTokenError(status: number, body: string): boolean {
 /**
  * pg_cron 이 매 분 fire — 이번 분 (Asia/Seoul) 에 시작하는 시간 있는 스케줄에 대해 이 함수가 호출된다.
  *
- * 발송 대상:
- *  - 항상 creator (본인 예약)
- *  - 비공개 (is_private=true) 가 아니면 같은 커플 파트너들도 함께 (owner=us · me · partner 모두 동일 규칙)
- *  이 규칙은 RLS 가 "볼 수 있는 사람" 을 결정하는 규칙과 정확히 일치.
+ * 발송 대상 (수신자 관점에서 owner 가 me · us 인 사람만, #271):
+ *  - owner_kind = 'me'      → creator 만 (creator 관점 me)
+ *  - owner_kind = 'partner' → partner 만 (partner 관점 me)
+ *  - owner_kind = 'us'      → creator + partner (양쪽 모두 us)
+ *  비공개 (is_private=true) 는 RLS 상 creator 만 조회 가능 → partner 는 항상 제외.
  */
 async function handleStartReminder(
   payload: Payload,
   supabase: ReturnType<typeof createClient>,
 ): Promise<Response> {
   const rec = payload.record;
-  const targetIds: string[] = [rec.created_by];
+  const owner = rec.owner_kind;
+  const targetIds: string[] = [];
 
-  if (!rec.is_private) {
+  // Creator 관점: 저장값이 그대로 자기 관점 → me · us 이면 수신.
+  if (owner === "me" || owner === "us") {
+    targetIds.push(rec.created_by);
+  }
+
+  // Partner 관점: 저장값을 반전 (me ↔ partner, us 유지) → partner · us 이면 수신. 비공개면 스킵.
+  if (!rec.is_private && (owner === "partner" || owner === "us")) {
     const { data: partners, error } = await supabase
       .from("couple_members")
       .select("user_id")
@@ -172,6 +180,10 @@ async function handleStartReminder(
       .neq("user_id", rec.created_by);
     if (error) throw error;
     (partners ?? []).forEach((p: { user_id: string }) => targetIds.push(p.user_id));
+  }
+
+  if (targetIds.length === 0) {
+    return new Response("no recipients (owner filter)", { status: 200 });
   }
 
   const { data: devices, error: dErr } = await supabase
@@ -251,6 +263,12 @@ serve(async (req) => {
 
     if (payload.type === "START_REMINDER") {
       return await handleStartReminder(payload, supabase);
+    }
+
+    // owner_kind = 'me' 는 생성자 본인 소유 → 파트너 관점에서는 'partner' 로 보이므로 알림 미대상 (#271).
+    // 'partner' · 'us' 만 파트너에게 발송. (DB 는 생성자 관점으로 저장 → 파트너 관점 반전 후 me · us 필터.)
+    if (payload.record.owner_kind === "me") {
+      return new Response("skip (owner=me, partner sees as partner)", { status: 200 });
     }
 
     // 1. 같은 커플 · 창작자 아닌 유저 조회.
