@@ -76,7 +76,7 @@ private struct SplitView: View {
                     Text("일정 없음").font(.caption).foregroundStyle(.secondary)
                 } else {
                     AdaptiveList(count: schedules.count) { shown, hidden in
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 6) {
                             ForEach(schedules.prefix(shown)) { s in
                                 ScheduleCell(item: s, colors: colors)
                             }
@@ -85,13 +85,12 @@ private struct SplitView: View {
                     }
                 }
             }
-            Divider().overlay(Color.secondary.opacity(0.25))
             SplitColumn(title: taskHeader(count: tasks.count), empty: "할 일 없음") {
                 if tasks.isEmpty {
                     Text("할 일 없음").font(.caption).foregroundStyle(.secondary)
                 } else {
                     AdaptiveList(count: tasks.count) { shown, hidden in
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: 6) {
                             ForEach(tasks.prefix(shown)) { t in
                                 OpenTaskCell(item: t, colors: colors, today: entry.date)
                             }
@@ -123,6 +122,7 @@ private struct SplitColumn<Content: View>: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title)
                 .font(.caption)
+                .fontWeight(.medium)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             content()
