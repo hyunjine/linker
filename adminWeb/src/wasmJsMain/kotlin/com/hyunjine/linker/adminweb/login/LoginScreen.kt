@@ -135,7 +135,7 @@ fun LoginScreen(
 }
 
 /**
- * 상단 브랜딩 바. 좌측에 `Linker · 관리자 콘솔` 라벨만 두고 우측 액션은 없다.
+ * 상단 브랜딩 바. 좌측에 `현진이랑민교 · 관리자 콘솔` 라벨만 두고 우측 액션은 없다.
  */
 @Composable
 private fun LoginTopBar() {
@@ -148,7 +148,7 @@ private fun LoginTopBar() {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Linker · 관리자 콘솔",
+                text = "현진이랑민교 · 관리자 콘솔",
                 color = AdminColors.TextPrimary,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,

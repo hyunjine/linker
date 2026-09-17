@@ -41,7 +41,7 @@ import kotlinx.coroutines.launch
 /**
  * 관리자 푸시 발송 콘솔의 최상위 화면.
  *
- * 상단바 (`Linker · 관리자 콘솔` + 로그아웃) 아래에 좌·우 두 패널을 배치한다.
+ * 상단바 (`현진이랑민교 · 관리자 콘솔` + 로그아웃) 아래에 좌·우 두 패널을 배치한다.
  * 좌 패널은 계정 검색 + 리스트 ([AccountList]), 우 패널은 메시지 폼 ([MessageForm]).
  *
  * 이 컴포저블은 라우터 (`#280`) 가 로그인 성공 후 렌더하는 진입점이다. 라우터 도입 전에는
@@ -127,7 +127,7 @@ private fun TopBar(onSignOut: () -> Unit) {
                         fontSize = 20.sp,
                     ),
                 ) {
-                    append("Linker")
+                    append("현진이랑민교")
                 }
                 withStyle(SpanStyle(color = Colors.TextPrimary.copy(alpha = 0.7f))) {
                     append("  ·  ")
