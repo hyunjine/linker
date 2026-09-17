@@ -163,6 +163,26 @@ object SchedulesRepository {
     }
 
     /**
+     * 미완료 할 일 조회 (#244 split 위젯용). `type='task' AND is_done=false AND start_date <= upTo`.
+     * 지난 날짜의 완료되지 않은 할 일이 위젯 우측에 계속 누적 표시되도록 하는 게 목적.
+     * 정렬은 start_date 오름차순 — 가장 오래된 (overdue) 할 일이 상단.
+     */
+    suspend fun listOpenTasks(upTo: LocalDate): List<Row> {
+        val coupleId = myCoupleId() ?: return emptyList()
+        return SupabaseProvider.client.from("schedules")
+            .select {
+                filter {
+                    eq("couple_id", coupleId)
+                    eq("type", "task")
+                    eq("is_done", false)
+                    lte("start_date", upTo.toString())
+                }
+                order("start_date", io.github.jan.supabase.postgrest.query.Order.ASCENDING)
+            }
+            .decodeList<Row>()
+    }
+
+    /**
      * 새 스케줄 저장. 반환값은 대표 row 의 id.
      *
      * - 반복 없음: 단일 row insert
