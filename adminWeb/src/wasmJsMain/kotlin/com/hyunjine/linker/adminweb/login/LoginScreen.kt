@@ -21,6 +21,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -36,7 +37,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -48,6 +48,7 @@ import com.hyunjine.linker.adminweb.auth.LoginReason
 import com.hyunjine.linker.adminweb.auth.SignInFailure
 import com.hyunjine.linker.adminweb.auth.SignInResult
 import com.hyunjine.linker.adminweb.ui.AdminColors
+import com.hyunjine.linker.adminweb.ui.CheckIcon
 import kotlinx.coroutines.launch
 
 /**
@@ -296,7 +297,8 @@ private fun LoginField(
                 onValueChange = onValueChange,
                 singleLine = true,
                 enabled = enabled,
-                textStyle = TextStyle(
+                // Pretendard 상속을 위해 `LocalTextStyle.current.copy(...)` 로 감싼다.
+                textStyle = LocalTextStyle.current.copy(
                     color = AdminColors.TextPrimary,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Normal,
@@ -370,13 +372,12 @@ private fun RememberCheckbox(
             contentAlignment = Alignment.Center,
         ) {
             if (checked) {
-                // 얇은 체크 표시. SF Symbols 없이 유니코드 문자로 렌더 (wasmJs 는 Compose 아이콘 세트가
-                // 제한적이라 텍스트 글리프가 가장 단순 · 폰트 폴백에 안정적).
-                Text(
-                    text = "✓",
+                // wasmJs Skia 는 `✓` (U+2713) 을 Pretendard 로 채우지 못해 tofu 로 뜨는 경우가 있어
+                // 원시 Canvas 로 그린다 (docs: #290, #295 이후).
+                CheckIcon(
+                    modifier = Modifier.size(11.dp),
                     color = AdminColors.OnBrand,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
+                    strokeWidthDp = 1.6.dp,
                 )
             }
         }

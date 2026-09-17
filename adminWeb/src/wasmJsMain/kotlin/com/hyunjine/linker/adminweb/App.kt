@@ -25,6 +25,7 @@ import com.hyunjine.linker.adminweb.login.LoginScreen
 import com.hyunjine.linker.adminweb.nav.AdminNavigator
 import com.hyunjine.linker.adminweb.ui.AdminColors
 import com.hyunjine.linker.adminweb.ui.pretendardFontFamily
+import kotlinx.browser.window
 
 /**
  * 관리자 콘솔 루트 컴포저블.
@@ -50,6 +51,23 @@ fun App(
     }
 
     val current: AdminRoute by navigator.current
+
+    // URL 해시 미러링 — `#login` / `#console`. 라우팅의 source of truth 는 authController 이므로
+    // 해시는 사용자 UX (뒤로가기 · 북마크 시각 구분) 를 위한 반영 전용. push 가 아닌 replace 로
+    // 히스토리 엔트리를 오염시키지 않는다.
+    LaunchedEffect(current) {
+        val hash = when (current) {
+            is AdminRoute.Splash -> ""
+            is AdminRoute.Login, is AdminRoute.SessionExpired -> "#login"
+            is AdminRoute.Console -> "#console"
+        }
+        val loc = window.location
+        val nextUrl = "${loc.pathname}${loc.search}$hash"
+        val currentUrl = "${loc.pathname}${loc.search}${loc.hash}"
+        if (nextUrl != currentUrl) {
+            window.history.replaceState(null, "", nextUrl)
+        }
+    }
 
     // wasmJs Skia 는 시스템 폰트 접근이 없어 한글 글리프가 통째로 빠진다 (#290). Pretendard 를
     // Typography 와 LocalTextStyle 양쪽에 심어 모든 Text (Material3 style · plain Text) 가

@@ -8,13 +8,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -58,9 +58,11 @@ fun SendActionPill(
             .padding(horizontal = 20.dp),
         contentAlignment = Alignment.Center,
     ) {
+        // `LocalTextStyle.current.copy(...)` 로 감싸야 Pretendard fontFamily 가 유지된다.
+        // 인라인 `TextStyle(...)` 는 fontFamily=null 을 강제해 한글이 tofu 로 렌더됨.
         Text(
             text = label,
-            style = TextStyle(
+            style = LocalTextStyle.current.copy(
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 15.sp,
                 color = textColor,

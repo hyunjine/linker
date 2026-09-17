@@ -64,6 +64,10 @@ function corsHeaders(req: Request): HeadersInit {
     "Access-Control-Allow-Origin": allowOrigin,
     "Access-Control-Allow-Credentials": "true",
     "Access-Control-Allow-Methods": "POST, OPTIONS",
+    // supabase-kt Functions.invoke 는 요청마다 `x-region: any` 를 붙인다
+    // (`X_REGION_HEADER = "x-region"`, `FunctionRegion.ANY`). #293 에서 이걸
+    // `x-supabase-region` 으로 잘못 화이트리스트해 preflight 가 조용히 실패,
+    // 브라우저가 실제 POST 를 차단해 `TypeError: Failed to fetch` 로 돌아왔음.
     "Access-Control-Allow-Headers": [
       "authorization",
       "apikey",
@@ -74,7 +78,7 @@ function corsHeaders(req: Request): HeadersInit {
       "accept-profile",
       "x-client-info",
       "x-supabase-api-version",
-      "x-supabase-region",
+      "x-region",
       "range",
     ].join(", "),
     "Access-Control-Max-Age": "0",

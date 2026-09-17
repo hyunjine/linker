@@ -18,7 +18,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.withStyle
@@ -193,9 +192,11 @@ private fun SummaryRow(state: ConsoleState) {
             append("${bodyLength}자")
         }
     }
+    // `LocalTextStyle.current.copy(...)` 로 감싸야 Pretendard fontFamily 가 유지된다.
+    // 인라인 `TextStyle(...)` 는 fontFamily=null 을 강제해 tofu 로 렌더됨 (#295 후속).
     Text(
         text = annotated,
-        style = TextStyle(
+        style = LocalTextStyle.current.copy(
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
         ),
