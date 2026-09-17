@@ -49,6 +49,8 @@ jobs:
         env:
           ADMIN_WEB_SUPABASE_URL: ${{ secrets.ADMIN_WEB_SUPABASE_URL }}
           ADMIN_WEB_SUPABASE_ANON_KEY: ${{ secrets.ADMIN_WEB_SUPABASE_ANON_KEY }}
+          # 관리자 화이트리스트. 콤마 구분 uid. 비어 있으면 로그인 성공해도 콘솔 진입 차단.
+          ADMIN_WEB_ADMIN_UIDS: ${{ secrets.ADMIN_WEB_ADMIN_UIDS }}
         run: ./gradlew :adminWeb:wasmJsBrowserDistribution --no-daemon
 
       - name: Deploy to gh-pages (/admin)
