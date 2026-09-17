@@ -85,6 +85,8 @@ fun CreateScheduleRoute(
                     onDone()
                 }
             },
+            saving = ui.saving,
+            deleting = ui.deleting,
         )
     } else {
         // 신규: initialType/initialDate 로 seed 를 여기서 즉시 만들어 넘김.
@@ -99,6 +101,7 @@ fun CreateScheduleRoute(
             onBack = onBack,
             onSave = { draft, scope -> viewModel.save(draft, scope, onDone) },
             onDelete = { scope -> viewModel.delete(scope, onDone) },
+            saving = ui.saving,
         )
     }
 }
