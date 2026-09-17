@@ -36,7 +36,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hyunjine.linker.adminweb.data.Account
 import com.hyunjine.linker.adminweb.data.Platform
+import com.hyunjine.linker.adminweb.ui.CheckIcon
 import com.hyunjine.linker.adminweb.ui.Colors
+import com.hyunjine.linker.adminweb.ui.SearchIcon
 
 /**
  * 좌측 계정 리스트 패널.
@@ -130,9 +132,9 @@ private fun SearchField(
         contentAlignment = Alignment.CenterStart,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = "🔍", // magnifying glass
-                fontSize = 14.sp,
+            // wasmJs Skia 는 이모지 폰트 접근이 없어 `🔍` 은 tofu 로 뜬다. 원시 Canvas 로 대체.
+            SearchIcon(
+                modifier = Modifier.size(14.dp),
                 color = Colors.TextTertiary,
             )
             Spacer(Modifier.width(8.dp))
@@ -266,7 +268,7 @@ private fun Avatar(account: Account) {
     }
 }
 
-/** 20×20 체크박스 — 계정 행용. 체크시 파란 채움 + 흰 ✓. */
+/** 20×20 체크박스 — 계정 행용. 체크시 파란 채움 + 흰 체크 아이콘. */
 @Composable
 private fun RowCheckbox(checked: Boolean) {
     Box(
@@ -282,11 +284,10 @@ private fun RowCheckbox(checked: Boolean) {
         contentAlignment = Alignment.Center,
     ) {
         if (checked) {
-            Text(
-                text = "✓",
+            CheckIcon(
+                modifier = Modifier.size(14.dp),
                 color = Colors.OnPrimary,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
+                strokeWidthDp = 2.dp,
             )
         }
     }
@@ -308,11 +309,10 @@ private fun SmallCheckbox(checked: Boolean) {
         contentAlignment = Alignment.Center,
     ) {
         if (checked) {
-            Text(
-                text = "✓",
+            CheckIcon(
+                modifier = Modifier.size(11.dp),
                 color = Colors.OnPrimary,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
+                strokeWidthDp = 1.6.dp,
             )
         }
     }
