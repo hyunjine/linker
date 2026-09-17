@@ -126,5 +126,5 @@ kotlin {
 compose.resources {
     publicResClass = false
     packageOfResClass = "com.hyunjine.linker.adminweb.resources"
-    generateResClass = auto
+    generateResClass = always
 }
