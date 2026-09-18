@@ -3,6 +3,8 @@ package com.hyunjine.linker.feature.widget
 import com.hyunjine.linker.data.remote.SchedulesRepository
 import com.hyunjine.linker.data.remote.SupabaseProvider
 import com.hyunjine.linker.data.remote.UsersRepository
+import com.hyunjine.linker.data.specialday.SpecialDayKind
+import com.hyunjine.linker.data.specialday.SpecialDayRepository
 import com.hyunjine.linker.designsystem.theme.CalendarPurple
 import com.hyunjine.linker.designsystem.theme.calendarColorFor
 import com.hyunjine.linker.designsystem.theme.toRgbHex
@@ -79,6 +81,12 @@ data class TodayWidgetPayload(
      * 기존 위젯은 이 필드를 무시하므로 하위호환 안전.
      */
     @SerialName("monthEvents") val monthEvents: Map<String, List<String>> = emptyMap(),
+    /**
+     * 이번 달 공휴일 (`isHoliday="Y"`) 날짜 리스트. "yyyy-MM-dd" ISO 문자열. 캘린더 위젯이
+     * 이 날짜 셀 번호를 빨강으로 렌더하는 데 사용 (앱 캘린더 톤과 통일 · #309).
+     * 실패 시 빈 리스트 → 위젯은 요일 컬러(토=파랑·일=빨강)만 적용.
+     */
+    @SerialName("holidays") val holidays: List<String> = emptyList(),
 )
 
 /**
@@ -122,6 +130,24 @@ object TodayWidgetPayloadBuilder {
             .mapValues { (_, rows) ->
                 rows.map { resolveOwnerForViewer(it.ownerKind, it.createdBy, viewerId) }.distinct()
             }
+        // 이번 달 공휴일 리스트 — 캘린더 위젯의 셀 번호 색상 결정용 (#309).
+        // 한 해 전체를 한 번 조회한 뒤 (Repository 캐시 프로세스 라이프사이클 동안 유효)
+        // 이번 달로 좁혀 "yyyy-MM-dd" 로 직렬화. 실패해도 빈 리스트로 대응.
+        val holidayRepo = SpecialDayRepository()
+        val holidays = runCatching { holidayRepo.getYear(today.year, SpecialDayKind.Holiday) }
+            .getOrDefault(emptyList())
+            .mapNotNull { dto ->
+                if (!dto.isHoliday || dto.locdate <= 0) return@mapNotNull null
+                val y = dto.locdate / 10000
+                val m = (dto.locdate / 100) % 100
+                val d = dto.locdate % 100
+                if (y != today.year || m != today.month.ordinal + 1) return@mapNotNull null
+                // yyyy-MM-dd 로 zero-pad 해서 Swift 쪽 파싱 (동일 포맷) 과 정확히 맞춘다.
+                val mm = m.toString().padStart(2, '0')
+                val dd = d.toString().padStart(2, '0')
+                "$y-$mm-$dd"
+            }
+            .distinct()
         // 앱 UI 와 동일한 팔레트로 me/partner 컬러 hex 를 계산해 payload 에 실어준다.
         // 실패해도 위젯이 렌더 자체는 되어야 하므로 default (파트너 pink, us purple) fallback.
         val mine = runCatching { UsersRepository.myProfile() }.getOrNull()
@@ -134,6 +160,7 @@ object TodayWidgetPayloadBuilder {
             usColorHex = CalendarPurple.toRgbHex(),
             openTasks = openTasks,
             monthEvents = monthEvents,
+            holidays = holidays,
         )
     }
 

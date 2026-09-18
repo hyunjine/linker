@@ -46,8 +46,11 @@ struct WidgetTodayPayload: Codable {
     /// key = "yyyy-MM-dd", value = ["me", "partner", …] (중복 제거). 이벤트 없는 날은 map 에 없음.
     /// 구버전 payload 호환 위해 optional.
     let monthEvents: [String: [String]]?
+    /// 이번 달 공휴일 "yyyy-MM-dd" 리스트 (#309). 캘린더 위젯이 이 셀 번호를 빨강으로 렌더.
+    /// 구버전 payload 호환 위해 optional. nil / 빈 배열이면 요일 컬러만 적용.
+    let holidays: [String]?
 
-    /// 프리뷰 · 샘플 payload 편의를 위한 default init. 컬러 hex · openTasks · monthEvents 는 선택.
+    /// 프리뷰 · 샘플 payload 편의를 위한 default init. 컬러 hex · openTasks · monthEvents · holidays 는 선택.
     init(
         date: String,
         items: [WidgetSchedule],
@@ -56,6 +59,7 @@ struct WidgetTodayPayload: Codable {
         usColorHex: String? = nil,
         openTasks: [WidgetOpenTask]? = nil,
         monthEvents: [String: [String]]? = nil,
+        holidays: [String]? = nil,
     ) {
         self.date = date
         self.items = items
@@ -64,6 +68,7 @@ struct WidgetTodayPayload: Codable {
         self.usColorHex = usColorHex
         self.openTasks = openTasks
         self.monthEvents = monthEvents
+        self.holidays = holidays
     }
 }
 
