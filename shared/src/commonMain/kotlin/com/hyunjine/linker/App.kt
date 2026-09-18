@@ -24,6 +24,7 @@ import com.hyunjine.linker.designsystem.theme.LinkerTheme
 import com.hyunjine.linker.feature.anniversary.AnniversaryUi
 import com.hyunjine.linker.feature.auth.AuthGateMode
 import com.hyunjine.linker.feature.auth.AuthGateScreen
+import com.hyunjine.linker.platform.ensureCurrentDeviceRegistered
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserInfo
 import kotlinx.coroutines.delay
@@ -233,6 +234,12 @@ fun App() {
                 println("[Auth] sessionStatus = ${status::class.simpleName}")
                 when (val s = status) {
                     is SessionStatus.Authenticated -> {
+                        // #317 로그인 성공 시 FCM device 등록 강제 트리거. 세션 복원 · 신규 로그인
+                        // 모두 이 분기로 흘러오고, Repository 가 (user_id, fcm_token) unique 로
+                        // dedupe 하므로 idempotent 안전. 계정 스왑 (test1 → test2) 케이스에서
+                        // onNewToken 이 fire 되지 않아 test2 device row 가 없던 문제를 커버.
+                        runCatching { ensureCurrentDeviceRegistered() }
+                            .onFailure { println("[FCM] ensureCurrentDeviceRegistered 실패: $it") }
                         val target = decideBootstrapTarget()
                         println("[Auth] Authenticated → $target")
                         if (backStack.lastOrNull() != target) {
