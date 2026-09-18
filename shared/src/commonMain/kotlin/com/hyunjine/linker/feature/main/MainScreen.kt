@@ -62,6 +62,8 @@ import com.hyunjine.linker.designsystem.theme.CalendarTodayText
 import com.hyunjine.linker.designsystem.theme.CalendarWeekdayText
 import com.hyunjine.linker.designsystem.theme.ChipHolidayBg
 import com.hyunjine.linker.designsystem.theme.ChipHolidayText
+import com.hyunjine.linker.designsystem.theme.ChipAnniversaryBg
+import com.hyunjine.linker.designsystem.theme.ChipAnniversaryText
 import com.hyunjine.linker.designsystem.theme.ChipPersonalBg
 import com.hyunjine.linker.designsystem.theme.ChipPersonalText
 import com.hyunjine.linker.designsystem.theme.ChipSeasonBg
@@ -85,10 +87,20 @@ import linker.shared.generated.resources.ic_menu
 import linker.shared.generated.resources.ic_search
 import org.jetbrains.compose.resources.painterResource
 
-/** 하루 셀에 표시할 이벤트 종류. 우선순위는 [priority] 로 결정 (낮을수록 먼저). */
+/**
+ * 하루 셀에 표시할 이벤트 종류. 우선순위는 [priority] 로 결정 (낮을수록 먼저).
+ *
+ * 후속 이슈 노트 (#182 재설계):
+ *  - 3카테고리 (스케줄 · 할일 · 기념일) 간 표시 위계는 이번 스코프 밖. Anniversary 는 Holiday
+ *    (공휴일 · 최우선) 다음, Season/Personal 앞에 두어 사용자 개인화 요소가 자연 대체공휴일보다
+ *    먼저 눈에 들어오게 잠정 배치.
+ */
 enum class CalendarEventType {
     /** 법정 공휴일. 빨강 계열. */
     Holiday,
+
+    /** 커플 기념일 (`couple_anniversaries`). 보라 계열. */
+    Anniversary,
 
     /** 절기·잡절 등. 회색 계열. */
     Season,
@@ -100,8 +112,9 @@ enum class CalendarEventType {
 private val CalendarEventType.priority: Int
     get() = when (this) {
         CalendarEventType.Holiday -> 0
-        CalendarEventType.Season -> 1
-        CalendarEventType.Personal -> 2
+        CalendarEventType.Anniversary -> 1
+        CalendarEventType.Season -> 2
+        CalendarEventType.Personal -> 3
     }
 
 /** 하루 셀에 붙는 이벤트 chip 한 개. */
@@ -235,6 +248,8 @@ fun MainScreen(
         SpecialDayKind.Holiday,
         SpecialDayKind.SolarTerm,
     )
+    // 커플 기념일 chip. `repeat_yearly` 인 항목은 보이는 연도로 옮겨 배치되고, realtime 변경 시 자동 재fetch.
+    val anniversaryEntries = rememberAnniversaryEntries(year = currentYearMonth.year)
     // 타이틀 탭 시 년/월 피커 시트 오픈. dismiss 시 선택 값으로 pager 를 해당 월까지 스크롤.
     var pickerVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -265,8 +280,9 @@ fun MainScreen(
     }
 
     // 표시 토글 반영: 공휴일/절기 는 type 기준, 개인 chip 은 owner 기준 (나/상대방/공동) 으로 각각 필터.
+    // 기념일은 전용 토글이 없어 항상 표시 (재설계 시 토글/필터 정책 결정 · #182 후속).
     val mergedEntries = remember(
-        entries, scheduleEntries, specialDayEntries,
+        entries, scheduleEntries, specialDayEntries, anniversaryEntries,
         displayState.showHolidays, displayState.showSolarTerms,
         displayState.showMyCalendar, displayState.showPartnerCalendar, displayState.showSharedCalendar,
     ) {
@@ -279,7 +295,8 @@ fun MainScreen(
             showPartner = displayState.showPartnerCalendar,
             showShared = displayState.showSharedCalendar,
         )
-        val withSchedules = mergeEntries(base = filteredSpecial, override = filteredSchedules)
+        val withAnniv = mergeEntries(base = filteredSpecial, override = anniversaryEntries)
+        val withSchedules = mergeEntries(base = withAnniv, override = filteredSchedules)
         mergeEntries(base = withSchedules, override = entries)
     }
 
@@ -433,6 +450,8 @@ private fun Map<LocalDate, CalendarDayEntry>.filterByToggles(
             when (ev.type) {
                 CalendarEventType.Holiday -> showHolidays
                 CalendarEventType.Season -> showSolarTerms
+                // 기념일은 현재 전용 토글 없음 — 항상 노출. 3카테고리 위계 재설계 시 토글/필터 정책 결정 (#182).
+                CalendarEventType.Anniversary -> true
                 CalendarEventType.Personal -> true
             }
         }
@@ -777,6 +796,7 @@ private fun EventChip(event: CalendarEvent) {
     val (bg, fg) = when {
         event.tintColor != null -> event.tintColor.copy(alpha = 0.18f) to event.tintColor
         event.type == CalendarEventType.Holiday -> ChipHolidayBg to ChipHolidayText
+        event.type == CalendarEventType.Anniversary -> ChipAnniversaryBg to ChipAnniversaryText
         event.type == CalendarEventType.Season -> ChipSeasonBg to ChipSeasonText
         else -> ChipPersonalBg to ChipPersonalText
     }
