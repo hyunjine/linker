@@ -201,16 +201,12 @@ fun App() {
             // 드로워 "상대방 연결" 진입은 이 상태를 hide/show 로 반영.
             var coupleRefreshTick by remember { mutableStateOf(0) }
 
-            // Outlook 연동 상태 · 서비스. MSAL 로컬 계정이 있으면 이메일 문자열, 없으면 null.
-            // 연동/해제 시 캘린더 chip 재fetch 하도록 scheduleRefreshTick 도 bump.
+            // Outlook 백그라운드 sync — 드로워 연결 UI 는 #308 로 제거됐지만, 기존에 연동된 계정이
+            // 있으면 세션 복원 시 자동 동기화만 유지 (기존 사용자 캘린더 chip 유실 방지).
+            // 신규 연동 진입점은 없음 → 캐시된 MSAL 계정이 없으면 이 블록은 no-op.
             val outlookAuth = rememberOutlookAuthClient()
             val outlookSync = remember(outlookAuth) { OutlookSyncService(outlookAuth) }
             var outlookAccountEmail by remember { mutableStateOf<String?>(null) }
-            // 이전 login coroutine 이 in-flight 동안 사용자가 드로워 재탭·연타 시 MSAL 웹뷰가
-            // 중첩·재현되지 않도록 하는 guard. Swift MSAL SDK 가 완료 콜백을 흘려도 이 guard 로
-            // 결국 사용자 재탭이 필요한 상태로 복귀 (자동 재시도 X).
-            var outlookLoginInFlight by remember { mutableStateOf(false) }
-            // 초기 sync 트리거는 status 선언 후 별도 LaunchedEffect (아래) 에서 처리.
 
             // 세션 상태 기반 부트스트랩 라우팅.
             //  - Initializing / NotAuthenticated / RefreshFailure: AuthRoute 유지
@@ -369,45 +365,6 @@ fun App() {
                             profileRefreshTick = profileRefreshTick,
                             scheduleRefreshTick = scheduleRefreshTick,
                             coupleRefreshTick = coupleRefreshTick,
-                            outlookAccountEmail = outlookAccountEmail,
-                            onOutlookConnectClick = {
-                                if (outlookLoginInFlight) {
-                                    println("[Outlook] login in-flight — 재탭 무시")
-                                } else {
-                                    outlookLoginInFlight = true
-//                                    println("[Outlook] 드로워 연결 탭 → login() 호출 시작")
-                                    scope.launch {
-                                        try {
-                                            val r = outlookAuth.login()
-                                            println("[Outlook] login() 반환: ${r::class.simpleName}")
-                                            when (r) {
-                                                is OutlookAuthResult.Success -> {
-                                                    outlookAccountEmail = r.email
-                                                    println("[Outlook] 계정 세팅: ${r.email}, sync 시작")
-                                                    val from = oneMonthAgo().plus(-30, DateTimeUnit.DAY)
-                                                    outlookSync.syncRange(from, oneMonthAhead())
-                                                    scheduleRefreshTick++
-                                                }
-                                                is OutlookAuthResult.Failure -> println("[Outlook] login 실패: ${r.reason}")
-                                                OutlookAuthResult.Cancelled -> println("[Outlook] 사용자 취소")
-                                            }
-                                        } catch (t: Throwable) {
-                                            println("[Outlook] login flow 예외: $t")
-                                        } finally {
-                                            outlookLoginInFlight = false
-                                        }
-                                    }
-                                }
-                            },
-                            onOutlookDisconnectClick = {
-                                scope.launch {
-                                    runCatching {
-                                        outlookSync.disconnect()
-                                        outlookAccountEmail = null
-                                        scheduleRefreshTick++
-                                    }.onFailure { println("[Outlook] disconnect 예외: $it") }
-                                }
-                            },
                         )
                     }
                     entry<SearchRoute> {

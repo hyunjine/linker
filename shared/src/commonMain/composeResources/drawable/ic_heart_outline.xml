@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="22dp"
+    android:height="22dp"
+    android:viewportWidth="22"
+    android:viewportHeight="22">
+    <!-- 하트 아웃라인 (드로워 "상대방 연결" 라벨 좌측 아이콘, #308) -->
+    <path
+        android:pathData="M11,19 C11,19 3.5,14.5 3.5,8.5 A4,4 0 0 1 11,6 A4,4 0 0 1 18.5,8.5 C18.5,14.5 11,19 11,19 Z"
+        android:strokeColor="#FF1A1A1A"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>
