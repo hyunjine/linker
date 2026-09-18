@@ -36,11 +36,13 @@ class CoupleLinkViewModel : ViewModel() {
                 val full = CouplesRepository.getCoupleById(id) ?: return@runCatching null
                 // linked_at 이 null 이면 아직 혼자 있는 solo couple → 파트너 프로필 fetch 스킵.
                 val partner = if (full.linkedAt != null) UsersRepository.partnerProfile() else null
-                full to partner
-            }.onSuccess { pair ->
-                val (full, partner) = pair ?: (null to null)
+                // 공동 색 picker 초기값 = 내 프로필의 us_calendar_color (#245).
+                val mine = UsersRepository.myProfile()
+                Triple(full, partner, mine?.usCalendarColor)
+            }.onSuccess { triple ->
+                val (full, partner, usColor) = triple ?: Triple(null, null, null)
                 _state.value = if (full?.linkedAt != null) {
-                    CoupleLinkUiState.Paired(partner)
+                    CoupleLinkUiState.Paired(partner = partner, usCalendarColor = usColor)
                 } else {
                     CoupleLinkUiState.NotPaired
                 }
@@ -48,6 +50,22 @@ class CoupleLinkViewModel : ViewModel() {
                 println("[Couple] link status 조회 실패: $it")
                 _state.value = CoupleLinkUiState.NotPaired
             }
+        }
+    }
+
+    /**
+     * 공동(Us) 캘린더 색 저장 (#245). Optimistic update — 사용자가 스와치를 탭하면 UI 는
+     * 즉시 새 값으로 갱신되고, 백그라운드에서 users.us_calendar_color 를 patch.
+     * 실패해도 화면은 이미 새 값 — 다음 refresh 때 서버 값으로 재정렬됨.
+     */
+    fun updateUsColor(newId: String) {
+        val current = _state.value
+        if (current is CoupleLinkUiState.Paired) {
+            _state.value = current.copy(usCalendarColor = newId)
+        }
+        viewModelScope.launch {
+            runCatching { UsersRepository.updateUsCalendarColor(newId) }
+                .onFailure { println("[Couple] us 색 저장 실패: $it") }
         }
     }
 
@@ -74,6 +92,10 @@ sealed interface CoupleLinkUiState {
     /**
      * 파트너 조인 완료. [partner] 는 파트너 `public.users` 프로필 (닉네임·생일·아바타·색).
      * RLS · Realtime · 삭제 rc 등으로 조회 실패하면 null — 이 경우 프로필 카드 자리를 감춘다.
+     * [usCalendarColor] 는 내 프로필의 공동 색 preference. NULL 이면 UI 가 CalendarPurple 로 fallback.
      */
-    data class Paired(val partner: UsersRepository.Profile?) : CoupleLinkUiState
+    data class Paired(
+        val partner: UsersRepository.Profile?,
+        val usCalendarColor: String? = null,
+    ) : CoupleLinkUiState
 }
