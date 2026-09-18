@@ -51,8 +51,10 @@ struct CalendarWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: CalendarProvider()) { entry in
             CalendarView(entry: entry)
+                // #305 — `.ultraThinMaterial` 는 반투명이라 홈스크린 배경 이미지가 비쳐
+                // 그림자 얹힌 것처럼 보였음. SplitWidget 톤과 통일해 흰색 단색으로 고정.
                 .containerBackground(for: .widget) {
-                    Rectangle().fill(.ultraThinMaterial)
+                    Color.white
                 }
         }
         .configurationDisplayName("달력 · 할 일 · 일정")
