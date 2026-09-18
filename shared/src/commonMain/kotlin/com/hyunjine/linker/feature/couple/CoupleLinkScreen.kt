@@ -121,7 +121,7 @@ fun CoupleLinkScreen(
         }
 
         AppTopBar(
-            title = "커플 연결",
+            title = "상대방 연결",
             onBack = onBack,
             modifier = Modifier
                 .align(Alignment.TopCenter)
