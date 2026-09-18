@@ -215,12 +215,6 @@ fun MainScreen(
     onDisplayStateChange: (DrawerDisplayState) -> Unit = {},
     /** 파트너 조인 여부. 드로워의 "상대방 캘린더" 토글 노출 · 스케줄 필터에 사용. */
     hasPartner: Boolean = false,
-    /** Outlook 연동된 계정 이메일. null 이면 미연동 → 드로워 행 탭 시 로그인 시트. */
-    outlookAccountEmail: String? = null,
-    /** Outlook 연동 시작 (MSAL 시트). 성공 시 상위 (App) 이 sync 트리거 · 상태 재조회. */
-    onOutlookConnectClick: () -> Unit = {},
-    /** Outlook 연동 해제 (MSAL signOut · mirror rows 삭제). */
-    onOutlookDisconnectClick: () -> Unit = {},
     /** 소유자 pill 색 팔레트. 프로필 캘린더 컬러 · 공동 컬러로부터 파생 (#264). */
     ownerColors: OwnerColors = OwnerColors.Default,
 ) {
@@ -316,9 +310,6 @@ fun MainScreen(
                     scope.launch { drawerState.close() }
                     onLogout()
                 },
-                outlookAccountEmail = outlookAccountEmail,
-                onOutlookConnectClick = onOutlookConnectClick,
-                onOutlookDisconnectClick = onOutlookDisconnectClick,
             )
         },
     ) {
