@@ -157,6 +157,13 @@ kotlin {
             // Maven Central 에 없고 Microsoft Duo SDK 전용 repo 에만 있음. 그래서
             // settings.gradle.kts 에 Microsoft Duo repo 추가 (com.microsoft.device 그룹 한정).
             implementation(libs.msal)
+            // Firebase Cloud Messaging (Android 전용). #317 로그인 시점 device 등록 강제 트리거에
+            // `FirebaseMessaging.getInstance().token` fetch 가 필요해 shared 로 편입.
+            // 실제 서비스는 androidApp 의 LinkerFirebaseMessagingService 가 계속 담당.
+            // KMP sourceSet 의 KotlinDependencyHandler 는 `platform()` DSL 이 없어
+            // `project.dependencies.platform(...)` 로 우회 (Gradle 표준 BOM 컨벤션 동일 효과).
+            implementation(project.dependencies.platform(libs.firebase.bom))
+            implementation(libs.firebase.messaging)
         }
         commonMain.dependencies {
             implementation(libs.compose.runtime)
