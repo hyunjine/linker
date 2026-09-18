@@ -35,6 +35,7 @@ fun CoupleLinkRoute(
         onCreateInvite = onCreateInvite,
         onEnterPartnerCode = onEnterPartnerCode,
         onUnlink = { viewModel.unlink(onUnlinked) },
+        onUsColorChange = { viewModel.updateUsColor(it) },
     )
 }
 
