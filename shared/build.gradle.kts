@@ -190,6 +190,8 @@ kotlin {
             implementation(libs.coil.network.ktor)
             implementation(libs.colorpicker.compose)
             implementation(libs.markdown.renderer.m3)
+            implementation(libs.xmlutil.core)
+            implementation(libs.xmlutil.serialization)
         }
         commonMain {
             kotlin.srcDir(generateSecrets.map { generatedSecretsDir })

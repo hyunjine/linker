@@ -30,6 +30,7 @@ fun MainRoute(
     onProfileEditClick: () -> Unit,
     onCoupleLinkClick: () -> Unit,
     onReleaseNotesClick: () -> Unit,
+    onEverytimeTimetableClick: () -> Unit,
     onLogout: () -> Unit,
     profileRefreshTick: Int,
     scheduleRefreshTick: Int,
@@ -81,6 +82,7 @@ fun MainRoute(
         onProfileEditClick = onProfileEditClick,
         onCoupleLinkClick = onCoupleLinkClick,
         onReleaseNotesClick = onReleaseNotesClick,
+        onEverytimeTimetableClick = onEverytimeTimetableClick,
         onLogout = onLogout,
         profileName = uiState.myProfile?.nickname.orEmpty(),
         profileHandle = uiState.myProfile?.birthDate?.let(::isoToHandleBirthDate).orEmpty(),
@@ -88,6 +90,7 @@ fun MainRoute(
         displayState = displayState,
         onDisplayStateChange = viewModel::updateDrawerDisplay,
         hasPartner = uiState.hasPartner,
+        hasPartnerEverytime = uiState.partnerEverytimeIdentifier != null,
         ownerColors = uiState.ownerColors,
     )
 }

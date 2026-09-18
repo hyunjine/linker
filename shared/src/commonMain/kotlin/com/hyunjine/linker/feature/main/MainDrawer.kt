@@ -86,8 +86,14 @@ fun MainDrawerContent(
     onToggleHolidays: (Boolean) -> Unit = {},
     onToggleSolarTerms: (Boolean) -> Unit = {},
     onLogout: () -> Unit = {},
+    onEverytimeTimetableClick: () -> Unit = {},
     /** 파트너 조인 여부. false 면 "상대방 캘린더" · "공동 캘린더" 토글 자체를 감춘다. */
     hasPartner: Boolean = true,
+    /**
+     * 파트너가 자기 프로필에 에브리타임 URL 을 등록했는지 (#306). true 일 때만 "에브리타임 시간표"
+     * 액션 카드를 노출. 미등록 상태의 상대방을 위해 빈 화면을 보여주지 않기 위한 게이트.
+     */
+    hasPartnerEverytime: Boolean = false,
 ) {
     Column(
         modifier = Modifier
@@ -113,6 +119,16 @@ fun MainDrawerContent(
             iconRes = Res.drawable.ic_cal_31,
             onClick = onAnniversaryClick,
         )
+        if (hasPartner && hasPartnerEverytime) {
+            // 상대방 프로필에 에브리타임 URL 이 등록돼 있을 때만 노출 (#306). 아이콘은 기념일 설정과
+            // 동일한 캘린더 계열로 통일 — 별도 아이콘 리소스 추가 없이 스코프 최소화.
+            Spacer(Modifier.height(8.dp))
+            AllScheduleButton(
+                text = "에브리타임 시간표",
+                iconRes = Res.drawable.ic_cal_31,
+                onClick = onEverytimeTimetableClick,
+            )
+        }
         Spacer(Modifier.height(12.dp))
         SectionLabel(text = "일정 표시")
         ToggleRow(
@@ -455,6 +471,7 @@ private fun MainDrawerContentCouplePreview() {
                 showSolarTerms = false,
             ),
             hasPartner = true,
+            hasPartnerEverytime = true,
         )
     }
 }

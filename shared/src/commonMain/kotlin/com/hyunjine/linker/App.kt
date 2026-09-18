@@ -94,6 +94,9 @@ private data object SearchRoute : NavKey
 @Serializable
 private data object ReleaseNotesRoute : NavKey
 
+@Serializable
+private data object EverytimeTimetableRoute : NavKey
+
 private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
     serializersModule = SerializersModule {
         polymorphic(NavKey::class) {
@@ -108,6 +111,7 @@ private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
             subclass(AnniversariesRoute::class, AnniversariesRoute.serializer())
             subclass(SearchRoute::class, SearchRoute.serializer())
             subclass(ReleaseNotesRoute::class, ReleaseNotesRoute.serializer())
+            subclass(EverytimeTimetableRoute::class, EverytimeTimetableRoute.serializer())
         }
     }
 }
@@ -363,6 +367,7 @@ fun App() {
                             onProfileEditClick = { backStack.add(ProfileEditRoute) },
                             onCoupleLinkClick = { backStack.add(CoupleLinkRoute) },
                             onReleaseNotesClick = { backStack.add(ReleaseNotesRoute) },
+                            onEverytimeTimetableClick = { backStack.add(EverytimeTimetableRoute) },
                             onLogout = {
                                 scope.launch {
                                     runCatching { signOut() }
@@ -388,6 +393,11 @@ fun App() {
                     }
                     entry<ReleaseNotesRoute> {
                         com.hyunjine.linker.feature.release.ReleaseNotesRoute(
+                            onBack = { backStack.removeLastOrNull() },
+                        )
+                    }
+                    entry<EverytimeTimetableRoute> {
+                        com.hyunjine.linker.feature.everytime.EverytimeTimetableRoute(
                             onBack = { backStack.removeLastOrNull() },
                         )
                     }

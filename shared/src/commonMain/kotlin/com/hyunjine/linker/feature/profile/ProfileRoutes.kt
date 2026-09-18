@@ -30,7 +30,8 @@ fun ProfileSetupRoute(
         defaultAvatarUrl = defaults.avatarUrl.toSecureImageUrl(),
         saving = saving,
         onBack = onBack,
-        onNext = { nickname, birthDate, colorId, pickedImage ->
+        // 온보딩에는 에브리타임 URL 필드를 노출하지 않는다. 5번째 identifier 인자는 항상 null 로 전달됨.
+        onNext = { nickname, birthDate, colorId, pickedImage, _ ->
             viewModel.save(
                 nickname = nickname,
                 birthDate = birthDate,
@@ -70,9 +71,11 @@ fun ProfileEditRoute(
         defaultAvatarUrl = p.profileImageUrl.toSecureImageUrl(),
         submitText = "저장",
         saving = ui.saving,
+        everytimeIdentifierInitial = p.everytimeIdentifier,
+        showEverytimeField = true,
         onBack = onBack,
-        onNext = { nickname, birthDate, colorId, pickedImage ->
-            viewModel.save(nickname, birthDate, colorId, pickedImage, onSaved)
+        onNext = { nickname, birthDate, colorId, pickedImage, everytimeIdentifier ->
+            viewModel.save(nickname, birthDate, colorId, pickedImage, everytimeIdentifier, onSaved)
         },
     )
 }
