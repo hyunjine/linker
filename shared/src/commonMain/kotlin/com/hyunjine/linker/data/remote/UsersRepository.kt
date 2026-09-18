@@ -27,6 +27,11 @@ object UsersRepository {
         @SerialName("birth_date") val birthDate: String? = null,
         @SerialName("profile_image_url") val profileImageUrl: String? = null,
         @SerialName("calendar_color") val calendarColor: String = "blue",
+        /**
+         * 공동(Us) 캘린더 색상 preference (#245). NULL 이면 클라이언트가 CalendarPurple 로 fallback.
+         * per-user 라 커플 양쪽이 서로 다르게 볼 수 있음 (개인 취향 축).
+         */
+        @SerialName("us_calendar_color") val usCalendarColor: String? = null,
         @SerialName("profile_completed_at") val profileCompletedAt: String? = null,
         @SerialName("everytime_identifier") val everytimeIdentifier: String? = null,
     ) {
@@ -118,6 +123,22 @@ object UsersRepository {
             set("birth_date", birthDate?.toString())
             set("calendar_color", calendarColor)
             if (profileImageUrl != null) set("profile_image_url", profileImageUrl)
+        }) {
+            filter { eq("id", uid) }
+        }
+    }
+
+    /**
+     * 공동(Us) 캘린더 색만 부분 갱신 (#245). 다른 프로필 필드는 건드리지 않는다.
+     * CoupleLinkScreen 의 공동 색 picker 가 값을 고를 때마다 호출.
+     *
+     * @param calendarColor `Color.kt` 의 캘린더 색상 id (프리셋: `blue`, `pink`, ... · 커스텀 `#RRGGBB`).
+     */
+    suspend fun updateUsCalendarColor(calendarColor: String) {
+        val uid = SupabaseProvider.client.auth.currentUserOrNull()?.id
+            ?: error("로그인되지 않은 상태에서 공동 색상 수정 시도")
+        SupabaseProvider.client.from("users").update({
+            set("us_calendar_color", calendarColor)
         }) {
             filter { eq("id", uid) }
         }

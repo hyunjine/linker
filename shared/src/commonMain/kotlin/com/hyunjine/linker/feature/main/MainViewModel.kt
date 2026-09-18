@@ -64,7 +64,8 @@ class MainViewModel : ViewModel() {
             val nextColors = OwnerColors(
                 me = calendarColorFor(mine?.calendarColor),
                 partner = calendarColorFor(partnerColor ?: "pink"),
-                us = CalendarPurple,
+                // 공동(Us) 색: 내 프로필 preference 우선. 미설정이면 CalendarPurple fallback (#245).
+                us = mine?.usCalendarColor?.let { calendarColorFor(it) } ?: CalendarPurple,
             )
             val previousColors = _uiState.value.ownerColors
             val previousViewerId = _uiState.value.myProfile?.id

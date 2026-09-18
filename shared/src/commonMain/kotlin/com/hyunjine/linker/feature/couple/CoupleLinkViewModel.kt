@@ -36,11 +36,13 @@ class CoupleLinkViewModel : ViewModel() {
                 val full = CouplesRepository.getCoupleById(id) ?: return@runCatching null
                 // linked_at 이 null 이면 아직 혼자 있는 solo couple → 파트너 프로필 fetch 스킵.
                 val partner = if (full.linkedAt != null) UsersRepository.partnerProfile() else null
-                full to partner
-            }.onSuccess { pair ->
-                val (full, partner) = pair ?: (null to null)
+                // 공동 색 picker 초기값 = 내 프로필의 us_calendar_color (#245).
+                val mine = UsersRepository.myProfile()
+                Triple(full, partner, mine?.usCalendarColor)
+            }.onSuccess { triple ->
+                val (full, partner, usColor) = triple ?: Triple(null, null, null)
                 _state.value = if (full?.linkedAt != null) {
-                    CoupleLinkUiState.Paired(partner)
+                    CoupleLinkUiState.Paired(partner = partner, usCalendarColor = usColor)
                 } else {
                     CoupleLinkUiState.NotPaired
                 }
@@ -48,6 +50,42 @@ class CoupleLinkViewModel : ViewModel() {
                 println("[Couple] link status 조회 실패: $it")
                 _state.value = CoupleLinkUiState.NotPaired
             }
+        }
+    }
+
+    /**
+     * 공동(Us) 캘린더 색 저장 (#245 · #323). Optimistic update — 사용자가 스와치를 탭하면 UI 는
+     * 즉시 새 값으로 갱신되고, 백그라운드에서 users.us_calendar_color 를 patch.
+     *
+     * 실패 시 (컬럼 없음 · RLS · 네트워크 등) UI 를 이전 값으로 되돌리고 [saveError] 를 세팅해
+     * "저장 안 됐음" 을 사용자가 인지할 수 있게 한다. 이전엔 실패해도 optimistic 값이 화면에
+     * 남았다가 다음 refresh 때 조용히 revert 되어 "저장 됐다고 착각" 하는 문제가 있었음.
+     */
+    fun updateUsColor(newId: String) {
+        val current = _state.value
+        if (current !is CoupleLinkUiState.Paired) return
+        val previousId = current.usCalendarColor
+        _state.value = current.copy(usCalendarColor = newId, saveError = null)
+        viewModelScope.launch {
+            runCatching { UsersRepository.updateUsCalendarColor(newId) }
+                .onFailure { err ->
+                    println("[Couple] us 색 저장 실패: $err")
+                    val now = _state.value
+                    if (now is CoupleLinkUiState.Paired) {
+                        _state.value = now.copy(
+                            usCalendarColor = previousId,
+                            saveError = "색상 저장에 실패했어요. 잠시 후 다시 시도해주세요.",
+                        )
+                    }
+                }
+        }
+    }
+
+    /** UI 가 에러 배너를 닫았을 때 호출. 다음 저장 시도 시엔 자동으로 클리어됨. */
+    fun clearSaveError() {
+        val current = _state.value
+        if (current is CoupleLinkUiState.Paired && current.saveError != null) {
+            _state.value = current.copy(saveError = null)
         }
     }
 
@@ -74,6 +112,12 @@ sealed interface CoupleLinkUiState {
     /**
      * 파트너 조인 완료. [partner] 는 파트너 `public.users` 프로필 (닉네임·생일·아바타·색).
      * RLS · Realtime · 삭제 rc 등으로 조회 실패하면 null — 이 경우 프로필 카드 자리를 감춘다.
+     * [usCalendarColor] 는 내 프로필의 공동 색 preference. NULL 이면 UI 가 CalendarPurple 로 fallback.
+     * [saveError] 는 공동 색 저장 실패 시 사용자에게 보여줄 메시지 (#323). null 이면 노출 안 함.
      */
-    data class Paired(val partner: UsersRepository.Profile?) : CoupleLinkUiState
+    data class Paired(
+        val partner: UsersRepository.Profile?,
+        val usCalendarColor: String? = null,
+        val saveError: String? = null,
+    ) : CoupleLinkUiState
 }
