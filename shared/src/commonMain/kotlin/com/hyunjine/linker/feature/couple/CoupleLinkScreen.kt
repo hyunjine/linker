@@ -98,6 +98,7 @@ fun CoupleLinkScreen(
                 is CoupleLinkUiState.Paired -> PairedContent(
                     partner = state.partner,
                     usCalendarColor = state.usCalendarColor,
+                    saveError = state.saveError,
                     onUnlinkClick = { confirmUnlink = true },
                     onUsColorChange = onUsColorChange,
                 )
@@ -162,6 +163,7 @@ private fun NotPairedContent(
 private fun PairedContent(
     partner: UsersRepository.Profile?,
     usCalendarColor: String?,
+    saveError: String?,
     onUnlinkClick: () -> Unit,
     onUsColorChange: (String) -> Unit,
 ) {
@@ -173,6 +175,7 @@ private fun PairedContent(
     // 공동(Us) 캘린더 색 picker (#245). Paired 상태에서만 노출 — solo 커플엔 공동 일정 개념이 없음.
     UsCalendarColorSection(
         selectedId = usCalendarColor ?: DefaultUsColorId,
+        saveError = saveError,
         onSelect = onUsColorChange,
         modifier = Modifier.padding(horizontal = 16.dp),
     )
@@ -190,6 +193,7 @@ private const val DefaultUsColorId: String = "purple"
 @Composable
 private fun UsCalendarColorSection(
     selectedId: String,
+    saveError: String?,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -221,6 +225,19 @@ private fun UsCalendarColorSection(
                     onClick = { onSelect(option.id) },
                 )
             }
+        }
+        // 저장 실패 안내 (#323). 이전엔 optimistic UI 만 반짝 바뀌고 다음 refresh 때 조용히 revert 돼서
+        // "저장 됐다고 착각" 하는 문제가 있었음. 실패 시엔 UI 는 이전 값으로 되돌리고 여기 사유를 노출.
+        if (saveError != null) {
+            Text(
+                text = saveError,
+                style = TextStyle(
+                    color = Color(0xFFFF3B30),
+                    fontSize = 12.sp,
+                    fontFamily = font,
+                ),
+                modifier = Modifier.padding(start = 4.dp),
+            )
         }
     }
 }
