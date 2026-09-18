@@ -265,10 +265,27 @@ serve(async (req) => {
       return await handleStartReminder(payload, supabase);
     }
 
-    // owner_kind = 'me' 는 생성자 본인 소유 → 파트너 관점에서는 'partner' 로 보이므로 알림 미대상 (#271).
-    // 'partner' · 'us' 만 파트너에게 발송. (DB 는 생성자 관점으로 저장 → 파트너 관점 반전 후 me · us 필터.)
+    // INSERT 알림은 "파트너에게 새로운 일정이 추가됐어요" 를 알리는 용도. 수신자 = 파트너(들).
+    // 따라서 파트너 관점에서 owner 를 뒤집었을 때 me · us 인 경우만 발송해야 함 (#301).
+    //  - owner_kind = 'me'      → 생성자 본인 개인 일정. 파트너 관점 partner → skip.
+    //  - owner_kind = 'partner' → 파트너 (수신자) 관점 me → 발송.
+    //  - owner_kind = 'us'      → 양쪽 관점 모두 us → 발송.
     if (payload.record.owner_kind === "me") {
       return new Response("skip (owner=me, partner sees as partner)", { status: 200 });
+    }
+
+    // 비공개 스케줄은 생성자 본인만 보고 파트너에게 새어나가면 안 됨 (#301).
+    // INSERT payload 에는 is_private 이 실려있지 않으므로 (#271 트리거 payload 참고) row 를 재조회.
+    // owner_kind 가 'partner' 또는 'us' 인데 is_private=true 인 상태는 UI 상 발생하지 않아야 하지만,
+    // 방어적으로 여기서 컷.
+    const { data: scheduleRow, error: sErr } = await supabase
+      .from("schedules")
+      .select("is_private")
+      .eq("id", payload.record.id)
+      .maybeSingle();
+    if (sErr) throw sErr;
+    if (scheduleRow && (scheduleRow as { is_private: boolean }).is_private) {
+      return new Response("skip (is_private, partner must not receive)", { status: 200 });
     }
 
     // 1. 같은 커플 · 창작자 아닌 유저 조회.
