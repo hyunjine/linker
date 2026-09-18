@@ -44,7 +44,7 @@ import com.hyunjine.linker.designsystem.theme.TextSecondary
 import linker.shared.generated.resources.Res
 import linker.shared.generated.resources.ic_cal_31
 import linker.shared.generated.resources.ic_check
-import linker.shared.generated.resources.ic_heart_outline
+import linker.shared.generated.resources.ic_link
 import linker.shared.generated.resources.ic_setting_outline
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
@@ -274,7 +274,7 @@ private fun ProfileHeader(name: String, handle: String, imageUrl: String?, onCli
 }
 
 /**
- * "상대방 연결" 전용 텍스트 행. [AllScheduleButton] 과 시각·톤 동일 — 좌측 22dp 하트 아이콘 추가 (#308).
+ * "상대방 연결" 전용 텍스트 행. [AllScheduleButton] 과 시각·톤 동일 — 좌측 22dp 링크 아이콘 추가 (#308).
  */
 @Composable
 private fun CoupleLinkRow(
@@ -294,7 +294,7 @@ private fun CoupleLinkRow(
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Image(
-            painter = painterResource(Res.drawable.ic_heart_outline),
+            painter = painterResource(Res.drawable.ic_link),
             contentDescription = null,
             colorFilter = ColorFilter.tint(TextPrimary),
             modifier = Modifier.size(22.dp),
