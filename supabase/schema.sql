@@ -35,6 +35,11 @@ CREATE TABLE IF NOT EXISTS public.users (
     profile_image_url     TEXT,
     calendar_color        VARCHAR(16) NOT NULL DEFAULT 'blue',
     profile_completed_at  TIMESTAMPTZ,
+    -- 에브리타임 시간표 공유 링크의 identifier (URL `everytime.kr/@<id>` 의 <id>). #306
+    -- RLS 는 users_select_self_or_partner 가 커버 → 파트너가 읽어 자기 앱에서 조회 가능.
+    everytime_identifier  VARCHAR(32)
+        CONSTRAINT users_everytime_identifier_format
+        CHECK (everytime_identifier IS NULL OR everytime_identifier ~ '^[A-Za-z0-9]{4,32}$'),
     created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
 );
