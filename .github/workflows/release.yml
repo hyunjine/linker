@@ -101,3 +101,40 @@ jobs:
             --title "${{ steps.parse.outputs.tag }}" \
             --notes-file notes.md \
             --target "${{ github.sha }}"
+
+      # 신규 태그를 새로 만든 경우에만 (재실행·중복 방지) 전체 유저에게 업데이트 안내 push (#300).
+      # 함수는 shared secret 헤더로 인증 — 관리자 JWT 가 워크플로에 없으므로 send-announcement 대신
+      # 신설한 broadcast-release-note 함수를 호출한다.
+      #
+      # curl 실패 시 릴리즈는 이미 게시된 상태 → workflow 는 실패로 처리해 재시도 유도.
+      # 재시도는 Actions 탭 rerun 시 tag 이미 존재해 이 스텝만 다시 발동하지 않는다 →
+      # 실무상 Actions 재실행이 불가하면 curl 을 로컬에서 수동으로 다시 쏘면 된다.
+      - name: Broadcast release note push (전체 유저)
+        if: steps.tag_check.outputs.exists == 'false'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          RELEASE_BROADCAST_SECRET: ${{ secrets.RELEASE_BROADCAST_SECRET }}
+          VERSION: ${{ steps.parse.outputs.version }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ] || [ -z "$RELEASE_BROADCAST_SECRET" ]; then
+            echo "::error::브로드캐스트 secret 누락 (SUPABASE_URL · SUPABASE_ANON_KEY · RELEASE_BROADCAST_SECRET 확인)"
+            exit 1
+          fi
+
+          # -sS: silent 하되 에러 표시, -w: HTTP status 캡처, --fail-with-body: 4xx/5xx 를 exit code 로 승격.
+          HTTP_STATUS=$(curl -sS -o response.json -w "%{http_code}" \
+            -X POST "$SUPABASE_URL/functions/v1/broadcast-release-note" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "x-release-broadcast-secret: $RELEASE_BROADCAST_SECRET" \
+            -d "{\"version\":\"$VERSION\"}")
+
+          echo "── broadcast response (HTTP $HTTP_STATUS) ──"
+          cat response.json || true
+          echo
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "::error::broadcast-release-note 호출 실패 (HTTP $HTTP_STATUS)"
+            exit 1
+          fi
