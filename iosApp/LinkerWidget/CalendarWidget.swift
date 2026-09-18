@@ -74,6 +74,7 @@ private struct CalendarView: View {
                 today: entry.date,
                 colors: colors,
                 monthEvents: entry.payload?.monthEvents ?? [:],
+                holidays: Set(entry.payload?.holidays ?? []),
             )
             VStack(alignment: .leading, spacing: 2) {
                 // 미니 달력의 "월" 라벨 자리만큼 우측을 밀어, 리스트 첫 줄이 좌측 요일 헤더
@@ -100,6 +101,8 @@ private struct MiniCalendarView: View {
     let today: Date
     let colors: OwnerColors
     let monthEvents: [String: [String]]
+    /// 이번 달 공휴일 "yyyy-MM-dd" 집합 (#309). 셀 번호 컬러 결정에 사용.
+    let holidays: Set<String>
 
     private var cal: Calendar { Calendar(identifier: .gregorian) }
     private var isoFormatter: DateFormatter {
@@ -192,6 +195,9 @@ private struct MiniCalendarView: View {
         let isToday = cal.isDateInToday(date)
         let iso = isoFormatter.string(from: date)
         let owners = inMonth ? (monthEvents[iso] ?? []) : []
+        // 1=일 ~ 7=토. 요일별 · 공휴일별 컬러 결정에 사용 (#309).
+        let weekday = cal.component(.weekday, from: date)
+        let isHoliday = inMonth && holidays.contains(iso)
 
         return VStack(spacing: 1) {
             ZStack {
@@ -200,7 +206,12 @@ private struct MiniCalendarView: View {
                 }
                 Text("\(dayNum)")
                     .font(.system(size: 10, weight: isToday ? .semibold : .regular))
-                    .foregroundStyle(dayColor(inMonth: inMonth, isToday: isToday))
+                    .foregroundStyle(dayColor(
+                        inMonth: inMonth,
+                        isToday: isToday,
+                        weekday: weekday,
+                        isHoliday: isHoliday,
+                    ))
             }
             .frame(height: 14)
             HStack(spacing: 1) {
@@ -213,9 +224,19 @@ private struct MiniCalendarView: View {
         .padding(.vertical, 1)
     }
 
-    private func dayColor(inMonth: Bool, isToday: Bool) -> Color {
+    /// 셀 번호 컬러. 오늘(파란 원 위) → 흰색. 그 외에는 공휴일·일요일=빨강, 토요일=파랑, 평일=기본톤.
+    /// 다른 달로 넘어간 셀은 원본 톤을 유지하면서 opacity 로 페이드 (요일 컬러도 눈에 띄지 않게).
+    private func dayColor(inMonth: Bool, isToday: Bool, weekday: Int, isHoliday: Bool) -> Color {
         if isToday { return .white }
-        return inMonth ? .primary.opacity(0.88) : .primary.opacity(0.25)
+        let base: Color
+        if isHoliday || weekday == 1 {        // 공휴일 또는 일요일
+            base = .red
+        } else if weekday == 7 {              // 토요일
+            base = .blue
+        } else {
+            base = .primary
+        }
+        return base.opacity(inMonth ? 0.88 : 0.25)
     }
 }
 
