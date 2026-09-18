@@ -117,24 +117,90 @@ jobs:
           RELEASE_BROADCAST_SECRET: ${{ secrets.RELEASE_BROADCAST_SECRET }}
           VERSION: ${{ steps.parse.outputs.version }}
         run: |
+          # ── STAGE 1: secret presence 확인 (값은 절대 출력 X, boolean 만) ──
+          echo "── secret presence ──"
+          echo "SUPABASE_URL              : $([ -n "$SUPABASE_URL" ] && echo present || echo MISSING)"
+          echo "SUPABASE_ANON_KEY         : $([ -n "$SUPABASE_ANON_KEY" ] && echo present || echo MISSING)"
+          echo "RELEASE_BROADCAST_SECRET  : $([ -n "$RELEASE_BROADCAST_SECRET" ] && echo present || echo MISSING)"
+          echo "VERSION                   : $VERSION"
+
           if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ] || [ -z "$RELEASE_BROADCAST_SECRET" ]; then
             echo "::error::브로드캐스트 secret 누락 (SUPABASE_URL · SUPABASE_ANON_KEY · RELEASE_BROADCAST_SECRET 확인)"
             exit 1
           fi
+          if [ -z "$VERSION" ]; then
+            echo "::error::VERSION output 누락 — parse 스텝 확인"
+            exit 1
+          fi
 
-          # -sS: silent 하되 에러 표시, -w: HTTP status 캡처, --fail-with-body: 4xx/5xx 를 exit code 로 승격.
+          # ── STAGE 2: 호출 ──
+          # -sS: silent 하되 에러 표시. -w: HTTP status 캡처. --max-time: 함수 timeout 대비 여유.
+          # payload 에 source=workflow 를 명시해 감사 로그에서 수동 curl 과 구분 가능.
+          echo "── invoking broadcast-release-note ──"
           HTTP_STATUS=$(curl -sS -o response.json -w "%{http_code}" \
+            --max-time 60 \
             -X POST "$SUPABASE_URL/functions/v1/broadcast-release-note" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
             -H "x-release-broadcast-secret: $RELEASE_BROADCAST_SECRET" \
-            -d "{\"version\":\"$VERSION\"}")
+            -d "{\"version\":\"$VERSION\",\"source\":\"workflow\"}") || {
+              echo "::error::curl 자체 실패 (network / dns / timeout)"
+              exit 1
+            }
 
+          # ── STAGE 3: 응답 로깅 ──
           echo "── broadcast response (HTTP $HTTP_STATUS) ──"
-          cat response.json || true
+          cat response.json 2>/dev/null || echo "(빈 응답)"
           echo
 
+          # ── STAGE 4: 응답 검증 (HTTP + JSON 필드) ──
           if [ "$HTTP_STATUS" != "200" ]; then
-            echo "::error::broadcast-release-note 호출 실패 (HTTP $HTTP_STATUS)"
+            REQ_ID=$(jq -r '.requestId // "(없음)"' response.json 2>/dev/null || echo "(파싱 불가)")
+            ERR=$(jq -r '.error // "(없음)"' response.json 2>/dev/null || echo "(파싱 불가)")
+            echo "::error::broadcast HTTP=$HTTP_STATUS requestId=$REQ_ID error=$ERR"
             exit 1
+          fi
+
+          REQ_ID=$(jq -r '.requestId' response.json)
+          SENT=$(jq -r '.sent' response.json)
+          FAILED=$(jq -r '.failed' response.json)
+          TOTAL=$(jq -r '.devicesTotal' response.json)
+          IDEMPOTENT=$(jq -r '.alreadyBroadcasted' response.json)
+
+          echo "── summary ──"
+          echo "requestId          : $REQ_ID"
+          echo "version            : $VERSION"
+          echo "devicesTotal       : $TOTAL"
+          echo "sent               : $SENT"
+          echo "failed             : $FAILED"
+          echo "alreadyBroadcasted : $IDEMPOTENT"
+
+          # GitHub Actions summary (Actions UI 요약 카드에 노출).
+          {
+            echo "### 📣 Release note broadcast"
+            echo ""
+            echo "| 필드 | 값 |"
+            echo "|---|---|"
+            echo "| version | \`$VERSION\` |"
+            echo "| requestId | \`$REQ_ID\` |"
+            echo "| devicesTotal | $TOTAL |"
+            echo "| sent | $SENT |"
+            echo "| failed | $FAILED |"
+            echo "| alreadyBroadcasted | $IDEMPOTENT |"
+            echo ""
+            echo "Supabase 로그에서 \`rid=$REQ_ID\` 로 stage 별 추적 가능."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # ── STAGE 5: 실패 신호 판정 ──
+          # devices 0 인 상태는 "발송할 대상 없음" → warning 만.
+          # devices >0 인데 sent=0 이면 명백한 실패 → workflow fail.
+          if [ "$TOTAL" -gt 0 ] && [ "$SENT" = "0" ]; then
+            echo "::error::device $TOTAL 개 중 0건 성공 · 전부 실패. requestId=$REQ_ID"
+            exit 1
+          fi
+          if [ "$TOTAL" = "0" ]; then
+            echo "::warning::user_devices 가 비어있어 실제 발송 없음."
+          fi
+          if [ "$FAILED" != "0" ]; then
+            echo "::warning::부분 실패 — $FAILED/$TOTAL 실패. Supabase 로그에서 rid=$REQ_ID 확인."
           fi
