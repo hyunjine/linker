@@ -88,6 +88,10 @@ private data class CreateScheduleRoute(
 @Serializable
 private data object AnniversariesRoute : NavKey
 
+/** 디데이 라우트 (#329). 드로워 하단 "기념일" 탭 진입점. */
+@Serializable
+private data object DdayRoute : NavKey
+
 @Serializable
 private data object SearchRoute : NavKey
 
@@ -109,6 +113,7 @@ private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
             subclass(CoupleJoinRoute::class, CoupleJoinRoute.serializer())
             subclass(CreateScheduleRoute::class, CreateScheduleRoute.serializer())
             subclass(AnniversariesRoute::class, AnniversariesRoute.serializer())
+            subclass(DdayRoute::class, DdayRoute.serializer())
             subclass(SearchRoute::class, SearchRoute.serializer())
             subclass(ReleaseNotesRoute::class, ReleaseNotesRoute.serializer())
             subclass(EverytimeTimetableRoute::class, EverytimeTimetableRoute.serializer())
@@ -362,7 +367,9 @@ fun App() {
                                 )
                             },
                             onEditSchedule = { id -> backStack.add(CreateScheduleRoute(id)) },
-                            onAnniversaryClick = { backStack.add(AnniversariesRoute) },
+                            // 드로워 하단 "기념일" 탭 → 디데이 화면 (#329). 기존
+                            // AnniversariesRoute (다건 기념일 리스트) 는 검색 결과 진입용으로만 유지.
+                            onAnniversaryClick = { backStack.add(DdayRoute) },
                             onSearchClick = { backStack.add(SearchRoute) },
                             onProfileEditClick = { backStack.add(ProfileEditRoute) },
                             onCoupleLinkClick = { backStack.add(CoupleLinkRoute) },
@@ -389,6 +396,13 @@ fun App() {
                     entry<AnniversariesRoute> {
                         com.hyunjine.linker.feature.anniversary.AnniversariesRoute(
                             onBack = { backStack.removeLastOrNull() },
+                        )
+                    }
+                    entry<DdayRoute> {
+                        com.hyunjine.linker.feature.dday.DdayRoute(
+                            onBack = { backStack.removeLastOrNull() },
+                            // 저장 · "설정된 상태" 전환은 후속 커밋 (#329). 우선은 flow 확인용.
+                            onConfirmDate = { /* TODO: persist + switch to filled state */ },
                         )
                     }
                     entry<ReleaseNotesRoute> {
