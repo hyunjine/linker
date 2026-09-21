@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -790,6 +791,22 @@ private fun DayCell(
             )
         }
 
+        // milestone 라벨 + 🎂 (#329). "100일" → "🎂 100", "1주년" → "🎂 1주년".
+        // 좁은 셀 폭을 넘어 옆 영역까지 침범 허용 (사용자 요청) — wrapContentWidth(unbounded=true).
+        milestone?.let { m ->
+            Text(
+                text = "🎂 ${milestoneShortLabel(m.label)}",
+                style = TextStyle(
+                    fontFamily = pretendard,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 10.sp,
+                    color = m.tintColor!!,
+                ),
+                maxLines = 1,
+                modifier = Modifier.wrapContentWidth(unbounded = true),
+            )
+        }
+
         entry?.lunarLabel?.let { label ->
             Text(
                 text = label,
@@ -879,6 +896,13 @@ private fun ChipText(text: String, bg: Color, fg: Color) {
  * alpha 기반 tint (0.18 overlay) 는 cell 배경 색에 따라 반투명하게 비쳐 pill 톤이 흐려지므로,
  * 밝은 opaque 배경이 필요한 경우 이 함수로 계산한다.
  */
+/**
+ * milestone chip 라벨을 셀 뱃지용 짧은 표기로 변환 (#329).
+ * "100일" · "200일" → "100", "200" (숫자만). "1주년" · "2주년" 등은 그대로 유지.
+ */
+private fun milestoneShortLabel(fullLabel: String): String =
+    if (fullLabel.endsWith("일")) fullLabel.dropLast(1) else fullLabel
+
 private fun pastelize(base: Color, colorRatio: Float = 0.35f): Color {
     val white = 1f - colorRatio
     return Color(
