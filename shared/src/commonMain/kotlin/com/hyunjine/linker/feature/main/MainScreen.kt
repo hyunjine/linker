@@ -726,8 +726,17 @@ private fun DayCell(
     val sorted = remember(entry) {
         entry?.events?.sortedBy { it.type.priority }.orEmpty()
     }
-    val visibleChips = sorted.take(2)
-    val overflow = (sorted.size - visibleChips.size).coerceAtLeast(0)
+    // 디데이 milestone (#329) 은 셀 chip 대신 숫자 뱃지 (컬러 원) 로 표시.
+    // Anniversary + tintColor 있는 event 를 milestone 으로 간주 (ScheduleMapping 이 그렇게 태그).
+    val milestone = remember(sorted) {
+        sorted.firstOrNull { it.type == CalendarEventType.Anniversary && it.tintColor != null }
+    }
+    // 뱃지로 흡수된 milestone 은 chip 리스트에서 제외 (셀에 중복 노출 방지).
+    val chipEvents = remember(sorted, milestone) {
+        if (milestone != null) sorted.filterNot { it === milestone } else sorted
+    }
+    val visibleChips = chipEvents.take(2)
+    val overflow = (chipEvents.size - visibleChips.size).coerceAtLeast(0)
 
     Column(
         modifier = modifier
@@ -741,12 +750,24 @@ private fun DayCell(
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         // 모든 셀의 숫자 컨테이너를 28dp Box 로 통일 → 오늘/평일 모두 같은 baseline.
-        // 오늘 셀만 원 배경을 얹고 텍스트 색만 반전 (offset · fontSize 변주 없이 정확히 겹침).
+        //  - 오늘 셀: 검정 원 + 흰 숫자 (기존)
+        //  - milestone 셀 (오늘 아님): 커플 us 색 pastel 원 + us 색 숫자 (#329)
+        //  - 오늘 AND milestone: 오늘 마커 우선 (커플 카운터가 곧 오늘이면 D-DAY 자체 강조가 우선)
+        val badgeBg: Color? = when {
+            isToday -> CalendarTodayCircle
+            milestone != null -> pastelize(milestone.tintColor!!)
+            else -> null
+        }
+        val numberColor: Color = when {
+            isToday -> CalendarTodayText
+            milestone != null -> milestone.tintColor!!
+            else -> dayColor
+        }
         Box(
             modifier = Modifier
                 .size(28.dp)
                 .then(
-                    if (isToday) Modifier.clip(CircleShape).background(CalendarTodayCircle)
+                    if (badgeBg != null) Modifier.clip(CircleShape).background(badgeBg)
                     else Modifier,
                 ),
             contentAlignment = Alignment.Center,
@@ -757,7 +778,7 @@ private fun DayCell(
                     fontFamily = pretendard,
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.sp,
-                    color = if (isToday) CalendarTodayText else dayColor,
+                    color = numberColor,
                 ),
             )
         }
