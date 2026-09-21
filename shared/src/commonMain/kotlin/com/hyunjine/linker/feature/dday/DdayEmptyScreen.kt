@@ -34,7 +34,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.hyunjine.linker.designsystem.common.AppTopBar
 import com.hyunjine.linker.designsystem.common.YearMonthDayPickerSheet
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.designsystem.theme.PrimaryBlue
@@ -100,12 +99,11 @@ fun DdayEmptyScreen(
             )
         }
 
-        AppTopBar(
+        // 반투명 frosted 백 (#329, DdayFilledScreen 과 동일 톤).
+        FrostedTopBar(
             title = "디데이",
             onBack = onBack,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .windowInsetsPadding(WindowInsets.safeDrawing),
+            modifier = Modifier.align(Alignment.TopCenter),
         )
     }
 

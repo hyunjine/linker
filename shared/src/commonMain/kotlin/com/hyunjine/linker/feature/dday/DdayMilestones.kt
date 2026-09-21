@@ -75,9 +75,9 @@ fun pastMilestones(all: List<DdayMilestone>): List<DdayMilestone> =
 fun daysSinceAnchor(anchor: LocalDate, today: LocalDate): Int =
     anchor.daysUntil(today)
 
-/** 기본 일수 milestone 프리셋. 100 단위 + 500/1000/2000 (일반적으로 앱들이 채택하는 패턴). */
+/** 기본 일수 milestone 프리셋. 50일 · 100단위 · 500/1000/2000 (일반적으로 앱들이 채택하는 패턴). */
 private val DefaultDayMilestones: List<Int> =
-    listOf(100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 2000, 3000, 5000, 10000)
+    listOf(50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 2000, 3000, 5000, 10000)
 
 /** 기본 주년 상한. 앱 실제 사용 범위 커버. */
 private const val DefaultMaxYears: Int = 30

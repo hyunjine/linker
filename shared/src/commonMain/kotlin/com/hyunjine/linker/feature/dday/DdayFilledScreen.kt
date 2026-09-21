@@ -1,5 +1,6 @@
 package com.hyunjine.linker.feature.dday
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -9,10 +10,12 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
@@ -42,6 +45,9 @@ import coil3.compose.AsyncImage
 import com.hyunjine.linker.designsystem.common.AppTopBar
 import com.hyunjine.linker.designsystem.common.SegmentedControl
 import com.hyunjine.linker.designsystem.common.YearMonthDayPickerSheet
+import linker.shared.generated.resources.Res
+import linker.shared.generated.resources.ic_edit_pencil
+import org.jetbrains.compose.resources.painterResource
 import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderBg
 import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderFg
 import com.hyunjine.linker.designsystem.theme.CalendarBlue
@@ -165,12 +171,12 @@ fun DdayFilledScreen(
             Spacer(Modifier.height(24.dp))
         }
 
-        AppTopBar(
+        // 반투명 frosted 백 (#329, iOS Wi-Fi 설정 톤 근사). 스크롤 시 뒤 컨텐츠가 top bar
+        // 뒤로 지나가도 시각적으로 자연스럽게 분리됨.
+        FrostedTopBar(
             title = "디데이",
             onBack = onBack,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .windowInsetsPadding(WindowInsets.safeDrawing),
+            modifier = Modifier.align(Alignment.TopCenter),
         )
     }
 
@@ -247,7 +253,12 @@ private fun ProfilePhotoTile(
     }
 }
 
-/** 큰 "N일" 카운터 + `YYYY. MM. DD 부터` 서브 (편집 아이콘은 후속 커밋에서 실제 pencil 스와치 붙임). */
+/**
+ * 큰 "N일" 카운터 + `YYYY. MM. DD 부터` 서브 + 편집 pencil.
+ *
+ * Figma 4176:79104 스펙: "97" 은 72sp Bold, 뒤 "일" 은 훨씬 작은 32sp 으로 분리. Row 안에서
+ * `alignByBaseline()` 로 두 텍스트 baseline 을 맞춘다.
+ */
 @Composable
 private fun DayCounter(
     days: Int,
@@ -259,15 +270,28 @@ private fun DayCounter(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(
-            text = "${days}일",
-            style = TextStyle(
-                color = CounterBlue,
-                fontFamily = pretendard,
-                fontWeight = FontWeight.Bold,
-                fontSize = 72.sp,
-            ),
-        )
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                text = "$days",
+                modifier = Modifier.alignByBaseline(),
+                style = TextStyle(
+                    color = CounterBlue,
+                    fontFamily = pretendard,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 72.sp,
+                ),
+            )
+            Text(
+                text = "일",
+                modifier = Modifier.alignByBaseline(),
+                style = TextStyle(
+                    color = CounterBlue,
+                    fontFamily = pretendard,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 32.sp,
+                ),
+            )
+        }
         Spacer(Modifier.height(4.dp))
         // 서브라인 + 연필 아이콘 = 편집 tap 영역. 서브라인 전체를 탭해도 sheet 오픈되도록.
         Row(
@@ -284,17 +308,13 @@ private fun DayCounter(
                     color = TextSecondary,
                     fontFamily = pretendard,
                     fontWeight = FontWeight.Medium,
-                    fontSize = 14.sp,
+                    fontSize = 15.sp,
                 ),
             )
-            // 연필 아이콘 자리 — SVG 리소스 대신 텍스트 글리프. tint 는 TextSecondary.
-            Text(
-                text = "✎",
-                style = TextStyle(
-                    color = TextSecondary,
-                    fontSize = 14.sp,
-                    fontFamily = pretendard,
-                ),
+            Image(
+                painter = painterResource(Res.drawable.ic_edit_pencil),
+                contentDescription = "디데이 편집",
+                modifier = Modifier.size(14.dp),
             )
         }
     }
