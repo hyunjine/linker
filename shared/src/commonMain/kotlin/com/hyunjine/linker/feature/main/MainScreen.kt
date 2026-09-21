@@ -851,7 +851,7 @@ private fun ChipText(text: String, bg: Color, fg: Color) {
  * alpha 기반 tint (0.18 overlay) 는 cell 배경 색에 따라 반투명하게 비쳐 pill 톤이 흐려지므로,
  * 밝은 opaque 배경이 필요한 경우 이 함수로 계산한다.
  */
-private fun pastelize(base: Color, colorRatio: Float = 0.15f): Color {
+private fun pastelize(base: Color, colorRatio: Float = 0.35f): Color {
     val white = 1f - colorRatio
     return Color(
         red = base.red * colorRatio + 1f * white,
