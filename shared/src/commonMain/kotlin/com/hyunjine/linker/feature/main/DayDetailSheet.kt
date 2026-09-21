@@ -91,6 +91,11 @@ data class AllDaySchedule(
     val title: String,
     val owner: DayOwner,
     val barColor: Color? = null,
+    /**
+     * true 면 row 자체는 렌더하지만 탭 시 편집 화면으로 이동하지 않음 (#329).
+     * 디데이 milestone 자동 반영 row 처럼 시스템이 관리해 사용자 편집이 무의미한 경우 사용.
+     */
+    val readOnly: Boolean = false,
 )
 
 /** 날짜 상세 시트의 payload. */
@@ -463,7 +468,7 @@ private fun AllDayRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onSelect(schedule.id) }
+            .then(if (!schedule.readOnly) Modifier.clickable { onSelect(schedule.id) } else Modifier)
             .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
