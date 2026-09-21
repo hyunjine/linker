@@ -14,12 +14,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -51,7 +53,6 @@ import linker.shared.generated.resources.ic_check
 import linker.shared.generated.resources.ic_link
 import linker.shared.generated.resources.ic_school
 import linker.shared.generated.resources.ic_setting_outline
-import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 
 /** 사이드 드로워의 캘린더 표시 옵션 상태. */
@@ -157,6 +158,10 @@ fun MainDrawerContent(
         }
         // 하단 고정 액션바 — 기념일 (#182) · 에브리타임 (#306). 파트너 · URL 등록 여부와 무관하게
         // 항상 두 탭 노출. 에브리타임 진입 후 empty 상태 처리는 EverytimeTimetableScreen 담당.
+        HorizontalDivider(
+            thickness = 1.dp,
+            color = DrawerBottomNavBorder
+        )
         DrawerBottomNav(
             onAnniversaryClick = onAnniversaryClick,
             onEverytimeClick = onEverytimeTimetableClick,
@@ -177,32 +182,72 @@ private fun DrawerBottomNav(
         modifier = Modifier
             .fillMaxWidth()
             .background(SurfaceCard)
-            .border(1.dp, DrawerBottomNavBorder, RoundedCornerShape(0.dp))
-            .padding(top = 12.dp, bottom = 24.dp),
+            .padding(vertical = 12.dp)
+            .navigationBarsPadding(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         DrawerBottomNavItem(
-            iconRes = Res.drawable.ic_cal_31,
             label = "기념일",
             onClick = onAnniversaryClick,
             modifier = Modifier.weight(1f),
-        )
+        ) {
+            // 캘린더 + 가운데 "D" 오버레이 (Figma 4168:78839). 범용 ic_cal_31 은 다른 화면에서
+            // D 없이 재사용되므로 여기서 텍스트만 얹어 기념일 (D-day) 뉘앙스를 준다.
+            AnniversaryCalendarIcon()
+        }
         DrawerBottomNavItem(
-            iconRes = Res.drawable.ic_school,
             label = "에브리타임",
             onClick = onEverytimeClick,
             modifier = Modifier.weight(1f),
+        ) {
+            Image(
+                painter = painterResource(Res.drawable.ic_school),
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(TextPrimary),
+                modifier = Modifier.size(24.dp),
+            )
+        }
+    }
+}
+
+/**
+ * 기념일 (D-day) 전용 아이콘. 24dp 캘린더 프레임 위 가운데에 "D" 를 겹쳐 표시.
+ * Figma 4168:78839 · 4168:78842 대응 — 범용 캘린더 아이콘 (ic_cal_31) 을 그대로 두고 여기서만 조합.
+ */
+@Composable
+private fun AnniversaryCalendarIcon() {
+    val pretendard = LocalPretendardFontFamily.current
+    Box(
+        modifier = Modifier.size(24.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(
+            painter = painterResource(Res.drawable.ic_cal_31),
+            contentDescription = null,
+            colorFilter = ColorFilter.tint(TextPrimary),
+            modifier = Modifier.size(24.dp),
+        )
+        // Figma: 7px Inter Regular. 캘린더 상단 divider 아래 중앙에 위치 → offset 을 약간 아래로.
+        Text(
+            text = "D",
+            modifier = Modifier.padding(top = 4.dp),
+            style = TextStyle(
+                fontFamily = pretendard,
+                fontWeight = FontWeight.Normal,
+                fontSize = 8.sp,
+                color = TextPrimary,
+            ),
         )
     }
 }
 
-/** 하단 액션바의 한 탭 (아이콘 + 라벨). */
+/** 하단 액션바의 한 탭 (아이콘 slot + 라벨). */
 @Composable
 private fun DrawerBottomNavItem(
-    iconRes: DrawableResource,
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    icon: @Composable () -> Unit,
 ) {
     val pretendard = LocalPretendardFontFamily.current
     Column(
@@ -212,12 +257,7 @@ private fun DrawerBottomNavItem(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(7.dp),
     ) {
-        Image(
-            painter = painterResource(iconRes),
-            contentDescription = null,
-            colorFilter = ColorFilter.tint(TextPrimary),
-            modifier = Modifier.size(24.dp),
-        )
+        icon()
         Text(
             text = label,
             style = TextStyle(
