@@ -228,8 +228,6 @@ fun MainScreen(
     onDisplayStateChange: (DrawerDisplayState) -> Unit = {},
     /** 파트너 조인 여부. 드로워의 "상대방 캘린더" 토글 노출 · 스케줄 필터에 사용. */
     hasPartner: Boolean = false,
-    /** 파트너가 자기 프로필에 에브리타임 URL 을 등록했는지 (#306). 드로워 항목 노출 게이트. */
-    hasPartnerEverytime: Boolean = false,
     /** 드로워 "에브리타임 시간표" 탭 시 콜백. 상위에서 nav backStack 에 push. */
     onEverytimeTimetableClick: () -> Unit = {},
     /** 소유자 pill 색 팔레트. 프로필 캘린더 컬러 · 공동 컬러로부터 파생 (#264). */
@@ -323,7 +321,6 @@ fun MainScreen(
                 },
                 onAnniversaryClick = onAnniversaryClick,
                 onEverytimeTimetableClick = onEverytimeTimetableClick,
-                hasPartnerEverytime = hasPartnerEverytime,
                 onToggleMyCalendar = { onDisplayStateChange(displayState.copy(showMyCalendar = it)) },
                 onTogglePartnerCalendar = { onDisplayStateChange(displayState.copy(showPartnerCalendar = it)) },
                 onToggleSharedCalendar = { onDisplayStateChange(displayState.copy(showSharedCalendar = it)) },

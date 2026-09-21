@@ -77,7 +77,6 @@ class MainViewModel : ViewModel() {
                     myProfile = mine,
                     ownerColors = nextColors,
                     hasPartner = partnerProfile != null,
-                    partnerEverytimeIdentifier = partnerProfile?.everytimeIdentifier,
                 )
             }
             val needsReload = previousColors != nextColors || (previousViewerId == null && mine?.id != null)
@@ -186,9 +185,4 @@ data class MainUiState(
     val entriesByMonth: Map<YearMonth, Map<LocalDate, CalendarDayEntry>> = emptyMap(),
     /** 파트너 조인 여부. 드로워의 "상대방 캘린더" 토글 노출 · 캘린더 필터에 사용. */
     val hasPartner: Boolean = false,
-    /**
-     * 파트너가 자기 프로필에 등록해 둔 에브리타임 identifier (#306). 드로워에 "에브리타임 시간표"
-     * 항목을 조건부 노출하고, 이후 시간표 화면 진입 시 API 호출 payload 로 재사용된다.
-     */
-    val partnerEverytimeIdentifier: String? = null,
 )

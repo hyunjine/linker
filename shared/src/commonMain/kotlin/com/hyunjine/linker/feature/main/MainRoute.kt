@@ -90,7 +90,6 @@ fun MainRoute(
         displayState = displayState,
         onDisplayStateChange = viewModel::updateDrawerDisplay,
         hasPartner = uiState.hasPartner,
-        hasPartnerEverytime = uiState.partnerEverytimeIdentifier != null,
         ownerColors = uiState.ownerColors,
     )
 }
