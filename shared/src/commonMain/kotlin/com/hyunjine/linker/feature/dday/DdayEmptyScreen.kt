@@ -3,6 +3,7 @@ package com.hyunjine.linker.feature.dday
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -164,7 +165,8 @@ private fun EmptyContent(modifier: Modifier, onSetupClick: () -> Unit) {
 
 /**
  * 80dp 회색 정사각 배경 위에 캘린더 프레임 + 상단 divider + 중앙 "D" 로 D-day 뉘앙스를 준
- * empty-state 아이콘. 이 화면 전용이라 별도 vector drawable 로 뽑지 않고 조합만.
+ * empty-state 아이콘. Figma 4180:63389 좌표 그대로 매핑 (본체 · 두 hanger · divider · "D").
+ * 이 화면 전용이라 별도 vector drawable 로 뽑지 않고 절대 offset 으로 조합.
  */
 @Composable
 private fun DdayEmptyIcon() {
@@ -174,21 +176,45 @@ private fun DdayEmptyIcon() {
             .size(80.dp)
             .clip(RoundedCornerShape(20.dp))
             .background(EmptyIconBg),
-        contentAlignment = Alignment.Center,
     ) {
-        // 캘린더 본체 (라운드 사각 스트로크). 48x44 · x=16 y=22 (내부 여백 살짝 상단으로).
+        // 캘린더 본체 (라운드 사각 스트로크) — 48x44 at (16, 22).
         Box(
             modifier = Modifier
-                .padding(top = 6.dp) // 아이콘 시각적 중심을 살짝 아래로 (D 텍스트 공간 확보)
+                .offset(x = 16.dp, y = 22.dp)
                 .size(width = 48.dp, height = 44.dp)
                 .clip(RoundedCornerShape(6.dp))
                 .border(2.dp, EmptyMuted, RoundedCornerShape(6.dp)),
         )
-        // 상단 hanger 두 개 + divider 는 별도 Box 로 절대 배치 대신 텍스트 컨테이너 위 여백으로 표현.
-        // 여기선 단순화 — 캘린더 외곽만 두고 중앙에 "D" 배치.
+        // 좌측 hanger — 3x10 at (26, 16).
+        Box(
+            modifier = Modifier
+                .offset(x = 26.dp, y = 16.dp)
+                .size(width = 3.dp, height = 10.dp)
+                .clip(RoundedCornerShape(1.5.dp))
+                .background(EmptyMuted),
+        )
+        // 우측 hanger — 3x10 at (51, 16).
+        Box(
+            modifier = Modifier
+                .offset(x = 51.dp, y = 16.dp)
+                .size(width = 3.dp, height = 10.dp)
+                .clip(RoundedCornerShape(1.5.dp))
+                .background(EmptyMuted),
+        )
+        // 상단 divider — 48x2 at (16, 33).
+        Box(
+            modifier = Modifier
+                .offset(x = 16.dp, y = 33.dp)
+                .size(width = 48.dp, height = 2.dp)
+                .background(EmptyMuted),
+        )
+        // "D" 텍스트 — Figma 좌표 (33, 35) / 14x21. 시각 중심 = (40, 45.5).
+        // Compose 텍스트는 baseline 기준이라 y 를 살짝 낮춰 캘린더 하단부에 위치시킴.
         Text(
             text = "D",
-            modifier = Modifier.padding(top = 8.dp),
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .offset(x = 33.dp, y = 38.dp),
             style = TextStyle(
                 color = EmptyMuted,
                 fontFamily = font,
