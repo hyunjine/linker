@@ -94,11 +94,6 @@ fun MainDrawerContent(
     onEverytimeTimetableClick: () -> Unit = {},
     /** 파트너 조인 여부. false 면 "상대방 캘린더" · "공동 캘린더" 토글 자체를 감춘다. */
     hasPartner: Boolean = true,
-    /**
-     * 파트너가 자기 프로필에 에브리타임 URL 을 등록했는지 (#306). true 일 때만 "에브리타임 시간표"
-     * 액션 카드를 노출. 미등록 상태의 상대방을 위해 빈 화면을 보여주지 않기 위한 게이트.
-     */
-    hasPartnerEverytime: Boolean = false,
 ) {
     Column(
         modifier = Modifier
@@ -160,13 +155,11 @@ fun MainDrawerContent(
             ReleaseNotesRow(onClick = onReleaseNotesClick)
             LogoutRow(onClick = onLogout)
         }
-        // 하단 고정 액션바 — 기념일 (#182) · 에브리타임 (#306). 파트너 · 에브리타임 등록 여부에 따라
-        // 각 항목이 disabled 처럼 감춰지는 대신 항상 나란히 노출 — 이번 스코프는 배치 재편이 우선이라
-        // 조건은 기존과 동일 (hasPartner + hasPartnerEverytime) 로 유지.
+        // 하단 고정 액션바 — 기념일 (#182) · 에브리타임 (#306). 파트너 · URL 등록 여부와 무관하게
+        // 항상 두 탭 노출. 에브리타임 진입 후 empty 상태 처리는 EverytimeTimetableScreen 담당.
         DrawerBottomNav(
             onAnniversaryClick = onAnniversaryClick,
             onEverytimeClick = onEverytimeTimetableClick,
-            showEverytime = hasPartner && hasPartnerEverytime,
         )
     }
 }
@@ -174,13 +167,11 @@ fun MainDrawerContent(
 /**
  * 드로워 최하단 고정 액션바 (#327). 좌측 "기념일" · 우측 "에브리타임" 두 탭 균등 배치.
  * 각 탭은 24dp 아이콘 위, 12sp SemiBold 라벨 아래 형태 — Figma 4168:78837 참고.
- * 에브리타임 노출 여부([showEverytime]) 는 파트너의 URL 등록 여부에 따라 결정 (미등록이면 감춤).
  */
 @Composable
 private fun DrawerBottomNav(
     onAnniversaryClick: () -> Unit,
     onEverytimeClick: () -> Unit,
-    showEverytime: Boolean,
 ) {
     Row(
         modifier = Modifier
@@ -196,17 +187,12 @@ private fun DrawerBottomNav(
             onClick = onAnniversaryClick,
             modifier = Modifier.weight(1f),
         )
-        if (showEverytime) {
-            DrawerBottomNavItem(
-                iconRes = Res.drawable.ic_school,
-                label = "에브리타임",
-                onClick = onEverytimeClick,
-                modifier = Modifier.weight(1f),
-            )
-        } else {
-            // 파트너 · 에브리타임 URL 미등록 시엔 자리만 비워둠 → "기념일" 이 절반 폭에서 왼쪽에 고정.
-            Spacer(Modifier.weight(1f))
-        }
+        DrawerBottomNavItem(
+            iconRes = Res.drawable.ic_school,
+            label = "에브리타임",
+            onClick = onEverytimeClick,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 
@@ -512,21 +498,7 @@ private fun MainDrawerContentCouplePreview() {
                 showSolarTerms = false,
             ),
             hasPartner = true,
-            hasPartnerEverytime = false,
         )
     }
 }
 
-@Composable
-@Preview(showBackground = true, widthDp = 315, heightDp = 874)
-private fun MainDrawerContentCoupleWithEverytimePreview() {
-    LinkerTheme {
-        MainDrawerContent(
-            profileName = "김현진",
-            profileHandle = "@hyunjine",
-            displayState = DrawerDisplayState(),
-            hasPartner = true,
-            hasPartnerEverytime = true,
-        )
-    }
-}
