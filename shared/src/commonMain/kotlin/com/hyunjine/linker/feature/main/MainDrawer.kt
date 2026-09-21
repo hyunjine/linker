@@ -11,10 +11,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
@@ -34,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderBg
 import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderFg
+import com.hyunjine.linker.designsystem.theme.DrawerBottomNavBorder
 import com.hyunjine.linker.designsystem.theme.DrawerButtonBg
 import com.hyunjine.linker.designsystem.theme.DrawerCheckBlue
 import com.hyunjine.linker.designsystem.theme.LinkerTheme
@@ -45,6 +49,7 @@ import linker.shared.generated.resources.Res
 import linker.shared.generated.resources.ic_cal_31
 import linker.shared.generated.resources.ic_check
 import linker.shared.generated.resources.ic_link
+import linker.shared.generated.resources.ic_school
 import linker.shared.generated.resources.ic_setting_outline
 import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
@@ -98,72 +103,144 @@ fun MainDrawerContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .fillMaxHeight()
             .background(SurfaceCard),
     ) {
-        Spacer(Modifier.height(16.dp))
-        ProfileHeader(
-            name = profileName,
-            handle = profileHandle,
-            imageUrl = profileImageUrl,
-            onClick = onSettingsClick,
+        // 상단 · 중단 콘텐츠는 스크롤 가능한 weight 영역에 배치. 하단 액션바 (기념일 · 에브리타임)
+        // 는 항상 드로워 바닥에 고정 — 옵션이 많아져도 하단 진입점이 스크롤로 밀리지 않음 (#327).
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            Spacer(Modifier.height(16.dp))
+            ProfileHeader(
+                name = profileName,
+                handle = profileHandle,
+                imageUrl = profileImageUrl,
+                onClick = onSettingsClick,
+            )
+            Spacer(Modifier.height(12.dp))
+            CoupleLinkRow(
+                text = "상대방 연결",
+                onClick = onCoupleLinkClick,
+            )
+            Spacer(Modifier.height(12.dp))
+            SectionLabel(text = "일정 표시")
+            ToggleRow(
+                text = "내 캘린더",
+                checked = displayState.showMyCalendar,
+                onCheckedChange = onToggleMyCalendar,
+            )
+            if (hasPartner) {
+                // 상대방 · 공동 개념은 파트너가 있을 때만 의미. Solo 상태에선 감춰서 사용자 혼란 방지.
+                ToggleRow(
+                    text = "상대방 캘린더",
+                    checked = displayState.showPartnerCalendar,
+                    onCheckedChange = onTogglePartnerCalendar,
+                )
+                ToggleRow(
+                    text = "공동 캘린더",
+                    checked = displayState.showSharedCalendar,
+                    onCheckedChange = onToggleSharedCalendar,
+                )
+            }
+            SectionLabel(text = "달력 정보 표시")
+            ToggleRow(
+                text = "공휴일",
+                checked = displayState.showHolidays,
+                onCheckedChange = onToggleHolidays,
+            )
+            ToggleRow(
+                text = "절기",
+                checked = displayState.showSolarTerms,
+                onCheckedChange = onToggleSolarTerms,
+            )
+            Spacer(Modifier.height(16.dp))
+            ReleaseNotesRow(onClick = onReleaseNotesClick)
+            LogoutRow(onClick = onLogout)
+        }
+        // 하단 고정 액션바 — 기념일 (#182) · 에브리타임 (#306). 파트너 · 에브리타임 등록 여부에 따라
+        // 각 항목이 disabled 처럼 감춰지는 대신 항상 나란히 노출 — 이번 스코프는 배치 재편이 우선이라
+        // 조건은 기존과 동일 (hasPartner + hasPartnerEverytime) 로 유지.
+        DrawerBottomNav(
+            onAnniversaryClick = onAnniversaryClick,
+            onEverytimeClick = onEverytimeTimetableClick,
+            showEverytime = hasPartner && hasPartnerEverytime,
         )
-        Spacer(Modifier.height(12.dp))
-        CoupleLinkRow(
-            text = "상대방 연결",
-            onClick = onCoupleLinkClick,
-        )
-        // 기념일 설정: #182 로 재노출 (minimal 스코프 — 반복 UX/3카테고리 위계 재설계는 후속).
-        Spacer(Modifier.height(8.dp))
-        AllScheduleButton(
-            text = "기념일 설정",
+    }
+}
+
+/**
+ * 드로워 최하단 고정 액션바 (#327). 좌측 "기념일" · 우측 "에브리타임" 두 탭 균등 배치.
+ * 각 탭은 24dp 아이콘 위, 12sp SemiBold 라벨 아래 형태 — Figma 4168:78837 참고.
+ * 에브리타임 노출 여부([showEverytime]) 는 파트너의 URL 등록 여부에 따라 결정 (미등록이면 감춤).
+ */
+@Composable
+private fun DrawerBottomNav(
+    onAnniversaryClick: () -> Unit,
+    onEverytimeClick: () -> Unit,
+    showEverytime: Boolean,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(SurfaceCard)
+            .border(1.dp, DrawerBottomNavBorder, RoundedCornerShape(0.dp))
+            .padding(top = 12.dp, bottom = 24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        DrawerBottomNavItem(
             iconRes = Res.drawable.ic_cal_31,
+            label = "기념일",
             onClick = onAnniversaryClick,
+            modifier = Modifier.weight(1f),
         )
-        if (hasPartner && hasPartnerEverytime) {
-            // 상대방 프로필에 에브리타임 URL 이 등록돼 있을 때만 노출 (#306). 아이콘은 기념일 설정과
-            // 동일한 캘린더 계열로 통일 — 별도 아이콘 리소스 추가 없이 스코프 최소화.
-            Spacer(Modifier.height(8.dp))
-            AllScheduleButton(
-                text = "에브리타임 시간표",
-                iconRes = Res.drawable.ic_cal_31,
-                onClick = onEverytimeTimetableClick,
+        if (showEverytime) {
+            DrawerBottomNavItem(
+                iconRes = Res.drawable.ic_school,
+                label = "에브리타임",
+                onClick = onEverytimeClick,
+                modifier = Modifier.weight(1f),
             )
+        } else {
+            // 파트너 · 에브리타임 URL 미등록 시엔 자리만 비워둠 → "기념일" 이 절반 폭에서 왼쪽에 고정.
+            Spacer(Modifier.weight(1f))
         }
-        Spacer(Modifier.height(12.dp))
-        SectionLabel(text = "일정 표시")
-        ToggleRow(
-            text = "내 캘린더",
-            checked = displayState.showMyCalendar,
-            onCheckedChange = onToggleMyCalendar,
+    }
+}
+
+/** 하단 액션바의 한 탭 (아이콘 + 라벨). */
+@Composable
+private fun DrawerBottomNavItem(
+    iconRes: DrawableResource,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val pretendard = LocalPretendardFontFamily.current
+    Column(
+        modifier = modifier
+            .noRippleClickable(onClick)
+            .padding(horizontal = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(7.dp),
+    ) {
+        Image(
+            painter = painterResource(iconRes),
+            contentDescription = null,
+            colorFilter = ColorFilter.tint(TextPrimary),
+            modifier = Modifier.size(24.dp),
         )
-        if (hasPartner) {
-            // 상대방 · 공동 개념은 파트너가 있을 때만 의미. Solo 상태에선 감춰서 사용자 혼란 방지.
-            ToggleRow(
-                text = "상대방 캘린더",
-                checked = displayState.showPartnerCalendar,
-                onCheckedChange = onTogglePartnerCalendar,
-            )
-            ToggleRow(
-                text = "공동 캘린더",
-                checked = displayState.showSharedCalendar,
-                onCheckedChange = onToggleSharedCalendar,
-            )
-        }
-        SectionLabel(text = "달력 정보 표시")
-        ToggleRow(
-            text = "공휴일",
-            checked = displayState.showHolidays,
-            onCheckedChange = onToggleHolidays,
+        Text(
+            text = label,
+            style = TextStyle(
+                fontFamily = pretendard,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 12.sp,
+                color = TextPrimary,
+            ),
         )
-        ToggleRow(
-            text = "절기",
-            checked = displayState.showSolarTerms,
-            onCheckedChange = onToggleSolarTerms,
-        )
-        Spacer(Modifier.height(16.dp))
-        ReleaseNotesRow(onClick = onReleaseNotesClick)
-        LogoutRow(onClick = onLogout)
-        Spacer(Modifier.height(16.dp))
     }
 }
 
@@ -290,7 +367,7 @@ private fun ProfileHeader(name: String, handle: String, imageUrl: String?, onCli
 }
 
 /**
- * "상대방 연결" 전용 텍스트 행. [AllScheduleButton] 과 시각·톤 동일 — 좌측 22dp 링크 아이콘 추가 (#308).
+ * "상대방 연결" 전용 텍스트 행. 회색 라운드 컨테이너 + 좌측 22dp 링크 아이콘 + Bold 15sp (#308).
  */
 @Composable
 private fun CoupleLinkRow(
@@ -313,45 +390,6 @@ private fun CoupleLinkRow(
             painter = painterResource(Res.drawable.ic_link),
             contentDescription = null,
             colorFilter = ColorFilter.tint(TextPrimary),
-            modifier = Modifier.size(22.dp),
-        )
-        Text(
-            text = text,
-            style = TextStyle(
-                fontFamily = pretendard,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                color = TextPrimary,
-            ),
-        )
-    }
-}
-
-/**
- * Figma "AllScheduleBtn" 재현. 회색 라운드 컨테이너 + 좌측 22dp 아이콘 + Bold 15sp 텍스트.
- * 우측 chevron 없음 (Figma 사양). 리플은 라운드 사각형으로 잘림.
- */
-@Composable
-private fun AllScheduleButton(
-    text: String,
-    iconRes: DrawableResource,
-    onClick: () -> Unit,
-) {
-    val pretendard = LocalPretendardFontFamily.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(DrawerButtonBg)
-            .noRippleClickable(onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Image(
-            painter = painterResource(iconRes),
-            contentDescription = null,
             modifier = Modifier.size(22.dp),
         )
         Text(

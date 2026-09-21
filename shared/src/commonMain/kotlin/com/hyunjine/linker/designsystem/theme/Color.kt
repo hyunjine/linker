@@ -134,3 +134,6 @@ val DrawerButtonBg = Color(0xFFF5F5F7)
 // 드로워 표시 옵션 체크박스 (Figma #599CFF)
 val DrawerCheckBlue = Color(0xFF599CFF)
 
+// 드로워 하단 액션바 (기념일 · 에브리타임) 상단 구분선 (#327 · Figma #E7E7E7)
+val DrawerBottomNavBorder = Color(0xFFE7E7E7)
+
