@@ -59,27 +59,35 @@ class DdayViewModel : ViewModel() {
     }
 
     /**
-     * anchor 저장 (신규 · 편집 공통). 성공 시 UI 를 Filled 로 즉시 전환.
-     * 저장 자체가 실패해도 UI 는 optimistic 값을 유지 — 다음 refresh 때 서버값으로 정렬.
+     * anchor 저장 (신규 · 편집 공통). Optimistic — UI 는 즉시 Filled 로 전환.
+     *
+     * 실패 시 (컬럼 없음 · RLS · 네트워크) 이전 state 로 revert + 로그. 이전엔 성공 여부와 무관하게
+     * refresh 를 호출해서 실패해도 화면이 조용히 empty 로 돌아가 원인을 파악하기 어려웠음.
+     * 이제 성공 시에만 refresh 로 서버값 정렬, 실패 시엔 revert 만.
      */
     @OptIn(ExperimentalTime::class)
     fun saveAnchor(newAnchor: LocalDate) {
         val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
-        val current = _state.value
-        val nextState = when (current) {
-            is DdayUiState.Filled -> current.copy(anchor = newAnchor, today = today)
+        val previous = _state.value
+        val optimistic = when (previous) {
+            is DdayUiState.Filled -> previous.copy(anchor = newAnchor, today = today)
             else -> DdayUiState.Filled(
                 anchor = newAnchor, today = today,
                 myImageUrl = null, myName = "",
                 partnerImageUrl = null, partnerName = "",
             )
         }
-        _state.value = nextState
+        _state.value = optimistic
         viewModelScope.launch {
             runCatching { CouplesRepository.updateDdayAnchor(newAnchor) }
-                .onFailure { println("[Dday] anchor 저장 실패: $it") }
-            // 저장 성공 후 프로필 · 오늘 재조회로 정렬 (프로필 사진이 로드되지 않은 empty→filled 케이스 대응).
-            refresh()
+                .onSuccess {
+                    // 저장 성공 후 프로필 · 오늘 재조회로 정렬 (empty→filled 최초 진입 시 사진 · 이름 채움).
+                    refresh()
+                }
+                .onFailure { err ->
+                    println("[Dday] anchor 저장 실패, 이전 상태로 revert: $err")
+                    _state.value = previous
+                }
         }
     }
 }
