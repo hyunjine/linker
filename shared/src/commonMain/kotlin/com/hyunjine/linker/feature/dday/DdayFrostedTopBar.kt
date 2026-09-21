@@ -35,17 +35,18 @@ fun FrostedTopBar(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 상단 절반(0~0.5): SurfaceGray 알파 1 · 하단 절반(0.5~1): SurfaceGray → 투명 fade.
     val fadeBrush = Brush.verticalGradient(
         0.0f to SurfaceGray,
+        0.5f to SurfaceGray,
         1.0f to SurfaceGray.copy(alpha = 0f),
     )
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(fadeBrush)
             .windowInsetsPadding(
                 WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
-            ),
+            ).background(fadeBrush)
     ) {
         AppTopBar(title = title, onBack = onBack)
     }
