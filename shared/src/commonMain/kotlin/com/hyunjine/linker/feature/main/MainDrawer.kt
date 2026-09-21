@@ -481,8 +481,11 @@ private fun Modifier.noRippleClickable(onClick: () -> Unit): Modifier {
 }
 
 
+// 프리뷰 폭 · 높이는 실제 드로워 폭 (315dp) · iPhone 15 세로 (874dp) 근사. 하단 액션바가 바닥에
+// 고정되는 걸 눈으로 확인하려면 heightDp 를 반드시 명시 (Column.fillMaxHeight() 만으로는 프리뷰
+// 캔버스가 wrap-content 로 잡혀 액션바가 콘텐츠 바로 아래에 붙어버림).
 @Composable
-@Preview(showBackground = true)
+@Preview(showBackground = true, widthDp = 315, heightDp = 874)
 private fun MainDrawerContentSoloPreview() {
     LinkerTheme {
         MainDrawerContent(
@@ -495,7 +498,7 @@ private fun MainDrawerContentSoloPreview() {
 }
 
 @Composable
-@Preview(showBackground = true)
+@Preview(showBackground = true, widthDp = 315, heightDp = 874)
 private fun MainDrawerContentCouplePreview() {
     LinkerTheme {
         MainDrawerContent(
@@ -508,6 +511,20 @@ private fun MainDrawerContentCouplePreview() {
                 showHolidays = true,
                 showSolarTerms = false,
             ),
+            hasPartner = true,
+            hasPartnerEverytime = false,
+        )
+    }
+}
+
+@Composable
+@Preview(showBackground = true, widthDp = 315, heightDp = 874)
+private fun MainDrawerContentCoupleWithEverytimePreview() {
+    LinkerTheme {
+        MainDrawerContent(
+            profileName = "김현진",
+            profileHandle = "@hyunjine",
+            displayState = DrawerDisplayState(),
             hasPartner = true,
             hasPartnerEverytime = true,
         )
