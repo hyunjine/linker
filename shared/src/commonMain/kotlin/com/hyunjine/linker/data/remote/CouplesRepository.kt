@@ -25,12 +25,14 @@ object CouplesRepository {
 
     /**
      * 파트너 조인 여부까지 포함한 full couple row. [linkedAt] 이 non-null 이면 두 명 매칭 완료.
+     * [ddayAnchorDate] 는 디데이 시작 날짜 (#329). NULL 이면 아직 설정 안 됨.
      */
     @Serializable
     data class CoupleFull(
         val id: String,
         @SerialName("invite_code") val inviteCode: String,
         @SerialName("linked_at") val linkedAt: String? = null,
+        @SerialName("dday_anchor_date") val ddayAnchorDate: String? = null,
     )
 
     /**
@@ -90,5 +92,20 @@ object CouplesRepository {
             },
         )
         return result.decodeAs<String>()
+    }
+
+    /**
+     * 디데이 앵커 날짜 저장 (#329). 커플 단위 공유값. `couples.dday_anchor_date` 를 UPDATE.
+     * RLS `couples_all_in_my_couple` 로 내가 속한 커플만 수정 가능. 커플 미소속이면 no-op.
+     *
+     * @param date null 이면 앵커 리셋 → 다음 진입 시 empty state.
+     */
+    suspend fun updateDdayAnchor(date: kotlinx.datetime.LocalDate?) {
+        val coupleId = myCoupleIdOrNull() ?: return
+        SupabaseProvider.client.from("couples").update({
+            set("dday_anchor_date", date?.toString())
+        }) {
+            filter { eq("id", coupleId) }
+        }
     }
 }
