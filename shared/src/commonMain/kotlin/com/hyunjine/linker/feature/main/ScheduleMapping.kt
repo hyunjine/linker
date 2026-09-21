@@ -81,12 +81,16 @@ internal fun List<SchedulesRepository.Row>.toCalendarEntries(
         val start = LocalDate.parse(row.startDate)
         val end = LocalDate.parse(row.endDate)
         val resolved = resolveOwnerForViewer(row.ownerKind, row.createdBy, viewerId)
-        val tint = ownerColors.forOwner(resolved)
+        // 디데이 milestone 자동 반영 row 는 커플 기념일 pill (보라 계열) 로 렌더 (#329).
+        // 그 외 스케줄은 소유자 색으로 tint 된 개인 chip.
+        val isDdayMilestone = row.source == "dday_milestone"
+        val eventType = if (isDdayMilestone) CalendarEventType.Anniversary else CalendarEventType.Personal
+        val tint = if (isDdayMilestone) null else ownerColors.forOwner(resolved)
         val ownerTag = resolved.toDayOwner()
         var d = start
         while (d <= end) {
             out.getOrPut(d) { mutableListOf() }
-                .add(CalendarEvent(row.title, CalendarEventType.Personal, tintColor = tint, id = row.id, owner = ownerTag))
+                .add(CalendarEvent(row.title, eventType, tintColor = tint, id = row.id, owner = ownerTag))
             d = d.plus(1, DateTimeUnit.DAY)
         }
     }
