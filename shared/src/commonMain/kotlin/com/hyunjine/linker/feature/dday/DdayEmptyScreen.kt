@@ -208,20 +208,27 @@ private fun DdayEmptyIcon() {
                 .size(width = 48.dp, height = 2.dp)
                 .background(EmptyMuted),
         )
-        // "D" 텍스트 — Figma 좌표 (33, 35) / 14x21. 시각 중심 = (40, 45.5).
-        // Compose 텍스트는 baseline 기준이라 y 를 살짝 낮춰 캘린더 하단부에 위치시킴.
-        Text(
-            text = "D",
+        // "D" 텍스트 — 캘린더 본체 폭 (48dp) 전체에 걸친 Box 안에서 가운데 정렬.
+        // Text 자체에 offset 을 주면 폰트 글리프 폭에 따라 시각 중심이 어긋나므로,
+        // 캘린더 본체와 정확히 겹치는 컨테이너를 만들어 그 안에서 Center align.
+        Box(
             modifier = Modifier
-                .align(Alignment.TopStart)
-                .offset(x = 33.dp, y = 38.dp),
-            style = TextStyle(
-                color = EmptyMuted,
-                fontFamily = font,
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp,
-            ),
-        )
+                .offset(x = 16.dp, y = 22.dp)
+                .size(width = 48.dp, height = 44.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "D",
+                // 상단 divider (본체 상단 11dp 지점) 아래 중앙으로 살짝 내려서 시각적 균형.
+                modifier = Modifier.offset(y = 6.dp),
+                style = TextStyle(
+                    color = EmptyMuted,
+                    fontFamily = font,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                ),
+            )
+        }
     }
 }
 
