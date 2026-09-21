@@ -3,6 +3,7 @@ package com.hyunjine.linker.feature.main
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -752,7 +753,8 @@ private fun DayCell(
         // 모든 셀의 숫자 컨테이너를 28dp Box 로 통일 → 오늘/평일 모두 같은 baseline.
         //  - 오늘 셀: 검정 원 + 흰 숫자 (기존)
         //  - milestone 셀 (오늘 아님): 커플 us 색 pastel 원 + us 색 숫자 (#329)
-        //  - 오늘 AND milestone: 오늘 마커 우선 (커플 카운터가 곧 오늘이면 D-DAY 자체 강조가 우선)
+        //  - 오늘 AND milestone: 검정 원 + 흰 숫자 (D-DAY 자체 강조 유지) + 외곽에 us 색 2dp 링을
+        //    둘러 milestone 신호도 함께 노출 (사용자 요청 · #329)
         val badgeBg: Color? = when {
             isToday -> CalendarTodayCircle
             milestone != null -> pastelize(milestone.tintColor!!)
@@ -763,11 +765,16 @@ private fun DayCell(
             milestone != null -> milestone.tintColor!!
             else -> dayColor
         }
+        val ringColor: Color? = if (isToday && milestone != null) milestone.tintColor else null
         Box(
             modifier = Modifier
                 .size(28.dp)
                 .then(
                     if (badgeBg != null) Modifier.clip(CircleShape).background(badgeBg)
+                    else Modifier,
+                )
+                .then(
+                    if (ringColor != null) Modifier.border(2.dp, ringColor, CircleShape)
                     else Modifier,
                 ),
             contentAlignment = Alignment.Center,
