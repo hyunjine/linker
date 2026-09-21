@@ -3,6 +3,7 @@ package com.hyunjine.linker.feature.dday
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hyunjine.linker.data.remote.CouplesRepository
+import com.hyunjine.linker.data.remote.SchedulesRepository
 import com.hyunjine.linker.data.remote.UsersRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -81,6 +82,12 @@ class DdayViewModel : ViewModel() {
         viewModelScope.launch {
             runCatching { CouplesRepository.updateDdayAnchor(newAnchor) }
                 .onSuccess {
+                    // milestone 을 공동 캘린더에 종일 일정으로 자동 반영 (#329). anchor 가 바뀔 때마다
+                    // 이전 milestone 전량 삭제 → 새 리스트로 교체. 실패해도 anchor 저장은 성공했으니
+                    // 로그만 남기고 UI 는 유지.
+                    val milestones = buildMilestones(newAnchor)
+                    runCatching { SchedulesRepository.replaceDdayMilestones(milestones) }
+                        .onFailure { println("[Dday] milestone 캘린더 반영 실패: $it") }
                     // 저장 성공 후 프로필 · 오늘 재조회로 정렬 (empty→filled 최초 진입 시 사진 · 이름 채움).
                     refresh()
                 }
