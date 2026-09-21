@@ -35,6 +35,9 @@ internal fun List<SchedulesRepository.Row>.toDayDetail(date: LocalDate, viewerId
     val timed = mutableListOf<TimedSchedule>()
     val allDay = mutableListOf<AllDaySchedule>()
     for (row in this) {
+        // 디데이 milestone 은 상세 시트에서 완전히 숨긴다 (#329). 사용자가 편집/삭제할 수 없어야
+        // 함 — 캘린더에는 뱃지로만 표시되고 실제 데이터는 anchor 저장 시 자동 재생성됨.
+        if (row.source == "dday_milestone") continue
         val owner = resolveOwnerForViewer(row.ownerKind, row.createdBy, viewerId).toDayOwner()
         when {
             row.type == "task" -> tasks += DayTask(
