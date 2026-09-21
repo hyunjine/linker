@@ -3,6 +3,7 @@ package com.hyunjine.linker.feature.main
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -726,8 +728,17 @@ private fun DayCell(
     val sorted = remember(entry) {
         entry?.events?.sortedBy { it.type.priority }.orEmpty()
     }
-    val visibleChips = sorted.take(2)
-    val overflow = (sorted.size - visibleChips.size).coerceAtLeast(0)
+    // 디데이 milestone (#329) 은 셀 chip 대신 숫자 뱃지 (컬러 원) 로 표시.
+    // Anniversary + tintColor 있는 event 를 milestone 으로 간주 (ScheduleMapping 이 그렇게 태그).
+    val milestone = remember(sorted) {
+        sorted.firstOrNull { it.type == CalendarEventType.Anniversary && it.tintColor != null }
+    }
+    // 뱃지로 흡수된 milestone 은 chip 리스트에서 제외 (셀에 중복 노출 방지).
+    val chipEvents = remember(sorted, milestone) {
+        if (milestone != null) sorted.filterNot { it === milestone } else sorted
+    }
+    val visibleChips = chipEvents.take(2)
+    val overflow = (chipEvents.size - visibleChips.size).coerceAtLeast(0)
 
     Column(
         modifier = modifier
@@ -741,12 +752,30 @@ private fun DayCell(
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         // 모든 셀의 숫자 컨테이너를 28dp Box 로 통일 → 오늘/평일 모두 같은 baseline.
-        // 오늘 셀만 원 배경을 얹고 텍스트 색만 반전 (offset · fontSize 변주 없이 정확히 겹침).
+        //  - 오늘 셀: 검정 원 + 흰 숫자 (기존)
+        //  - milestone 셀 (오늘 아님): 커플 us 색 pastel 원 + us 색 숫자 (#329)
+        //  - 오늘 AND milestone: 검정 원 + 흰 숫자 (D-DAY 자체 강조 유지) + 외곽에 us 색 2dp 링을
+        //    둘러 milestone 신호도 함께 노출 (사용자 요청 · #329)
+        val badgeBg: Color? = when {
+            isToday -> CalendarTodayCircle
+            milestone != null -> pastelize(milestone.tintColor!!)
+            else -> null
+        }
+        val numberColor: Color = when {
+            isToday -> CalendarTodayText
+            milestone != null -> milestone.tintColor!!
+            else -> dayColor
+        }
+        val ringColor: Color? = if (isToday && milestone != null) milestone.tintColor else null
         Box(
             modifier = Modifier
                 .size(28.dp)
                 .then(
-                    if (isToday) Modifier.clip(CircleShape).background(CalendarTodayCircle)
+                    if (badgeBg != null) Modifier.clip(CircleShape).background(badgeBg)
+                    else Modifier,
+                )
+                .then(
+                    if (ringColor != null) Modifier.border(2.dp, ringColor, CircleShape)
                     else Modifier,
                 ),
             contentAlignment = Alignment.Center,
@@ -757,8 +786,24 @@ private fun DayCell(
                     fontFamily = pretendard,
                     fontWeight = FontWeight.Bold,
                     fontSize = 17.sp,
-                    color = if (isToday) CalendarTodayText else dayColor,
+                    color = numberColor,
                 ),
+            )
+        }
+
+        // milestone 라벨 + 🎂 (#329). "100일" → "🎂 100", "1주년" → "🎂 1주년".
+        // 좁은 셀 폭을 넘어 옆 영역까지 침범 허용 (사용자 요청) — wrapContentWidth(unbounded=true).
+        milestone?.let { m ->
+            Text(
+                text = "🎂 ${milestoneShortLabel(m.label)}",
+                style = TextStyle(
+                    fontFamily = pretendard,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 10.sp,
+                    color = m.tintColor!!,
+                ),
+                maxLines = 1,
+                modifier = Modifier.wrapContentWidth(unbounded = true),
             )
         }
 
@@ -797,6 +842,10 @@ private fun dayNumberColor(cell: MonthCell): Color {
 @Composable
 private fun EventChip(event: CalendarEvent) {
     val (bg, fg) = when {
+        // 기념일 pill + 커플 us 색 (#329): 흰색과 blend 해 pastel 톤 opaque 배경 + tint 를 fg 로.
+        // 기존 하드코딩된 ChipAnniversaryBg 는 tintColor 미지정 케이스 (search preview 등) 폴백.
+        event.type == CalendarEventType.Anniversary && event.tintColor != null ->
+            pastelize(event.tintColor) to event.tintColor
         event.tintColor != null -> event.tintColor.copy(alpha = 0.18f) to event.tintColor
         event.type == CalendarEventType.Holiday -> ChipHolidayBg to ChipHolidayText
         event.type == CalendarEventType.Anniversary -> ChipAnniversaryBg to ChipAnniversaryText
@@ -838,6 +887,29 @@ private fun ChipText(text: String, bg: Color, fg: Color) {
             fontSize = 10.sp,
             color = fg,
         ),
+    )
+}
+
+/**
+ * Chip 배경용 pastel 톤 계산. base 컬러를 흰색과 15/85 로 blend 한 opaque 색상 반환.
+ * ChipAnniversaryBg (#EDE1FB) 톤의 opaque 밝은 배경을 임의 base 컬러에서 재현 (#329).
+ * alpha 기반 tint (0.18 overlay) 는 cell 배경 색에 따라 반투명하게 비쳐 pill 톤이 흐려지므로,
+ * 밝은 opaque 배경이 필요한 경우 이 함수로 계산한다.
+ */
+/**
+ * milestone chip 라벨을 셀 뱃지용 짧은 표기로 변환 (#329).
+ * "100일" · "200일" → "100", "200" (숫자만). "1주년" · "2주년" 등은 그대로 유지.
+ */
+private fun milestoneShortLabel(fullLabel: String): String =
+    if (fullLabel.endsWith("일")) fullLabel.dropLast(1) else fullLabel
+
+private fun pastelize(base: Color, colorRatio: Float = 0.35f): Color {
+    val white = 1f - colorRatio
+    return Color(
+        red = base.red * colorRatio + 1f * white,
+        green = base.green * colorRatio + 1f * white,
+        blue = base.blue * colorRatio + 1f * white,
+        alpha = 1f,
     )
 }
 

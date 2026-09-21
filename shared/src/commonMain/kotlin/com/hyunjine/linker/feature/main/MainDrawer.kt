@@ -170,7 +170,7 @@ fun MainDrawerContent(
 }
 
 /**
- * 드로워 최하단 고정 액션바 (#327). 좌측 "기념일" · 우측 "에브리타임" 두 탭 균등 배치.
+ * 드로워 최하단 고정 액션바 (#327 · #329). 좌측 "디데이" · 우측 "에브리타임" 두 탭 균등 배치.
  * 각 탭은 24dp 아이콘 위, 12sp SemiBold 라벨 아래 형태 — Figma 4168:78837 참고.
  */
 @Composable
@@ -187,12 +187,12 @@ private fun DrawerBottomNav(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         DrawerBottomNavItem(
-            label = "기념일",
+            label = "디데이",
             onClick = onAnniversaryClick,
             modifier = Modifier.weight(1f),
         ) {
             // 캘린더 + 가운데 "D" 오버레이 (Figma 4168:78839). 범용 ic_cal_31 은 다른 화면에서
-            // D 없이 재사용되므로 여기서 텍스트만 얹어 기념일 (D-day) 뉘앙스를 준다.
+            // D 없이 재사용되므로 여기서 텍스트만 얹어 디데이 뉘앙스를 준다.
             AnniversaryCalendarIcon()
         }
         DrawerBottomNavItem(
