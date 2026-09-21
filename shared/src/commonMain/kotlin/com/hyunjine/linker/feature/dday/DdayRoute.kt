@@ -28,9 +28,9 @@ fun DdayRoute(
 
     when (val s = state) {
         DdayUiState.Loading -> {
-            // 초기 한 프레임만 뜨는 상태. Empty 와 같은 뼈대만 노출 (아이콘 · CTA 는 숨김) 해도
-            // 되지만 순간이라 일단 empty state 를 그대로 재사용 (사용자 관점 flicker 는 미미).
-            DdayEmptyScreen(onBack = onBack, onConfirmDate = { onConfirm(vm, it, onConfirmDate) })
+            // 로딩이 실제 network round-trip 을 타서 empty state 를 잠깐 보여주면 "설정 안 된 것" 처럼
+            // 오해되는 UX 문제가 있어 (#329) 로딩 중엔 별도 스크린으로 명확히 구분.
+            DdayLoadingScreen()
         }
         DdayUiState.Empty -> {
             DdayEmptyScreen(onBack = onBack, onConfirmDate = { onConfirm(vm, it, onConfirmDate) })
