@@ -797,6 +797,10 @@ private fun dayNumberColor(cell: MonthCell): Color {
 @Composable
 private fun EventChip(event: CalendarEvent) {
     val (bg, fg) = when {
+        // 기념일 pill + 커플 us 색 (#329): 흰색과 blend 해 pastel 톤 opaque 배경 + tint 를 fg 로.
+        // 기존 하드코딩된 ChipAnniversaryBg 는 tintColor 미지정 케이스 (search preview 등) 폴백.
+        event.type == CalendarEventType.Anniversary && event.tintColor != null ->
+            pastelize(event.tintColor) to event.tintColor
         event.tintColor != null -> event.tintColor.copy(alpha = 0.18f) to event.tintColor
         event.type == CalendarEventType.Holiday -> ChipHolidayBg to ChipHolidayText
         event.type == CalendarEventType.Anniversary -> ChipAnniversaryBg to ChipAnniversaryText
@@ -838,6 +842,22 @@ private fun ChipText(text: String, bg: Color, fg: Color) {
             fontSize = 10.sp,
             color = fg,
         ),
+    )
+}
+
+/**
+ * Chip 배경용 pastel 톤 계산. base 컬러를 흰색과 15/85 로 blend 한 opaque 색상 반환.
+ * ChipAnniversaryBg (#EDE1FB) 톤의 opaque 밝은 배경을 임의 base 컬러에서 재현 (#329).
+ * alpha 기반 tint (0.18 overlay) 는 cell 배경 색에 따라 반투명하게 비쳐 pill 톤이 흐려지므로,
+ * 밝은 opaque 배경이 필요한 경우 이 함수로 계산한다.
+ */
+private fun pastelize(base: Color, colorRatio: Float = 0.15f): Color {
+    val white = 1f - colorRatio
+    return Color(
+        red = base.red * colorRatio + 1f * white,
+        green = base.green * colorRatio + 1f * white,
+        blue = base.blue * colorRatio + 1f * white,
+        alpha = 1f,
     )
 }
 

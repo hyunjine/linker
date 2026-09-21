@@ -81,11 +81,12 @@ internal fun List<SchedulesRepository.Row>.toCalendarEntries(
         val start = LocalDate.parse(row.startDate)
         val end = LocalDate.parse(row.endDate)
         val resolved = resolveOwnerForViewer(row.ownerKind, row.createdBy, viewerId)
-        // 디데이 milestone 자동 반영 row 는 커플 기념일 pill (보라 계열) 로 렌더 (#329).
-        // 그 외 스케줄은 소유자 색으로 tint 된 개인 chip.
+        // 디데이 milestone 자동 반영 row 는 기념일 pill 로 렌더 (#329) — 단 색상은 하드코딩된
+        // 보라 대신 커플의 us 색상에서 파생 (사용자 지정). tintColor 를 함께 실어 EventChip 이
+        // 이 값으로 pastel 배경 + 진한 fg 를 계산.
         val isDdayMilestone = row.source == "dday_milestone"
         val eventType = if (isDdayMilestone) CalendarEventType.Anniversary else CalendarEventType.Personal
-        val tint = if (isDdayMilestone) null else ownerColors.forOwner(resolved)
+        val tint = if (isDdayMilestone) ownerColors.us else ownerColors.forOwner(resolved)
         val ownerTag = resolved.toDayOwner()
         var d = start
         while (d <= end) {
