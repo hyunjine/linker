@@ -49,6 +49,14 @@ struct WidgetTodayPayload: Codable {
     /// 이번 달 공휴일 "yyyy-MM-dd" 리스트 (#309). 캘린더 위젯이 이 셀 번호를 빨강으로 렌더.
     /// 구버전 payload 호환 위해 optional. nil / 빈 배열이면 요일 컬러만 적용.
     let holidays: [String]?
+    /// 디데이 앵커 날짜 "yyyy-MM-dd" (#329). nil 이면 앵커 미설정 → Dday 위젯이 폴백 UI 노출.
+    let ddayAnchorDate: String?
+    /// 다음 milestone 라벨 (예: "100일", "1주년"). nil 이면 다음 milestone 없음.
+    let ddayNextMilestoneLabel: String?
+    /// 다음 milestone 도래일 "yyyy-MM-dd".
+    let ddayNextMilestoneDate: String?
+    /// 다음 milestone 까지 남은 일수 (오늘=0=D-DAY, 미래=양수).
+    let ddayNextMilestoneDelta: Int?
 
     /// 프리뷰 · 샘플 payload 편의를 위한 default init. 컬러 hex · openTasks · monthEvents · holidays 는 선택.
     init(
@@ -60,6 +68,10 @@ struct WidgetTodayPayload: Codable {
         openTasks: [WidgetOpenTask]? = nil,
         monthEvents: [String: [String]]? = nil,
         holidays: [String]? = nil,
+        ddayAnchorDate: String? = nil,
+        ddayNextMilestoneLabel: String? = nil,
+        ddayNextMilestoneDate: String? = nil,
+        ddayNextMilestoneDelta: Int? = nil,
     ) {
         self.date = date
         self.items = items
@@ -69,6 +81,10 @@ struct WidgetTodayPayload: Codable {
         self.openTasks = openTasks
         self.monthEvents = monthEvents
         self.holidays = holidays
+        self.ddayAnchorDate = ddayAnchorDate
+        self.ddayNextMilestoneLabel = ddayNextMilestoneLabel
+        self.ddayNextMilestoneDate = ddayNextMilestoneDate
+        self.ddayNextMilestoneDelta = ddayNextMilestoneDelta
     }
 }
 
