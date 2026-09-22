@@ -130,16 +130,6 @@ private fun EverytimeTimetableScreen(
                         lectures = payload.timetable.lectures,
                         modifier = Modifier.padding(horizontal = 16.dp),
                     )
-                    Spacer(Modifier.height(12.dp))
-                    Text(
-                        text = buildCaption(state.nicknameOf(active), payload.timetable.ownerName),
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-                        style = TextStyle(
-                            color = TextSecondary,
-                            fontSize = 12.sp,
-                            fontFamily = LocalPretendardFontFamily.current,
-                        ),
-                    )
                 }
             }
         }
@@ -181,11 +171,6 @@ private fun OwnerTabs(state: EverytimeUiState, onSelect: (TimetableOwner) -> Uni
         },
         modifier = Modifier.padding(horizontal = 16.dp),
     )
-}
-
-private fun buildCaption(fallbackNickname: String, ownerName: String): String {
-    val name = ownerName.ifBlank { fallbackNickname.ifBlank { "" } }
-    return if (name.isBlank()) "시간표" else "${name}님의 시간표"
 }
 
 @Composable
