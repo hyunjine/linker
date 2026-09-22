@@ -71,8 +71,11 @@ fun ProfileEditRoute(
         defaultAvatarUrl = p.profileImageUrl.toSecureImageUrl(),
         submitText = "저장",
         saving = ui.saving,
+        // 에브리타임 URL 은 프로필 편집에서 노출 안 함 (별도 이슈로 제거). 값 자체는 서버에
+        // 그대로 유지 — showEverytimeField=false 라 필드 렌더도 · 편집도 안 되고, 저장 시 콜백
+        // 이 전달하는 initial (=서버값) 을 그대로 다시 write 하므로 no-op.
         everytimeIdentifierInitial = p.everytimeIdentifier,
-        showEverytimeField = true,
+        showEverytimeField = false,
         onBack = onBack,
         onNext = { nickname, birthDate, colorId, pickedImage, everytimeIdentifier ->
             viewModel.save(nickname, birthDate, colorId, pickedImage, everytimeIdentifier, onSaved)
