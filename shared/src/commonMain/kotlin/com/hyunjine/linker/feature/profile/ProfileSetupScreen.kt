@@ -237,9 +237,11 @@ fun ProfileSetupScreen(
                         if (saving) return@PrimaryButton
                         val parsed = parseBirthDate(currentBirthDate)
                         val date = runCatching { LocalDate(parsed.year, parsed.month, parsed.day) }.getOrNull()
+                        // 필드가 숨겨진 경우 (온보딩/현재 편집 화면) 초기값을 그대로 흘려보내
+                        // 상위 write 가 no-op 이 되게 한다. null 을 넘기면 DB 컬럼이 지워짐.
                         val identifier = if (showEverytimeField) {
                             EverytimeUrl.parseIdentifier(currentEverytimeUrl)
-                        } else null
+                        } else everytimeIdentifierInitial
                         onNext(currentNickname.trim(), date, currentColorId, avatarImage, identifier)
                     },
                 )
