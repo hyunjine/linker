@@ -385,15 +385,8 @@ private fun TimetableCard(
             }
         }
 
-        // 헤더 하단 세퍼레이터
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp)
-                .offset(y = headerH)
-                .height(1.dp)
-                .background(Separator.copy(alpha = 0.5f)),
-        )
+        // 요일 헤더 하단에 얇은 divider 를 그렸었는데 "09" 시간 라벨이 그 위치에 겹쳐 보여
+        // 제거. 헤더와 본문 구분은 시간 축의 매 시간 가로선과 요일 텍스트 색 대비만으로 충분.
 
         // 시간 축 (좌측 텍스트)
         for (hour in slotStart / slotsPerHour..slotEnd / slotsPerHour) {
