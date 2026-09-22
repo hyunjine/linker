@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -27,17 +26,22 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hyunjine.linker.designsystem.common.AppTopBar
+import com.hyunjine.linker.designsystem.common.SegmentedControl
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.designsystem.theme.PrimaryBlue
 import com.hyunjine.linker.designsystem.theme.Separator
@@ -46,9 +50,15 @@ import com.hyunjine.linker.designsystem.theme.SurfaceGray
 import com.hyunjine.linker.designsystem.theme.TextPrimary
 import com.hyunjine.linker.designsystem.theme.TextSecondary
 
+/** Empty state 아이콘 · 텍스트에 쓰이는 muted 회색 톤. DdayEmptyScreen 과 통일. */
+private val EmptyMuted = Color(0xFFBDBDC3)
+
+/** Empty state 아이콘 배경. DdayEmptyScreen 과 통일. */
+private val EmptyIconBg = Color(0xFFF2F2F7)
+
 /**
- * 파트너의 에브리타임 시간표 조회 라우트 (#306).
- * VM 이 파트너 identifier 를 자동으로 조회하므로, 이 라우트 자체는 인자를 받지 않는다.
+ * 본인/파트너 에브리타임 시간표 조회 라우트 (#306).
+ * VM 이 두 탭 상태를 유지하고, 화면은 활성 탭의 timetable 또는 empty state 를 렌더.
  */
 @Composable
 fun EverytimeTimetableRoute(onBack: () -> Unit) {
@@ -57,7 +67,10 @@ fun EverytimeTimetableRoute(onBack: () -> Unit) {
     EverytimeTimetableScreen(
         state = ui,
         onBack = onBack,
+        onSelectTab = viewModel::selectTab,
         onSelectSemester = viewModel::selectSemester,
+        onSaveMyUrl = viewModel::saveMyIdentifier,
+        onDismissSaveError = viewModel::clearUrlSaveError,
     )
 }
 
@@ -65,8 +78,12 @@ fun EverytimeTimetableRoute(onBack: () -> Unit) {
 private fun EverytimeTimetableScreen(
     state: EverytimeUiState,
     onBack: () -> Unit,
+    onSelectTab: (TimetableOwner) -> Unit,
     onSelectSemester: (SemesterRef) -> Unit,
+    onSaveMyUrl: (String) -> Unit,
+    onDismissSaveError: () -> Unit,
 ) {
+    var sheetVisible by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -79,26 +96,39 @@ private fun EverytimeTimetableScreen(
         ) {
             Spacer(Modifier.height(54.dp))
 
-            if (state.semesters.isNotEmpty()) {
-                SemesterSwitcher(
-                    semesters = state.semesters,
-                    activeIdentifier = state.timetable?.identifier,
-                    onSelect = onSelectSemester,
-                )
-                Spacer(Modifier.height(12.dp))
-            }
+            // 세그먼트 탭 — 본인/상대방. 닉네임이 비어있으면 폴백 라벨.
+            OwnerTabs(state = state, onSelect = onSelectTab)
+            Spacer(Modifier.height(16.dp))
+
+            val active = state.activeOwner
+            val identifier = state.identifierOf(active)
+            val payload = state.tabOf(active)
 
             when {
-                state.loading && state.timetable == null -> LoadingBox()
-                state.error != null && state.timetable == null -> ErrorBox(state.error)
-                state.timetable != null -> {
+                state.loadingProfiles -> LoadingBox()
+                identifier.isNullOrBlank() -> EmptyTabContent(
+                    owner = active,
+                    modifier = Modifier.weight(1f).fillMaxWidth().padding(bottom = 40.dp),
+                    onAddUrl = { sheetVisible = true },
+                )
+                payload.loading && payload.timetable == null -> LoadingBox()
+                payload.error != null && payload.timetable == null -> ErrorBox(payload.error)
+                payload.timetable != null -> {
+                    if (payload.semesters.isNotEmpty()) {
+                        SemesterSwitcher(
+                            semesters = payload.semesters,
+                            activeIdentifier = payload.timetable.identifier,
+                            onSelect = onSelectSemester,
+                        )
+                        Spacer(Modifier.height(12.dp))
+                    }
                     TimetableCard(
-                        lectures = state.timetable.lectures,
+                        lectures = payload.timetable.lectures,
                         modifier = Modifier.padding(horizontal = 16.dp),
                     )
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        text = buildCaption(state.timetable.ownerName),
+                        text = buildCaption(state.nicknameOf(active), payload.timetable.ownerName),
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                         style = TextStyle(
                             color = TextSecondary,
@@ -117,10 +147,43 @@ private fun EverytimeTimetableScreen(
                 .windowInsetsPadding(WindowInsets.safeDrawing),
         )
     }
+
+    // URL 입력 시트 — empty state 의 "URL 추가하기" 버튼으로 노출. 사용자가 저장하면
+    // 즉시 dismiss (optimistic) 하고 VM 은 백그라운드에서 DB update + 본인 tab 재fetch.
+    EverytimeUrlSheet(
+        visible = sheetVisible,
+        initial = state.myIdentifier?.let(EverytimeUrl::buildShareUrl).orEmpty(),
+        onDismiss = {
+            sheetVisible = false
+            onDismissSaveError()
+        },
+        onConfirm = { raw ->
+            sheetVisible = false
+            onSaveMyUrl(raw)
+        },
+    )
 }
 
-private fun buildCaption(ownerName: String): String =
-    if (ownerName.isBlank()) "파트너의 시간표" else "${ownerName}님의 시간표"
+@Composable
+private fun OwnerTabs(state: EverytimeUiState, onSelect: (TimetableOwner) -> Unit) {
+    SegmentedControl(
+        options = listOf(TimetableOwner.Me, TimetableOwner.Partner),
+        selected = state.activeOwner,
+        onSelect = onSelect,
+        label = { owner ->
+            when (owner) {
+                TimetableOwner.Me -> state.myNickname.ifBlank { "내 시간표" }
+                TimetableOwner.Partner -> state.partnerNickname.ifBlank { "상대방 시간표" }
+            }
+        },
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
+}
+
+private fun buildCaption(fallbackNickname: String, ownerName: String): String {
+    val name = ownerName.ifBlank { fallbackNickname.ifBlank { "" } }
+    return if (name.isBlank()) "시간표" else "${name}님의 시간표"
+}
 
 @Composable
 private fun LoadingBox() {
@@ -142,6 +205,143 @@ private fun ErrorBox(message: String) {
         )
     }
 }
+
+// ────────── Empty state ──────────
+
+/**
+ * 활성 탭에 identifier 가 없을 때 노출되는 empty state. DdayEmptyScreen 과 동일한 리듬
+ * (아이콘 · 제목 · 서브 · CTA) 을 유지해 앱 전체 empty state 톤을 통일.
+ *
+ * "URL 추가하기" 버튼은 항상 본인 URL 시트로 진입 (본인만 자기 URL 을 등록할 수 있음).
+ * 상대방 탭 empty 상태에서도 버튼은 노출되며, 서브 카피가 상대방 URL 이 필요하다는 걸 안내.
+ */
+@Composable
+private fun EmptyTabContent(
+    owner: TimetableOwner,
+    modifier: Modifier,
+    onAddUrl: () -> Unit,
+) {
+    val font = LocalPretendardFontFamily.current
+    val title = when (owner) {
+        TimetableOwner.Me -> "아직 시간표가 없어요"
+        TimetableOwner.Partner -> "상대방이 아직 등록하지 않았어요"
+    }
+    val subtitle = when (owner) {
+        TimetableOwner.Me -> "URL 을 추가하면 상대방과\n서로의 시간표를 확인할 수 있어요"
+        TimetableOwner.Partner -> "상대방이 URL 을 등록하면\n여기서 바로 시간표를 볼 수 있어요"
+    }
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        EverytimeEmptyIcon()
+        Spacer(Modifier.height(20.dp))
+        Text(
+            text = title,
+            style = TextStyle(
+                color = TextPrimary,
+                fontFamily = font,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+            ),
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = subtitle,
+            style = TextStyle(
+                color = TextSecondary,
+                fontFamily = font,
+                fontWeight = FontWeight.Medium,
+                fontSize = 14.sp,
+                lineHeight = 21.sp,
+            ),
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(32.dp))
+        PrimaryCta(text = "URL 추가하기", onClick = onAddUrl)
+    }
+}
+
+/**
+ * 80dp 회색 정사각 배경 위에 시간표 격자 (3×3) 를 muted 스트로크로 그린 empty-state 아이콘.
+ * DdayEmptyScreen 의 아이콘 리듬 (80dp bg + 48×44 내용) 을 그대로 따르되, 내용만 시간표
+ * (책상 그리드) 로 대체.
+ */
+@Composable
+private fun EverytimeEmptyIcon() {
+    Box(
+        modifier = Modifier
+            .size(80.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(EmptyIconBg),
+    ) {
+        // 격자 본체 — 48x44 at (16, 22), DdayEmpty 캘린더 프레임과 동일 좌표/크기.
+        Box(
+            modifier = Modifier
+                .offset(x = 16.dp, y = 22.dp)
+                .size(width = 48.dp, height = 44.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .border(2.dp, EmptyMuted, RoundedCornerShape(6.dp)),
+        )
+        // 상단 헤더 divider — 격자 상단 8dp 지점에 가로선 (요일 헤더 구분 인상).
+        Box(
+            modifier = Modifier
+                .offset(x = 18.dp, y = 22.dp + 12.dp)
+                .size(width = 44.dp, height = 2.dp)
+                .background(EmptyMuted),
+        )
+        // 세로 컬럼 구분 — 3 컬럼 → 2 세로선. 헤더 아래부터 그림.
+        val gridStartY = 22.dp + 12.dp + 2.dp
+        val gridBottomY = 22.dp + 44.dp - 2.dp
+        val gridHeight = gridBottomY - gridStartY
+        Box(
+            modifier = Modifier
+                .offset(x = 16.dp + 16.dp, y = gridStartY)
+                .size(width = 1.dp, height = gridHeight)
+                .background(EmptyMuted),
+        )
+        Box(
+            modifier = Modifier
+                .offset(x = 16.dp + 32.dp, y = gridStartY)
+                .size(width = 1.dp, height = gridHeight)
+                .background(EmptyMuted),
+        )
+        // 가로 로우 구분 — 2 행 → 1 가로선 (헤더 제외 본문 영역을 반씩).
+        Box(
+            modifier = Modifier
+                .offset(x = 18.dp, y = gridStartY + gridHeight / 2)
+                .size(width = 44.dp, height = 1.dp)
+                .background(EmptyMuted),
+        )
+    }
+}
+
+@Composable
+private fun PrimaryCta(text: String, onClick: () -> Unit) {
+    val font = LocalPretendardFontFamily.current
+    Box(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(PrimaryBlue)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 24.dp, vertical = 14.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            style = TextStyle(
+                color = Color.White,
+                fontFamily = font,
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp,
+            ),
+        )
+    }
+}
+
+// ────────── Existing timetable rendering (unchanged) ──────────
 
 /**
  * 학기 목록을 칩 리스트로 노출. 응답의 primaryTables 순서를 그대로 사용.
@@ -200,7 +400,7 @@ private fun TimetableCard(
     modifier: Modifier = Modifier,
 ) {
     val font = LocalPretendardFontFamily.current
-    // 시간 범위: 강의들의 실제 min/max 를 09~19 범위로 확장 (밖에 나가면 클립).
+    // 시간 범위: 09~19 (강의가 밖에 나가면 클립).
     val slotStart = 108   // 09:00
     val slotEnd = 228     // 19:00
     val slotsPerHour = 12
@@ -268,7 +468,6 @@ private fun TimetableCard(
                     fontFamily = font,
                 ),
             )
-            // 매 시간마다 옅은 가로선 (헤더 아래 첫 라인은 건너뜀)
             if (hour > slotStart / slotsPerHour) {
                 Box(
                     modifier = Modifier
