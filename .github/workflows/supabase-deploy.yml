@@ -28,12 +28,7 @@ on:
     paths:
       - "supabase/functions/**"
       - ".github/workflows/supabase-deploy.yml"
-  workflow_dispatch:
-    inputs:
-      force_all:
-        description: "전체 함수 강제 재배포 (변경 없어도)"
-        type: boolean
-        default: false
+  workflow_dispatch: {}   # 수동 트리거 = 모든 함수 강제 재배포. push 트리거는 변경된 것만.
 
 concurrency:
   group: supabase-deploy
@@ -67,38 +62,45 @@ jobs:
             exit 1
           fi
 
-      # 변경된 함수 디렉터리만 추린다. `functions/<name>/` 어느 파일이든 바뀌면 그 함수 재배포.
-      # workflow_dispatch + force_all=true 면 전체 함수 목록으로 대체.
-      - name: Detect changed functions
+      # 배포 대상 함수 이름을 뽑는다.
+      #   - workflow_dispatch: `supabase/functions/*/` 디렉터리 전체.
+      #   - push:              해당 push 에서 변경된 함수 디렉터리만 (README.md 같이 dir 밖 파일은 제외).
+      # 두 경로 다 `find -type d` 로 실제 존재하는 함수 디렉터리 집합만 신뢰 소스로 삼고,
+      # push 는 그 집합을 diff 결과와 교집합해 안전하게 축소한다.
+      - name: Detect functions to deploy
         id: detect
         run: |
           set -euo pipefail
 
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.force_all }}" = "true" ]; then
-            FUNCS=$(find supabase/functions -mindepth 1 -maxdepth 1 -type d -exec basename {} \; | sort -u | grep -v '^_' || true)
-            echo "mode=force_all" >> "$GITHUB_OUTPUT"
+          ALL_FUNCS=$(find supabase/functions -mindepth 1 -maxdepth 1 -type d -exec basename {} \; \
+            | grep -Ev '^_' | sort -u)
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            FUNCS="$ALL_FUNCS"
+            echo "mode=dispatch" >> "$GITHUB_OUTPUT"
           else
-            # dev push: HEAD~1..HEAD 의 supabase/functions/ 변경분에서 두 번째 path 세그먼트만 추출.
             BEFORE="${{ github.event.before }}"
             AFTER="${{ github.event.after }}"
-            # 최초 push (before = 000…000) 처럼 diff 불가한 케이스 방어 — HEAD 만 훑음.
             if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
-              CHANGED=$(git ls-tree -r --name-only HEAD -- supabase/functions/ | awk -F/ '{print $3}' | sort -u)
+              # 브랜치 생성/최초 push 는 diff 산정 불가 → 안전하게 skip (수동 dispatch 로 처리).
+              FUNCS=""
+              echo "mode=first_push_noop" >> "$GITHUB_OUTPUT"
             else
-              CHANGED=$(git diff --name-only "$BEFORE" "$AFTER" -- supabase/functions/ | awk -F/ '{print $3}' | sort -u)
+              # `supabase/functions/<name>/<file>` 처럼 4-세그먼트 이상만 후보 → README.md 등 dir 밖 파일 배제.
+              CHANGED_DIRS=$(git diff --name-only "$BEFORE" "$AFTER" -- supabase/functions/ \
+                | awk -F/ 'NF>=4 {print $3}' | sort -u)
+              # 실제 존재하는 함수 dir 집합과 교집합.
+              FUNCS=$(comm -12 <(echo "$ALL_FUNCS") <(echo "$CHANGED_DIRS") || true)
+              echo "mode=changed" >> "$GITHUB_OUTPUT"
             fi
-            # 빈 값 · 위계 밖 (`_shared` 계열) 제외.
-            FUNCS=$(echo "$CHANGED" | grep -Ev '^(_.*|$)' | sort -u || true)
-            echo "mode=changed" >> "$GITHUB_OUTPUT"
           fi
 
           if [ -z "$FUNCS" ]; then
-            echo "배포할 함수 없음."
+            echo "배포 대상 없음."
             echo "funcs=" >> "$GITHUB_OUTPUT"
           else
             echo "배포 대상:"
             echo "$FUNCS" | sed 's/^/  - /'
-            # newline → space 로 압축해 다음 스텝 shell loop 에 넘김.
             echo "funcs=$(echo $FUNCS | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
           fi
 
