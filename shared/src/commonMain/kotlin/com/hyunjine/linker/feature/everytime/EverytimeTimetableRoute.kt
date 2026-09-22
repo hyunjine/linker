@@ -42,7 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.hyunjine.linker.designsystem.common.AppTopBar
+import com.hyunjine.linker.designsystem.common.FrostedTopBar
 import com.hyunjine.linker.designsystem.common.SegmentedControl
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.designsystem.theme.PrimaryBlue
@@ -100,7 +100,7 @@ private fun EverytimeTimetableScreen(
 
             // 세그먼트 탭 — 본인/상대방. 닉네임이 비어있으면 폴백 라벨.
             OwnerTabs(state = state, onSelect = onSelectTab)
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(18.dp))
 
             val active = state.activeOwner
             val identifier = state.identifierOf(active)
@@ -141,12 +141,11 @@ private fun EverytimeTimetableScreen(
                 }
             }
         }
-        AppTopBar(
+        // Frosted (=SurfaceGray) 앱바 — 스크롤 시 컨텐츠와 이질감 없이 분리 (D-day 화면과 동일 패턴).
+        FrostedTopBar(
             title = "에브리타임 시간표",
             onBack = onBack,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .windowInsetsPadding(WindowInsets.safeDrawing),
+            modifier = Modifier.align(Alignment.TopCenter),
         )
     }
 
@@ -214,8 +213,8 @@ private fun ErrorBox(message: String) {
  * 활성 탭에 identifier 가 없을 때 노출되는 empty state. DdayEmptyScreen 과 동일한 리듬
  * (아이콘 · 제목 · 서브 · CTA) 을 유지해 앱 전체 empty state 톤을 통일.
  *
- * "URL 추가하기" 버튼은 항상 본인 URL 시트로 진입 (본인만 자기 URL 을 등록할 수 있음).
- * 상대방 탭 empty 상태에서도 버튼은 노출되며, 서브 카피가 상대방 URL 이 필요하다는 걸 안내.
+ * CTA "URL 추가하기" 는 본인 탭에서만 노출된다 — 본인만 자기 URL 을 등록할 수 있어,
+ * 상대방 탭 empty 에서는 안내문만 두고 버튼은 감춘다.
  */
 @Composable
 private fun EmptyTabContent(
@@ -266,8 +265,10 @@ private fun EmptyTabContent(
             ),
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier.height(32.dp))
-        PrimaryCta(text = "URL 추가하기", onClick = onAddUrl)
+        if (owner == TimetableOwner.Me) {
+            Spacer(Modifier.height(32.dp))
+            PrimaryCta(text = "URL 추가하기", onClick = onAddUrl)
+        }
     }
 }
 

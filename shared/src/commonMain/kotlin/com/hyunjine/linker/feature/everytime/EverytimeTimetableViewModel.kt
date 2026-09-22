@@ -43,12 +43,20 @@ class EverytimeTimetableViewModel : ViewModel() {
             val partner = runCatching { UsersRepository.partnerProfile() }
                 .onFailure { println("[Everytime] 파트너 프로필 조회 실패: $it") }
                 .getOrNull()
+            val myId = me?.everytimeIdentifier
+            val partnerId = partner?.everytimeIdentifier
+            // 첫 진입 시 등록된 유저 탭으로 자동 이동. 둘 다 있거나 없으면 본인.
+            val initialActive = when {
+                myId.isNullOrBlank() && !partnerId.isNullOrBlank() -> TimetableOwner.Partner
+                else -> TimetableOwner.Me
+            }
             _uiState.value = _uiState.value.copy(
                 loadingProfiles = false,
                 myNickname = me?.nickname.orEmpty(),
                 partnerNickname = partner?.nickname.orEmpty(),
-                myIdentifier = me?.everytimeIdentifier,
-                partnerIdentifier = partner?.everytimeIdentifier,
+                myIdentifier = myId,
+                partnerIdentifier = partnerId,
+                activeOwner = initialActive,
             )
             // 프로필 로드 완료 후 활성 탭의 시간표를 자동 fetch.
             fetchActiveIfNeeded()
@@ -164,7 +172,9 @@ data class TabPayload(
  * 활성 탭 페이로드에 접근할 땐 [tabOf] / [updateTab] 헬퍼를 쓴다.
  */
 data class EverytimeUiState(
-    val activeOwner: TimetableOwner = TimetableOwner.Partner,
+    // 기본값은 본인 — 프로필 로드 완료 후 [EverytimeTimetableViewModel.loadProfiles] 가 등록된
+    // identifier 유무에 따라 상대방으로 넘길 수도 있음.
+    val activeOwner: TimetableOwner = TimetableOwner.Me,
     val loadingProfiles: Boolean = true,
     val myNickname: String = "",
     val partnerNickname: String = "",

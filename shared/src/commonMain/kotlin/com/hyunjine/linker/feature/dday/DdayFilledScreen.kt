@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.hyunjine.linker.designsystem.common.AppTopBar
+import com.hyunjine.linker.designsystem.common.FrostedTopBar
 import com.hyunjine.linker.designsystem.common.SegmentedControl
 import com.hyunjine.linker.designsystem.common.YearMonthDayPickerSheet
 import linker.shared.generated.resources.Res
