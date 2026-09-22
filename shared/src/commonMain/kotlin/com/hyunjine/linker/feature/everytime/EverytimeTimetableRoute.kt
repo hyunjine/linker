@@ -1,5 +1,6 @@
 package com.hyunjine.linker.feature.everytime
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -33,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -49,12 +51,12 @@ import com.hyunjine.linker.designsystem.theme.SurfaceCard
 import com.hyunjine.linker.designsystem.theme.SurfaceGray
 import com.hyunjine.linker.designsystem.theme.TextPrimary
 import com.hyunjine.linker.designsystem.theme.TextSecondary
+import linker.shared.generated.resources.Res
+import linker.shared.generated.resources.ic_empty_timetable
+import org.jetbrains.compose.resources.painterResource
 
 /** Empty state 아이콘 · 텍스트에 쓰이는 muted 회색 톤. DdayEmptyScreen 과 통일. */
 private val EmptyMuted = Color(0xFFBDBDC3)
-
-/** Empty state 아이콘 배경. DdayEmptyScreen 과 통일. */
-private val EmptyIconBg = Color(0xFFF2F2F7)
 
 /**
  * 본인/파트너 에브리타임 시간표 조회 라우트 (#306).
@@ -235,7 +237,12 @@ private fun EmptyTabContent(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        EverytimeEmptyIcon()
+        Image(
+            painter = painterResource(Res.drawable.ic_empty_timetable),
+            contentDescription = null,
+            modifier = Modifier.size(80.dp),
+            colorFilter = ColorFilter.tint(EmptyMuted),
+        )
         Spacer(Modifier.height(20.dp))
         Text(
             text = title,
@@ -261,60 +268,6 @@ private fun EmptyTabContent(
         )
         Spacer(Modifier.height(32.dp))
         PrimaryCta(text = "URL 추가하기", onClick = onAddUrl)
-    }
-}
-
-/**
- * 80dp 회색 정사각 배경 위에 시간표 격자 (3×3) 를 muted 스트로크로 그린 empty-state 아이콘.
- * DdayEmptyScreen 의 아이콘 리듬 (80dp bg + 48×44 내용) 을 그대로 따르되, 내용만 시간표
- * (책상 그리드) 로 대체.
- */
-@Composable
-private fun EverytimeEmptyIcon() {
-    Box(
-        modifier = Modifier
-            .size(80.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(EmptyIconBg),
-    ) {
-        // 격자 본체 — 48x44 at (16, 22), DdayEmpty 캘린더 프레임과 동일 좌표/크기.
-        Box(
-            modifier = Modifier
-                .offset(x = 16.dp, y = 22.dp)
-                .size(width = 48.dp, height = 44.dp)
-                .clip(RoundedCornerShape(6.dp))
-                .border(2.dp, EmptyMuted, RoundedCornerShape(6.dp)),
-        )
-        // 상단 헤더 divider — 격자 상단 8dp 지점에 가로선 (요일 헤더 구분 인상).
-        Box(
-            modifier = Modifier
-                .offset(x = 18.dp, y = 22.dp + 12.dp)
-                .size(width = 44.dp, height = 2.dp)
-                .background(EmptyMuted),
-        )
-        // 세로 컬럼 구분 — 3 컬럼 → 2 세로선. 헤더 아래부터 그림.
-        val gridStartY = 22.dp + 12.dp + 2.dp
-        val gridBottomY = 22.dp + 44.dp - 2.dp
-        val gridHeight = gridBottomY - gridStartY
-        Box(
-            modifier = Modifier
-                .offset(x = 16.dp + 16.dp, y = gridStartY)
-                .size(width = 1.dp, height = gridHeight)
-                .background(EmptyMuted),
-        )
-        Box(
-            modifier = Modifier
-                .offset(x = 16.dp + 32.dp, y = gridStartY)
-                .size(width = 1.dp, height = gridHeight)
-                .background(EmptyMuted),
-        )
-        // 가로 로우 구분 — 2 행 → 1 가로선 (헤더 제외 본문 영역을 반씩).
-        Box(
-            modifier = Modifier
-                .offset(x = 18.dp, y = gridStartY + gridHeight / 2)
-                .size(width = 44.dp, height = 1.dp)
-                .background(EmptyMuted),
-        )
     }
 }
 
