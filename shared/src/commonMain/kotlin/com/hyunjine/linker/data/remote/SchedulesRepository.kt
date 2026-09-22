@@ -67,6 +67,11 @@ object SchedulesRepository {
         val source: String = "internal",
         /** Graph event.id (outlook mirror 일 때만). */
         @SerialName("external_id") val externalId: String? = null,
+        /**
+         * 생일 자동 등록 표식 (#307/#334). NULL 이면 일반 스케줄, 아니면 해당 유저의 생일.
+         * 상세 시트에서 편집 화면 진입을 차단하는 데 사용.
+         */
+        @SerialName("birthday_uid") val birthdayUid: String? = null,
     )
 
     /**
