@@ -313,6 +313,7 @@ private struct ScheduleRowMedium: View {
                 Text(t).font(.caption2).monospacedDigit().foregroundStyle(.secondary)
                     .frame(minWidth: 56, alignment: .leading)
             }
+            // 완료된 할 일은 payload 빌더에서 이미 제외되므로 strikethrough 는 안전망 (bogus 데이터 방어).
             Text(item.title).font(.subheadline).lineLimit(1)
                 .strikethrough(item.isDone && item.isTask)
             Spacer()
