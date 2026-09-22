@@ -128,6 +128,10 @@ object TodayWidgetPayloadBuilder {
         val rows = runCatching { SchedulesRepository.listInRange(today, today) }
             .getOrDefault(emptyList())
         val items = rows
+            // #351: 완료된 할 일은 위젯 리스트에서 제외. 홈 split 위젯의 openTasks 흐름과 동작 통일 —
+            // 완료 즉시 잠금/오늘 위젯에서도 사라져야 남아있는 항목 = 실제 할 일. 일정(type='schedule')
+            // 은 완료 개념이 없으므로 그대로 통과.
+            .filter { !(it.type == "task" && it.isDone) }
             .map { it.toWidgetItem(viewerId) }
             .sortedWith(compareBy(nullsLast()) { it.sortKey() })
             .map { it.item }
