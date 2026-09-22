@@ -10,6 +10,21 @@ Release 노트로 자동 게시된다 (`.github/workflows/release.yml`).
 
 ## [Unreleased]
 
+## [1.4.1] - 2026-09-22
+
+### 버그 수정
+- 잠금화면 · 오늘일정 위젯에서 이미 완료한 할 일이 계속 남아 보이던 문제 해결. 체크한 순간 위젯 리스트에서도 사라져요.
+
+## [1.4.1 · 개발자 노트]
+
+> 이 섹션은 GitHub Release 본문에는 함께 게시되지만, 앱의 릴리즈 노트 화면에서는 렌더링 되지 않는다.
+
+### 버그 수정 (#351)
+- `TodayWidgetPayloadBuilder.buildPayload` 가 오늘 rows → items 변환 앞단에서 `type='task' AND isDone` row 를 제외하도록 수정. 홈 SplitWidget 우측은 별도 `openTasks` (백엔드 `is_done=false` 필터) 를 써서 정상 동작했지만, 잠금 · 오늘일정 위젯은 `items` 를 그대로 렌더해 완료된 할 일이 남아있었음. Calendar/Split 은 이미 task 자체를 filter out 해 영향 없음.
+
+### 인프라 · 빌드
+- `.github/workflows/supabase-deploy.yml` 신설 (#348). dev push 시 `supabase/functions/**` 변경분만 감지해 Supabase CLI 로 자동 배포. workflow_dispatch 로 전체 함수 강제 재배포도 지원. v1.4.0 release 자동화가 broadcast-release-note 404 로 실패한 근본 원인 (함수 · 마이그레이션 수동 배포 정책이라 프로덕션에 못 올라감) 을 프로세스 레벨에서 방지.
+
 ## [1.4.0] - 2026-09-22
 
 ### 신규 기능
