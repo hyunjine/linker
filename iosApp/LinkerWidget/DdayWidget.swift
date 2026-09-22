@@ -157,7 +157,7 @@ private struct DdaySmallView: View {
     var body: some View {
         let brand = colorFromHex(entry.usColorHex)
         VStack(alignment: .leading, spacing: 0) {
-            Text("💙 함께한 지")
+            Text("함께한 지")
                 .font(.system(size: 11, weight: .semibold))
                 .foregroundColor(brand)
             Spacer(minLength: 0)
@@ -185,7 +185,7 @@ private struct DdayMediumView: View {
         HStack(alignment: .top, spacing: 0) {
             // 좌 절반
             VStack(alignment: .leading, spacing: 0) {
-                Text("💙 함께한 지")
+                Text("함께한 지")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(brand)
                 Spacer(minLength: 0)
@@ -242,12 +242,14 @@ private struct DdayMediumView: View {
     }
 }
 
-/// accessoryCircular (Figma 4204:78301). 시스템이 mono tint 처리하므로 컬러는 시스템 위임.
+/// accessoryCircular (Figma 4204:78301). "♡" + 큰 카운터. 시스템이 mono tint 처리하지만
+/// Figma 스펙대로 반투명 흰 원 fill + 얇은 흰 링 stroke 를 명시 (containerBackground clear 라
+/// 뒤 잠금화면 배경이 은은히 비침).
 private struct DdayLockView: View {
     let entry: DdayEntry
     var body: some View {
         VStack(spacing: 0) {
-            Text("D+")
+            Text("♡")
                 .font(.system(size: 10, weight: .bold))
                 .kerning(0.4)
             Text(entry.daysCount.map { "\($0)" } ?? "-")
@@ -256,7 +258,13 @@ private struct DdayLockView: View {
                 .lineLimit(1)
         }
         .foregroundStyle(.white)
-        .padding(6)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background {
+            Circle().fill(Color.white.opacity(0.20))
+        }
+        .overlay {
+            Circle().stroke(Color.white.opacity(0.35), lineWidth: 1)
+        }
     }
 }
 
