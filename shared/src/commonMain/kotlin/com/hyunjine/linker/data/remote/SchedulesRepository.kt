@@ -149,6 +149,8 @@ object SchedulesRepository {
                 filter {
                     eq("couple_id", coupleId)
                     ilike("title", "%$trimmed%")
+                    // 디데이 milestone 은 검색 결과에서도 숨김 (#329) — 편집·삭제 경로 전면 차단.
+                    neq("source", "dday_milestone")
                 }
                 order("start_date", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
             }
