@@ -96,11 +96,13 @@ private fun EverytimeTimetableScreen(
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.safeDrawing),
         ) {
-            Spacer(Modifier.height(54.dp))
+            // FrostedTopBar (54dp) + AppBar 하단 여백 8dp 를 감안해 세그먼트 컨트롤과의
+            // 총 gap 이 18dp 가 되도록 10dp 를 추가로 밀어준다.
+            Spacer(Modifier.height(54.dp + 10.dp))
 
             // 세그먼트 탭 — 본인/상대방. 닉네임이 비어있으면 폴백 라벨.
             OwnerTabs(state = state, onSelect = onSelectTab)
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(16.dp))
 
             val active = state.activeOwner
             val identifier = state.identifierOf(active)
