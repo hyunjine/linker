@@ -12,8 +12,10 @@ import com.hyunjine.linker.feature.main.resolveOwnerForViewer
 import com.hyunjine.linker.feature.main.toKoreanClock
 import io.github.jan.supabase.auth.auth
 import kotlinx.datetime.DatePeriod
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.daysUntil
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
@@ -87,6 +89,20 @@ data class TodayWidgetPayload(
      * 실패 시 빈 리스트 → 위젯은 요일 컬러(토=파랑·일=빨강)만 적용.
      */
     @SerialName("holidays") val holidays: List<String> = emptyList(),
+    /**
+     * 디데이 앵커 날짜 "yyyy-MM-dd" (#329). null 이면 아직 앵커 미설정 → 위젯이 "설정해주세요" 폴백.
+     * 하위 호환용 optional. 기존 위젯은 무시.
+     */
+    @SerialName("ddayAnchorDate") val ddayAnchorDate: String? = null,
+    /**
+     * 오늘 기준 다가오는 다음 milestone 라벨 (예: "100일", "1주년") (#329).
+     * null 이면 다음 milestone 이 없거나 앵커 미설정 상태 → 위젯 우측 "다음 기념일" 카드가 감춰짐.
+     */
+    @SerialName("ddayNextMilestoneLabel") val ddayNextMilestoneLabel: String? = null,
+    /** 다음 milestone 도래 날짜 "yyyy-MM-dd". */
+    @SerialName("ddayNextMilestoneDate") val ddayNextMilestoneDate: String? = null,
+    /** 다음 milestone 까지 남은 일수 (오늘 = 0 = D-DAY, 미래 = 양수 → D-N). */
+    @SerialName("ddayNextMilestoneDelta") val ddayNextMilestoneDelta: Int? = null,
 )
 
 /**
@@ -152,16 +168,42 @@ object TodayWidgetPayloadBuilder {
         // 실패해도 위젯이 렌더 자체는 되어야 하므로 default (파트너 pink, us purple) fallback.
         val mine = runCatching { UsersRepository.myProfile() }.getOrNull()
         val partner = runCatching { UsersRepository.partnerProfile() }.getOrNull()
+        // 디데이 앵커 + 다음 milestone (#329). 커플 미가입 · 앵커 미설정 · 조회 실패 시 null 로 폴백.
+        val coupleId = runCatching { com.hyunjine.linker.data.remote.CouplesRepository.myCoupleIdOrNull() }.getOrNull()
+        val couple = coupleId?.let { runCatching { com.hyunjine.linker.data.remote.CouplesRepository.getCoupleById(it) }.getOrNull() }
+        val anchor = couple?.ddayAnchorDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+        val next = anchor?.let { nextMilestoneAfter(it, today) }
         return TodayWidgetPayload(
             date = today.toString(),
             items = items,
             meColorHex = calendarColorFor(mine?.calendarColor).toRgbHex(),
             partnerColorHex = calendarColorFor(partner?.calendarColor ?: "pink").toRgbHex(),
-            usColorHex = CalendarPurple.toRgbHex(),
+            usColorHex = mine?.usCalendarColor?.let { calendarColorFor(it).toRgbHex() }
+                ?: CalendarPurple.toRgbHex(),
             openTasks = openTasks,
             monthEvents = monthEvents,
             holidays = holidays,
+            ddayAnchorDate = anchor?.toString(),
+            ddayNextMilestoneLabel = next?.first,
+            ddayNextMilestoneDate = next?.second?.toString(),
+            ddayNextMilestoneDelta = next?.let { today.daysUntil(it.second) },
         )
+    }
+
+    /**
+     * 오늘 기준 가장 가까운 다음 milestone (deltaDays ≥ 0) 반환. anchor 이후 첫 50일 · 100일 등에서
+     * 아직 지나지 않은 것 중 가까운 순서로 첫 항목. 없으면 null.
+     *
+     * milestone 생성 규칙은 앱 캘린더 로직 (`feature.dday.DdayMilestones`) 과 동일 — N일 = anchor
+     * + (N-1) 일, N주년 = anchor + N 년. 여기 위젯 payload 는 다음 도래 milestone 한 개만 필요해
+     * `feature/dday` 의존성 회피 위해 로컬로 재구성.
+     */
+    private fun nextMilestoneAfter(anchor: LocalDate, today: LocalDate): Pair<String, LocalDate>? {
+        val days = listOf(50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 2000, 3000, 5000, 10000)
+        val all = mutableListOf<Pair<String, LocalDate>>()
+        days.forEach { n -> all.add("${n}일" to anchor.plus(n - 1, DateTimeUnit.DAY)) }
+        for (y in 1..30) all.add("${y}주년" to anchor.plus(y, DateTimeUnit.YEAR))
+        return all.filter { it.second >= today }.minByOrNull { it.second }
     }
 
     private fun SchedulesRepository.Row.toWidgetItem(viewerId: String?): SortableItem {
