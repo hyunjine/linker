@@ -36,9 +36,12 @@ internal fun List<SchedulesRepository.Row>.toDayDetail(date: LocalDate, viewerId
     val allDay = mutableListOf<AllDaySchedule>()
     for (row in this) {
         val owner = resolveOwnerForViewer(row.ownerKind, row.createdBy, viewerId).toDayOwner()
-        // 디데이 milestone (#329): 상세 시트에 노출은 하되 탭 시 편집 화면 이동은 차단 (readOnly).
-        // 사용자가 milestone 을 실수로 삭제 · 변경할 수 없게 하고, 데이터는 anchor 저장 시 자동 재생성.
+        // 디데이 milestone (#329) · 생일 자동 등록 (#334): 상세 시트에 노출은 하되 탭 시 편집 화면
+        // 이동은 차단 (readOnly). 사용자가 실수로 삭제 · 변경할 수 없게 하고, 데이터는 트리거/앵커
+        // 저장 시 자동 재생성.
         val isMilestone = row.source == "dday_milestone"
+        val isBirthday = row.birthdayUid != null
+        val isSystemManaged = isMilestone || isBirthday
         when {
             row.type == "task" -> tasks += DayTask(
                 id = row.id,
@@ -51,7 +54,7 @@ internal fun List<SchedulesRepository.Row>.toDayDetail(date: LocalDate, viewerId
             )
             row.allDay -> allDay += AllDaySchedule(
                 id = row.id, title = row.title, owner = owner, barColor = null,
-                readOnly = isMilestone,
+                readOnly = isSystemManaged,
             )
             else -> timed += TimedSchedule(
                 id = row.id,
