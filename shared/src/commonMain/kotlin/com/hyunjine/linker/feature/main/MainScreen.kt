@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -62,6 +63,8 @@ import com.hyunjine.linker.designsystem.theme.CalendarTodayText
 import com.hyunjine.linker.designsystem.theme.CalendarWeekdayText
 import com.hyunjine.linker.designsystem.theme.ChipHolidayBg
 import com.hyunjine.linker.designsystem.theme.ChipHolidayText
+import com.hyunjine.linker.designsystem.theme.ChipAnniversaryBg
+import com.hyunjine.linker.designsystem.theme.ChipAnniversaryText
 import com.hyunjine.linker.designsystem.theme.ChipPersonalBg
 import com.hyunjine.linker.designsystem.theme.ChipPersonalText
 import com.hyunjine.linker.designsystem.theme.ChipSeasonBg
@@ -85,10 +88,20 @@ import linker.shared.generated.resources.ic_menu
 import linker.shared.generated.resources.ic_search
 import org.jetbrains.compose.resources.painterResource
 
-/** 하루 셀에 표시할 이벤트 종류. 우선순위는 [priority] 로 결정 (낮을수록 먼저). */
+/**
+ * 하루 셀에 표시할 이벤트 종류. 우선순위는 [priority] 로 결정 (낮을수록 먼저).
+ *
+ * 후속 이슈 노트 (#182 재설계):
+ *  - 3카테고리 (스케줄 · 할일 · 기념일) 간 표시 위계는 이번 스코프 밖. Anniversary 는 Holiday
+ *    (공휴일 · 최우선) 다음, Season/Personal 앞에 두어 사용자 개인화 요소가 자연 대체공휴일보다
+ *    먼저 눈에 들어오게 잠정 배치.
+ */
 enum class CalendarEventType {
     /** 법정 공휴일. 빨강 계열. */
     Holiday,
+
+    /** 커플 기념일 (`couple_anniversaries`). 보라 계열. */
+    Anniversary,
 
     /** 절기·잡절 등. 회색 계열. */
     Season,
@@ -100,8 +113,9 @@ enum class CalendarEventType {
 private val CalendarEventType.priority: Int
     get() = when (this) {
         CalendarEventType.Holiday -> 0
-        CalendarEventType.Season -> 1
-        CalendarEventType.Personal -> 2
+        CalendarEventType.Anniversary -> 1
+        CalendarEventType.Season -> 2
+        CalendarEventType.Personal -> 3
     }
 
 /** 하루 셀에 붙는 이벤트 chip 한 개. */
@@ -215,12 +229,10 @@ fun MainScreen(
     onDisplayStateChange: (DrawerDisplayState) -> Unit = {},
     /** 파트너 조인 여부. 드로워의 "상대방 캘린더" 토글 노출 · 스케줄 필터에 사용. */
     hasPartner: Boolean = false,
-    /** Outlook 연동된 계정 이메일. null 이면 미연동 → 드로워 행 탭 시 로그인 시트. */
-    outlookAccountEmail: String? = null,
-    /** Outlook 연동 시작 (MSAL 시트). 성공 시 상위 (App) 이 sync 트리거 · 상태 재조회. */
-    onOutlookConnectClick: () -> Unit = {},
-    /** Outlook 연동 해제 (MSAL signOut · mirror rows 삭제). */
-    onOutlookDisconnectClick: () -> Unit = {},
+    /** 드로워 "에브리타임 시간표" 탭 시 콜백. 상위에서 nav backStack 에 push. */
+    onEverytimeTimetableClick: () -> Unit = {},
+    /** 소유자 pill 색 팔레트. 프로필 캘린더 컬러 · 공동 컬러로부터 파생 (#264). */
+    ownerColors: OwnerColors = OwnerColors.Default,
 ) {
     // Int.MAX_VALUE 크기의 pager 로 사실상 무한 좌우 스와이프. 중간에서 시작해 양쪽으로 무제한 이동.
     val anchorPage = remember { Int.MAX_VALUE / 2 }
@@ -239,6 +251,8 @@ fun MainScreen(
         SpecialDayKind.Holiday,
         SpecialDayKind.SolarTerm,
     )
+    // 커플 기념일 chip. `repeat_yearly` 인 항목은 보이는 연도로 옮겨 배치되고, realtime 변경 시 자동 재fetch.
+    val anniversaryEntries = rememberAnniversaryEntries(year = currentYearMonth.year)
     // 타이틀 탭 시 년/월 피커 시트 오픈. dismiss 시 선택 값으로 pager 를 해당 월까지 스크롤.
     var pickerVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
@@ -269,8 +283,9 @@ fun MainScreen(
     }
 
     // 표시 토글 반영: 공휴일/절기 는 type 기준, 개인 chip 은 owner 기준 (나/상대방/공동) 으로 각각 필터.
+    // 기념일은 전용 토글이 없어 항상 표시 (재설계 시 토글/필터 정책 결정 · #182 후속).
     val mergedEntries = remember(
-        entries, scheduleEntries, specialDayEntries,
+        entries, scheduleEntries, specialDayEntries, anniversaryEntries,
         displayState.showHolidays, displayState.showSolarTerms,
         displayState.showMyCalendar, displayState.showPartnerCalendar, displayState.showSharedCalendar,
     ) {
@@ -283,7 +298,8 @@ fun MainScreen(
             showPartner = displayState.showPartnerCalendar,
             showShared = displayState.showSharedCalendar,
         )
-        val withSchedules = mergeEntries(base = filteredSpecial, override = filteredSchedules)
+        val withAnniv = mergeEntries(base = filteredSpecial, override = anniversaryEntries)
+        val withSchedules = mergeEntries(base = withAnniv, override = filteredSchedules)
         mergeEntries(base = withSchedules, override = entries)
     }
 
@@ -305,6 +321,7 @@ fun MainScreen(
                     onProfileEditClick()
                 },
                 onAnniversaryClick = onAnniversaryClick,
+                onEverytimeTimetableClick = onEverytimeTimetableClick,
                 onToggleMyCalendar = { onDisplayStateChange(displayState.copy(showMyCalendar = it)) },
                 onTogglePartnerCalendar = { onDisplayStateChange(displayState.copy(showPartnerCalendar = it)) },
                 onToggleSharedCalendar = { onDisplayStateChange(displayState.copy(showSharedCalendar = it)) },
@@ -314,9 +331,6 @@ fun MainScreen(
                     scope.launch { drawerState.close() }
                     onLogout()
                 },
-                outlookAccountEmail = outlookAccountEmail,
-                onOutlookConnectClick = onOutlookConnectClick,
-                onOutlookDisconnectClick = onOutlookDisconnectClick,
             )
         },
     ) {
@@ -383,6 +397,7 @@ fun MainScreen(
     DayDetailSheet(
         visible = sheetVisible && dayDetail != null,
         detail = dayDetail,
+        ownerColors = ownerColors,
         onDismiss = {
             sheetVisible = false
             selectedDateString = null
@@ -439,6 +454,8 @@ private fun Map<LocalDate, CalendarDayEntry>.filterByToggles(
             when (ev.type) {
                 CalendarEventType.Holiday -> showHolidays
                 CalendarEventType.Season -> showSolarTerms
+                // 기념일은 현재 전용 토글 없음 — 항상 노출. 3카테고리 위계 재설계 시 토글/필터 정책 결정 (#182).
+                CalendarEventType.Anniversary -> true
                 CalendarEventType.Personal -> true
             }
         }
@@ -710,8 +727,17 @@ private fun DayCell(
     val sorted = remember(entry) {
         entry?.events?.sortedBy { it.type.priority }.orEmpty()
     }
-    val visibleChips = sorted.take(2)
-    val overflow = (sorted.size - visibleChips.size).coerceAtLeast(0)
+    // 디데이 milestone (#329) 은 셀 chip 대신 숫자 뱃지 (컬러 원) 로 표시.
+    // Anniversary + tintColor 있는 event 를 milestone 으로 간주 (ScheduleMapping 이 그렇게 태그).
+    val milestone = remember(sorted) {
+        sorted.firstOrNull { it.type == CalendarEventType.Anniversary && it.tintColor != null }
+    }
+    // 뱃지로 흡수된 milestone 은 chip 리스트에서 제외 (셀에 중복 노출 방지).
+    val chipEvents = remember(sorted, milestone) {
+        if (milestone != null) sorted.filterNot { it === milestone } else sorted
+    }
+    val visibleChips = chipEvents.take(2)
+    val overflow = (chipEvents.size - visibleChips.size).coerceAtLeast(0)
 
     Column(
         modifier = modifier
@@ -725,7 +751,7 @@ private fun DayCell(
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
         // 모든 셀의 숫자 컨테이너를 28dp Box 로 통일 → 오늘/평일 모두 같은 baseline.
-        // 오늘 셀만 원 배경을 얹고 텍스트 색만 반전 (offset · fontSize 변주 없이 정확히 겹침).
+        // 오늘 셀만 검정 원 + 흰 숫자. milestone 은 원 하이라이트 없이 아래 "🎂 N" 라벨로만 표시 (#329).
         Box(
             modifier = Modifier
                 .size(28.dp)
@@ -743,6 +769,22 @@ private fun DayCell(
                     fontSize = 17.sp,
                     color = if (isToday) CalendarTodayText else dayColor,
                 ),
+            )
+        }
+
+        // milestone 라벨 + 🎂 (#329). "100일" → "🎂 100", "1주년" → "🎂 1주년".
+        // 좁은 셀 폭을 넘어 옆 영역까지 침범 허용 (사용자 요청) — wrapContentWidth(unbounded=true).
+        milestone?.let { m ->
+            Text(
+                text = "🎂 ${milestoneShortLabel(m.label)}",
+                style = TextStyle(
+                    fontFamily = pretendard,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 10.sp,
+                    color = m.tintColor!!,
+                ),
+                maxLines = 1,
+                modifier = Modifier.wrapContentWidth(unbounded = true),
             )
         }
 
@@ -781,8 +823,13 @@ private fun dayNumberColor(cell: MonthCell): Color {
 @Composable
 private fun EventChip(event: CalendarEvent) {
     val (bg, fg) = when {
+        // 기념일 pill + 커플 us 색 (#329): 흰색과 blend 해 pastel 톤 opaque 배경 + tint 를 fg 로.
+        // 기존 하드코딩된 ChipAnniversaryBg 는 tintColor 미지정 케이스 (search preview 등) 폴백.
+        event.type == CalendarEventType.Anniversary && event.tintColor != null ->
+            pastelize(event.tintColor) to event.tintColor
         event.tintColor != null -> event.tintColor.copy(alpha = 0.18f) to event.tintColor
         event.type == CalendarEventType.Holiday -> ChipHolidayBg to ChipHolidayText
+        event.type == CalendarEventType.Anniversary -> ChipAnniversaryBg to ChipAnniversaryText
         event.type == CalendarEventType.Season -> ChipSeasonBg to ChipSeasonText
         else -> ChipPersonalBg to ChipPersonalText
     }
@@ -821,6 +868,29 @@ private fun ChipText(text: String, bg: Color, fg: Color) {
             fontSize = 10.sp,
             color = fg,
         ),
+    )
+}
+
+/**
+ * Chip 배경용 pastel 톤 계산. base 컬러를 흰색과 15/85 로 blend 한 opaque 색상 반환.
+ * ChipAnniversaryBg (#EDE1FB) 톤의 opaque 밝은 배경을 임의 base 컬러에서 재현 (#329).
+ * alpha 기반 tint (0.18 overlay) 는 cell 배경 색에 따라 반투명하게 비쳐 pill 톤이 흐려지므로,
+ * 밝은 opaque 배경이 필요한 경우 이 함수로 계산한다.
+ */
+/**
+ * milestone chip 라벨을 셀 뱃지용 짧은 표기로 변환 (#329).
+ * "100일" · "200일" → "100", "200" (숫자만). "1주년" · "2주년" 등은 그대로 유지.
+ */
+private fun milestoneShortLabel(fullLabel: String): String =
+    if (fullLabel.endsWith("일")) fullLabel.dropLast(1) else fullLabel
+
+private fun pastelize(base: Color, colorRatio: Float = 0.35f): Color {
+    val white = 1f - colorRatio
+    return Color(
+        red = base.red * colorRatio + 1f * white,
+        green = base.green * colorRatio + 1f * white,
+        blue = base.blue * colorRatio + 1f * white,
+        alpha = 1f,
     )
 }
 

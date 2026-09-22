@@ -1,0 +1,20 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="14dp"
+    android:height="14dp"
+    android:viewportWidth="14"
+    android:viewportHeight="14">
+    <!-- 아래 밑줄 -->
+    <path
+        android:pathData="M7,11.6667 H12.25"
+        android:strokeColor="#FF6B6B70"
+        android:strokeWidth="1.28333"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <!-- 연필 몸통 · 촉 -->
+    <path
+        android:pathData="M9.625,2.04167 C9.85706,1.8096 10.1718,1.67923 10.5,1.67923 C10.6625,1.67923 10.8234,1.71124 10.9735,1.77342 C11.1237,1.83561 11.2601,1.92676 11.375,2.04167 C11.4899,2.15657 11.5811,2.29299 11.6432,2.44312 C11.7054,2.59325 11.7374,2.75416 11.7374,2.91667 C11.7374,3.07917 11.7054,3.24008 11.6432,3.39021 C11.5811,3.54035 11.4899,3.67676 11.375,3.79167 L4.08333,11.0833 L1.75,11.6667 L2.33333,9.33333 L9.625,2.04167 Z"
+        android:strokeColor="#FF6B6B70"
+        android:strokeWidth="1.28333"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

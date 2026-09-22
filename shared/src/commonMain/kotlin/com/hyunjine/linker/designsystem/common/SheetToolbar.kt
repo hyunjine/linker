@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -35,6 +36,7 @@ import com.hyunjine.linker.designsystem.theme.TextPrimary
  * @param onConfirm 저장 pill 탭 콜백. [confirmEnabled] false 면 무시.
  * @param confirmEnabled 저장 활성화 여부. false 면 pill 이 반투명.
  * @param confirmLabel 저장 버튼 텍스트 (기본 "저장" · 상황에 따라 "확인" · "완료" 등).
+ * @param confirmLoading true 면 pill 라벨 자리에 인디케이터를 노출하고 탭을 무시한다 (#269).
  * @param modifier 외부 [Modifier].
  */
 @Composable
@@ -44,6 +46,7 @@ fun SheetToolbar(
     onConfirm: () -> Unit,
     confirmEnabled: Boolean = true,
     confirmLabel: String = "저장",
+    confirmLoading: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val font = LocalPretendardFontFamily.current
@@ -70,6 +73,7 @@ fun SheetToolbar(
             label = confirmLabel,
             enabled = confirmEnabled,
             onClick = onConfirm,
+            loading = confirmLoading,
             modifier = Modifier.align(Alignment.CenterEnd),
         )
     }
@@ -111,6 +115,9 @@ fun CircleCloseButton(
  * disabled 표현을 `.alpha()` 대신 fill/text 컬러 자체의 alpha 로 처리 — Compose skia iOS 에서
  * `.alpha()` 가 만드는 graphicsLayer 가 인접한 canvas 컴포저블 (HsvColorPicker 등) 의
  * recomposition 과 얽히면서 pill fill 이 사라지는 케이스 회피.
+ *
+ * @param loading true 면 라벨 자리에 원형 인디케이터를 노출하고 탭을 무시한다. pill 자체 높이·폭은
+ * 텍스트 렌더링 시와 동일하게 유지되어 상단 툴바 레이아웃이 튀지 않는다 (#269).
  */
 @Composable
 fun SaveActionPill(
@@ -118,19 +125,28 @@ fun SaveActionPill(
     enabled: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    loading: Boolean = false,
 ) {
     val font = LocalPretendardFontFamily.current
     val pillColor = if (enabled) PrimaryBlue else PrimaryBlue.copy(alpha = 0.5f)
-    val textColor = if (enabled) OnPrimary else OnPrimary.copy(alpha = 0.5f)
+    // 로딩 중에는 텍스트 컬러를 완전 투명으로 — 자리는 잡되 시각적으로는 사라진다.
+    // `.alpha()` modifier 는 iOS Skia 에서 graphicsLayer 부작용이 있어 회피 (기존 disabled 처리와 동일 이유).
+    val textColor = when {
+        loading -> Color.Transparent
+        enabled -> OnPrimary
+        else -> OnPrimary.copy(alpha = 0.5f)
+    }
     Box(
         modifier = modifier
             .height(36.dp)
             .clip(CircleShape)
             .liquidGlass(shape = CircleShape, fill = SolidColor(pillColor))
-            .clickable(enabled = enabled, onClick = onClick)
+            .clickable(enabled = enabled && !loading, onClick = onClick)
             .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center,
     ) {
+        // 라벨은 로딩 중에도 렌더해 pill 폭을 텍스트 기준으로 유지 — 인디케이터로 바뀌는 순간
+        // 툴바 레이아웃이 튀지 않는다.
         Text(
             text = label,
             style = TextStyle(
@@ -140,6 +156,13 @@ fun SaveActionPill(
                 color = textColor,
             ),
         )
+        if (loading) {
+            CircularProgressIndicator(
+                color = OnPrimary,
+                strokeWidth = 2.dp,
+                modifier = Modifier.size(16.dp),
+            )
+        }
     }
 }
 

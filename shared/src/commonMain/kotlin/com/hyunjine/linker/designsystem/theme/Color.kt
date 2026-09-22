@@ -123,6 +123,10 @@ val ChipSeasonBg = Color(0xFFF0F0F2)    // 절기 배경
 val ChipSeasonText = Color(0xFF6B6B75)  // 절기 글자
 val ChipPersonalBg = Color(0xFFFADEE3)  // 개인 일정 배경
 val ChipPersonalText = Color(0xFFBF404D) // 개인 일정 글자
+// 기념일 chip — CalendarPurple 계열. 공휴일 · 절기 · 개인 일정과 시각적으로 구분되는 유일한 톤.
+// 후속 재설계에서 3카테고리 위계 (스케줄 · 할일 · 기념일) 를 다시 다듬을 때 팔레트도 함께 조정 예정 (#182).
+val ChipAnniversaryBg = Color(0xFFEDE1FB)
+val ChipAnniversaryText = Color(0xFF6D3AB2)
 
 // 드로워 강조 버튼 배경 (기념일 설정 등)
 val DrawerButtonBg = Color(0xFFF5F5F7)
@@ -130,10 +134,6 @@ val DrawerButtonBg = Color(0xFFF5F5F7)
 // 드로워 표시 옵션 체크박스 (Figma #599CFF)
 val DrawerCheckBlue = Color(0xFF599CFF)
 
-// 소유자 태그 pill (날짜 상세 시트)
-val OwnerMeBg = Color(0xFFFFF3D6)       // 나 배경 (옅은 노랑)
-val OwnerMeText = Color(0xFFB08800)     // 나 글자
-val OwnerPartnerBg = Color(0xFFFCE1EA)  // 상대방 배경 (옅은 분홍)
-val OwnerPartnerText = Color(0xFFC03A6B) // 상대방 글자
-val OwnerUsBg = Color(0xFFEEE1FA)       // 우리 배경 (옅은 보라)
-val OwnerUsText = Color(0xFF6E3AC0)     // 우리 글자
+// 드로워 하단 액션바 (기념일 · 에브리타임) 상단 구분선 (#327 · Figma #E7E7E7)
+val DrawerBottomNavBorder = Color(0xFFE7E7E7)
+

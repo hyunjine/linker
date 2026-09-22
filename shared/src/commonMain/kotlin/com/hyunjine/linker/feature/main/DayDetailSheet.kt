@@ -38,12 +38,6 @@ import com.hyunjine.linker.designsystem.theme.CalendarLunarText
 import com.hyunjine.linker.designsystem.theme.CalendarSaturday
 import com.hyunjine.linker.designsystem.theme.CalendarSunday
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
-import com.hyunjine.linker.designsystem.theme.OwnerMeBg
-import com.hyunjine.linker.designsystem.theme.OwnerMeText
-import com.hyunjine.linker.designsystem.theme.OwnerPartnerBg
-import com.hyunjine.linker.designsystem.theme.OwnerPartnerText
-import com.hyunjine.linker.designsystem.theme.OwnerUsBg
-import com.hyunjine.linker.designsystem.theme.OwnerUsText
 import com.hyunjine.linker.designsystem.theme.PrimaryBlue
 import com.hyunjine.linker.designsystem.theme.SegmentTrack
 import com.hyunjine.linker.designsystem.theme.Separator
@@ -56,11 +50,15 @@ import linker.shared.generated.resources.ic_cal_31
 import linker.shared.generated.resources.ic_todo
 import org.jetbrains.compose.resources.painterResource
 
-/** 이벤트/할 일의 소유자 태그. Figma 3종: 나 (노랑), 상대방 (분홍), 우리 (보라). */
-enum class DayOwner(val label: String, val bg: Color, val fg: Color) {
-    Me("나", OwnerMeBg, OwnerMeText),
-    Partner("상대방", OwnerPartnerBg, OwnerPartnerText),
-    Us("우리", OwnerUsBg, OwnerUsText),
+/**
+ * 이벤트/할 일의 소유자 태그. 세 종류 — 나 · 상대방 · 우리.
+ * pill 색은 이 enum 이 들고 있지 않고, 렌더링 시점에 [OwnerColors] (프로필 캘린더 컬러
+ * 설정에서 파생) 으로 결정한다 (#264).
+ */
+enum class DayOwner(val label: String) {
+    Me("나"),
+    Partner("상대방"),
+    Us("우리"),
 }
 
 /**
@@ -93,6 +91,11 @@ data class AllDaySchedule(
     val title: String,
     val owner: DayOwner,
     val barColor: Color? = null,
+    /**
+     * true 면 row 자체는 렌더하지만 탭 시 편집 화면으로 이동하지 않음 (#329).
+     * 디데이 milestone 자동 반영 row 처럼 시스템이 관리해 사용자 편집이 무의미한 경우 사용.
+     */
+    val readOnly: Boolean = false,
 )
 
 /** 날짜 상세 시트의 payload. */
@@ -126,6 +129,8 @@ fun DayDetailSheet(
     onAdd: (ScheduleType) -> Unit = {},
     /** 스케줄 (timed / all-day) row 탭 시 편집 화면 진입 콜백. task 는 체크박스만 반응. */
     onSelectSchedule: (scheduleId: String) -> Unit = {},
+    /** 소유자 pill 색 팔레트. 프로필 캘린더 컬러 (내/상대방) + 공동 (보라) 로부터 파생 (#264). */
+    ownerColors: OwnerColors = OwnerColors.Default,
 ) {
     AppBottomSheet(
         visible = visible,
@@ -151,11 +156,20 @@ fun DayDetailSheet(
                 tasks = detail.tasks,
                 onToggle = onToggleTask,
                 onSelect = onSelectTask,
+                ownerColors = ownerColors,
             )
             Spacer(Modifier.height(16.dp))
-            TimedScheduleSection(schedules = detail.timedSchedules, onSelect = onSelectSchedule)
+            TimedScheduleSection(
+                schedules = detail.timedSchedules,
+                onSelect = onSelectSchedule,
+                ownerColors = ownerColors,
+            )
             Spacer(Modifier.height(16.dp))
-            AllDayScheduleSection(schedules = detail.allDaySchedules, onSelect = onSelectSchedule)
+            AllDayScheduleSection(
+                schedules = detail.allDaySchedules,
+                onSelect = onSelectSchedule,
+                ownerColors = ownerColors,
+            )
         }
     }
 }
@@ -272,6 +286,7 @@ private fun TaskSection(
     tasks: List<DayTask>,
     onToggle: (String) -> Unit,
     onSelect: (String) -> Unit,
+    ownerColors: OwnerColors,
 ) {
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(text = "할 일 ${tasks.size}")
@@ -282,13 +297,19 @@ private fun TaskSection(
                 task = task,
                 onToggle = { onToggle(task.id) },
                 onSelect = { onSelect(task.id) },
+                ownerColors = ownerColors,
             )
         }
     }
 }
 
 @Composable
-private fun TaskRow(task: DayTask, onToggle: () -> Unit, onSelect: () -> Unit) {
+private fun TaskRow(
+    task: DayTask,
+    onToggle: () -> Unit,
+    onSelect: () -> Unit,
+    ownerColors: OwnerColors,
+) {
     val pretendard = LocalPretendardFontFamily.current
     val rowInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val checkInteraction = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
@@ -350,24 +371,32 @@ private fun TaskRow(task: DayTask, onToggle: () -> Unit, onSelect: () -> Unit) {
                 textDecoration = if (task.isDone) TextDecoration.LineThrough else null,
             ),
         )
-        OwnerPill(owner = task.owner)
+        OwnerPill(owner = task.owner, ownerColors = ownerColors)
     }
 }
 
 // ────────── Timed ──────────
 
 @Composable
-private fun TimedScheduleSection(schedules: List<TimedSchedule>, onSelect: (String) -> Unit) {
+private fun TimedScheduleSection(
+    schedules: List<TimedSchedule>,
+    onSelect: (String) -> Unit,
+    ownerColors: OwnerColors,
+) {
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(text = "하루 일정 ${schedules.size}")
         if (schedules.isEmpty()) return
         Spacer(Modifier.height(4.dp))
-        schedules.forEach { TimedRow(it, onSelect) }
+        schedules.forEach { TimedRow(it, onSelect, ownerColors) }
     }
 }
 
 @Composable
-private fun TimedRow(schedule: TimedSchedule, onSelect: (String) -> Unit) {
+private fun TimedRow(
+    schedule: TimedSchedule,
+    onSelect: (String) -> Unit,
+    ownerColors: OwnerColors,
+) {
     val pretendard = LocalPretendardFontFamily.current
     Row(
         modifier = Modifier
@@ -409,29 +438,37 @@ private fun TimedRow(schedule: TimedSchedule, onSelect: (String) -> Unit) {
                 color = TextPrimary,
             ),
         )
-        OwnerPill(owner = schedule.owner)
+        OwnerPill(owner = schedule.owner, ownerColors = ownerColors)
     }
 }
 
 // ────────── AllDay ──────────
 
 @Composable
-private fun AllDayScheduleSection(schedules: List<AllDaySchedule>, onSelect: (String) -> Unit) {
+private fun AllDayScheduleSection(
+    schedules: List<AllDaySchedule>,
+    onSelect: (String) -> Unit,
+    ownerColors: OwnerColors,
+) {
     Column(modifier = Modifier.fillMaxWidth()) {
         SectionHeader(text = "종일 일정 ${schedules.size}")
         if (schedules.isEmpty()) return
         Spacer(Modifier.height(4.dp))
-        schedules.forEach { AllDayRow(it, onSelect) }
+        schedules.forEach { AllDayRow(it, onSelect, ownerColors) }
     }
 }
 
 @Composable
-private fun AllDayRow(schedule: AllDaySchedule, onSelect: (String) -> Unit) {
+private fun AllDayRow(
+    schedule: AllDaySchedule,
+    onSelect: (String) -> Unit,
+    ownerColors: OwnerColors,
+) {
     val pretendard = LocalPretendardFontFamily.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onSelect(schedule.id) }
+            .then(if (!schedule.readOnly) Modifier.clickable { onSelect(schedule.id) } else Modifier)
             .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -455,7 +492,7 @@ private fun AllDayRow(schedule: AllDaySchedule, onSelect: (String) -> Unit) {
                 color = TextPrimary,
             ),
         )
-        OwnerPill(owner = schedule.owner)
+        OwnerPill(owner = schedule.owner, ownerColors = ownerColors)
     }
 }
 
@@ -476,13 +513,24 @@ private fun SectionHeader(text: String) {
     )
 }
 
+/**
+ * 소유자 pill. 배경 · 텍스트 색은 [ownerColors] (프로필 캘린더 컬러) 로부터 파생 —
+ * 캘린더 chip 과 동일한 pastel bg (0.18 alpha) + 원본 컬러 텍스트 패턴을 사용해 프로필
+ * 컬러 설정이 pill 에도 시각적으로 일치하도록 한다 (#264).
+ */
 @Composable
-private fun OwnerPill(owner: DayOwner) {
+private fun OwnerPill(owner: DayOwner, ownerColors: OwnerColors) {
     val pretendard = LocalPretendardFontFamily.current
+    val kind = when (owner) {
+        DayOwner.Me -> "me"
+        DayOwner.Partner -> "partner"
+        DayOwner.Us -> "us"
+    }
+    val tint = ownerColors.forOwner(kind)
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(999.dp))
-            .background(owner.bg)
+            .background(tint.copy(alpha = 0.18f))
             .padding(horizontal = 8.dp, vertical = 3.dp),
     ) {
         Text(
@@ -491,7 +539,7 @@ private fun OwnerPill(owner: DayOwner) {
                 fontFamily = pretendard,
                 fontWeight = FontWeight.Bold,
                 fontSize = 11.sp,
-                color = owner.fg,
+                color = tint,
             ),
         )
     }

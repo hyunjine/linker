@@ -36,6 +36,12 @@ internal fun List<SchedulesRepository.Row>.toDayDetail(date: LocalDate, viewerId
     val allDay = mutableListOf<AllDaySchedule>()
     for (row in this) {
         val owner = resolveOwnerForViewer(row.ownerKind, row.createdBy, viewerId).toDayOwner()
+        // 디데이 milestone (#329) · 생일 자동 등록 (#334): 상세 시트에 노출은 하되 탭 시 편집 화면
+        // 이동은 차단 (readOnly). 사용자가 실수로 삭제 · 변경할 수 없게 하고, 데이터는 트리거/앵커
+        // 저장 시 자동 재생성.
+        val isMilestone = row.source == "dday_milestone"
+        val isBirthday = row.birthdayUid != null
+        val isSystemManaged = isMilestone || isBirthday
         when {
             row.type == "task" -> tasks += DayTask(
                 id = row.id,
@@ -48,6 +54,7 @@ internal fun List<SchedulesRepository.Row>.toDayDetail(date: LocalDate, viewerId
             )
             row.allDay -> allDay += AllDaySchedule(
                 id = row.id, title = row.title, owner = owner, barColor = null,
+                readOnly = isSystemManaged,
             )
             else -> timed += TimedSchedule(
                 id = row.id,
@@ -81,12 +88,17 @@ internal fun List<SchedulesRepository.Row>.toCalendarEntries(
         val start = LocalDate.parse(row.startDate)
         val end = LocalDate.parse(row.endDate)
         val resolved = resolveOwnerForViewer(row.ownerKind, row.createdBy, viewerId)
-        val tint = ownerColors.forOwner(resolved)
+        // 디데이 milestone 자동 반영 row 는 기념일 pill 로 렌더 (#329) — 단 색상은 하드코딩된
+        // 보라 대신 커플의 us 색상에서 파생 (사용자 지정). tintColor 를 함께 실어 EventChip 이
+        // 이 값으로 pastel 배경 + 진한 fg 를 계산.
+        val isDdayMilestone = row.source == "dday_milestone"
+        val eventType = if (isDdayMilestone) CalendarEventType.Anniversary else CalendarEventType.Personal
+        val tint = if (isDdayMilestone) ownerColors.us else ownerColors.forOwner(resolved)
         val ownerTag = resolved.toDayOwner()
         var d = start
         while (d <= end) {
             out.getOrPut(d) { mutableListOf() }
-                .add(CalendarEvent(row.title, CalendarEventType.Personal, tintColor = tint, id = row.id, owner = ownerTag))
+                .add(CalendarEvent(row.title, eventType, tintColor = tint, id = row.id, owner = ownerTag))
             d = d.plus(1, DateTimeUnit.DAY)
         }
     }
@@ -99,7 +111,7 @@ internal fun String.toDayOwner(): DayOwner = when (this) {
     else -> DayOwner.Us
 }
 
-/** "HH:MM:SS" → "오전 10:00" / "오후 2:00" 형식. null 은 null 그대로. */
+/** "HH:MM:SS" → "오전 10:00" / "오후 06:00" 형식. null 은 null 그대로. */
 internal fun String?.toKoreanClock(): String? {
     if (this.isNullOrBlank()) return null
     val h = substring(0, 2).toIntOrNull() ?: return null
@@ -110,5 +122,5 @@ internal fun String?.toKoreanClock(): String? {
         h == 12 -> "오후" to 12
         else -> "오후" to (h - 12)
     }
-    return "$period $hour12:$m"
+    return "$period ${hour12.toString().padStart(2, '0')}:$m"
 }

@@ -67,6 +67,11 @@ object SchedulesRepository {
         val source: String = "internal",
         /** Graph event.id (outlook mirror 일 때만). */
         @SerialName("external_id") val externalId: String? = null,
+        /**
+         * 생일 자동 등록 표식 (#307/#334). NULL 이면 일반 스케줄, 아니면 해당 유저의 생일.
+         * 상세 시트에서 편집 화면 진입을 차단하는 데 사용.
+         */
+        @SerialName("birthday_uid") val birthdayUid: String? = null,
     )
 
     /**
@@ -91,6 +96,13 @@ object SchedulesRepository {
         @SerialName("series_id") val seriesId: String? = null,
         @SerialName("reminder_minutes_before") val reminderMinutesBefore: Int = 5,
         @SerialName("reminder_time") val reminderTime: String = "09:00:00",
+        /**
+         * origin/기원 태그. `internal` (앱 자체 생성) · `outlook` (Graph mirror) · `dday_milestone`
+         * (#329 · 디데이 milestone 자동 삽입) 등. 기본 `internal` 이라 기존 caller 는 무영향.
+         */
+        val source: String = "internal",
+        /** provider 측 이벤트 id. dday milestone 은 라벨 (`100일`, `1주년`) 을 저장. */
+        @SerialName("external_id") val externalId: String? = null,
     )
 
     /** `schedule_repeat_rules` row. 필요한 필드만 nullable — CHECK 제약은 서버가 검증. */
@@ -142,6 +154,8 @@ object SchedulesRepository {
                 filter {
                     eq("couple_id", coupleId)
                     ilike("title", "%$trimmed%")
+                    // 디데이 milestone 은 검색 결과에서도 숨김 (#329) — 편집·삭제 경로 전면 차단.
+                    neq("source", "dday_milestone")
                 }
                 order("start_date", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
             }
@@ -158,6 +172,26 @@ object SchedulesRepository {
                     lte("start_date", to.toString())
                     gte("end_date", from.toString())
                 }
+            }
+            .decodeList<Row>()
+    }
+
+    /**
+     * 미완료 할 일 조회 (#244 split 위젯용). `type='task' AND is_done=false AND start_date <= upTo`.
+     * 지난 날짜의 완료되지 않은 할 일이 위젯 우측에 계속 누적 표시되도록 하는 게 목적.
+     * 정렬은 start_date 오름차순 — 가장 오래된 (overdue) 할 일이 상단.
+     */
+    suspend fun listOpenTasks(upTo: LocalDate): List<Row> {
+        val coupleId = myCoupleId() ?: return emptyList()
+        return SupabaseProvider.client.from("schedules")
+            .select {
+                filter {
+                    eq("couple_id", coupleId)
+                    eq("type", "task")
+                    eq("is_done", false)
+                    lte("start_date", upTo.toString())
+                }
+                order("start_date", io.github.jan.supabase.postgrest.query.Order.ASCENDING)
             }
             .decodeList<Row>()
     }
@@ -420,6 +454,51 @@ object SchedulesRepository {
         }) {
             filter { eq("id", id) }
         }
+    }
+
+    /**
+     * 디데이 milestone 자동 캘린더 반영 (#329).
+     *
+     * 규칙:
+     *  - 커플 단위 (`owner_kind='us'`) 종일 일정 (`type='schedule'`, `all_day=true`) 로 저장.
+     *  - `source='dday_milestone'`, `external_id=label` (e.g. "100일") 로 태그해 다음 replace 때
+     *    이전 milestone 을 정확히 지울 수 있게 함.
+     *  - 이 함수는 항상 "전체 교체" 시맨틱 — 기존 dday milestone row 를 모두 지우고 새 리스트로 대체.
+     *  - anchor 리셋 (null) 케이스면 `newMilestones` 를 빈 리스트로 넘겨 삭제만 수행.
+     *
+     * 주의: milestone insert 는 DB 트리거 `tg_schedules_notify_insert` 가 `source='dday_milestone'`
+     * 을 스킵하도록 별도 마이그레이션에서 처리 → 30 개 알림 폭탄 방지.
+     *
+     * @param newMilestones (라벨, 도래날짜) 페어 리스트. 빈 리스트면 삭제만.
+     */
+    suspend fun replaceDdayMilestones(newMilestones: List<Pair<String, LocalDate>>) {
+        val coupleId = myCoupleId() ?: return
+        val uid = SupabaseProvider.client.auth.currentUserOrNull()?.id ?: return
+
+        // 1. 이전 milestone 전량 삭제.
+        SupabaseProvider.client.from("schedules").delete {
+            filter {
+                eq("couple_id", coupleId)
+                eq("source", "dday_milestone")
+            }
+        }
+        // 2. 새 리스트 삽입 (비어있으면 no-op).
+        if (newMilestones.isEmpty()) return
+        val payloads = newMilestones.map { (label, date) ->
+            InsertPayload(
+                coupleId = coupleId,
+                createdBy = uid,
+                type = "schedule",
+                ownerKind = "us",
+                title = label,
+                startDate = date.toString(),
+                endDate = date.toString(),
+                allDay = true,
+                source = "dday_milestone",
+                externalId = label,
+            )
+        }
+        SupabaseProvider.client.from("schedules").insert(payloads)
     }
 
     // ─── Private helpers ────────────────────────────────────────

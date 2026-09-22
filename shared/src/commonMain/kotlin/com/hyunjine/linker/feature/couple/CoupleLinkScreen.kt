@@ -1,6 +1,7 @@
 package com.hyunjine.linker.feature.couple
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -42,6 +43,14 @@ import com.hyunjine.linker.designsystem.common.AppAlertDialog
 import com.hyunjine.linker.designsystem.common.AppTopBar
 import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderBg
 import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderFg
+import com.hyunjine.linker.designsystem.theme.CalendarBlue
+import com.hyunjine.linker.designsystem.theme.CalendarGray
+import com.hyunjine.linker.designsystem.theme.CalendarGreen
+import com.hyunjine.linker.designsystem.theme.CalendarMint
+import com.hyunjine.linker.designsystem.theme.CalendarOrange
+import com.hyunjine.linker.designsystem.theme.CalendarPink
+import com.hyunjine.linker.designsystem.theme.CalendarPurple
+import com.hyunjine.linker.designsystem.theme.CalendarYellow
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.designsystem.theme.ProvidePretendard
 import com.hyunjine.linker.designsystem.theme.SurfaceCard
@@ -71,6 +80,7 @@ fun CoupleLinkScreen(
     onCreateInvite: () -> Unit = {},
     onEnterPartnerCode: () -> Unit = {},
     onUnlink: () -> Unit = {},
+    onUsColorChange: (String) -> Unit = {},
 ) {
     var confirmUnlink by remember { mutableStateOf(false) }
     Box(
@@ -87,7 +97,10 @@ fun CoupleLinkScreen(
             when (state) {
                 is CoupleLinkUiState.Paired -> PairedContent(
                     partner = state.partner,
+                    usCalendarColor = state.usCalendarColor,
+                    saveError = state.saveError,
                     onUnlinkClick = { confirmUnlink = true },
+                    onUsColorChange = onUsColorChange,
                 )
                 is CoupleLinkUiState.NotPaired -> NotPairedContent(
                     onCreateInvite = onCreateInvite,
@@ -109,7 +122,7 @@ fun CoupleLinkScreen(
         }
 
         AppTopBar(
-            title = "커플 연결",
+            title = "상대방 연결",
             onBack = onBack,
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -147,13 +160,128 @@ private fun NotPairedContent(
  * 파트너 프로필 조회 실패 (null) 시엔 카드 없이 해제 버튼만 노출 — 회귀 방지.
  */
 @Composable
-private fun PairedContent(partner: UsersRepository.Profile?, onUnlinkClick: () -> Unit) {
+private fun PairedContent(
+    partner: UsersRepository.Profile?,
+    usCalendarColor: String?,
+    saveError: String?,
+    onUnlinkClick: () -> Unit,
+    onUsColorChange: (String) -> Unit,
+) {
     Spacer(Modifier.height(24.dp))
     if (partner != null) {
         PartnerProfileCard(partner = partner, modifier = Modifier.padding(horizontal = 16.dp))
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(20.dp))
     }
+    // 공동(Us) 캘린더 색 picker (#245). Paired 상태에서만 노출 — solo 커플엔 공동 일정 개념이 없음.
+    UsCalendarColorSection(
+        selectedId = usCalendarColor ?: DefaultUsColorId,
+        saveError = saveError,
+        onSelect = onUsColorChange,
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
+    Spacer(Modifier.height(12.dp))
     UnlinkButton(onClick = onUnlinkClick, modifier = Modifier.padding(horizontal = 16.dp))
+}
+
+/** 공동 색 미설정 시 fallback id. `OwnerColors.Default.us` (CalendarPurple) 와 정합. */
+private const val DefaultUsColorId: String = "purple"
+
+/**
+ * 공동(Us) 캘린더 색상 preset picker (#245). 라벨 + SurfaceCard 안에 8개 스와치.
+ * 프로필 편집 화면의 팔레트와 톤을 맞춘다. 커스텀 hex 는 이번 스코프에서 제외.
+ */
+@Composable
+private fun UsCalendarColorSection(
+    selectedId: String,
+    saveError: String?,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val font = LocalPretendardFontFamily.current
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "공동 캘린더 색상",
+            style = TextStyle(
+                color = TextSecondary,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                fontFamily = font,
+            ),
+            modifier = Modifier.padding(start = 4.dp),
+        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(SurfaceCard)
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            UsColorOptions.forEach { option ->
+                UsColorSwatch(
+                    color = option.color,
+                    selected = option.id == selectedId,
+                    onClick = { onSelect(option.id) },
+                )
+            }
+        }
+        // 저장 실패 안내 (#323). 이전엔 optimistic UI 만 반짝 바뀌고 다음 refresh 때 조용히 revert 돼서
+        // "저장 됐다고 착각" 하는 문제가 있었음. 실패 시엔 UI 는 이전 값으로 되돌리고 여기 사유를 노출.
+        if (saveError != null) {
+            Text(
+                text = saveError,
+                style = TextStyle(
+                    color = Color(0xFFFF3B30),
+                    fontSize = 12.sp,
+                    fontFamily = font,
+                ),
+                modifier = Modifier.padding(start = 4.dp),
+            )
+        }
+    }
+}
+
+private data class UsColorOption(val id: String, val color: Color)
+
+/**
+ * 공동 색 팔레트 — `feature/profile/ProfileSetupScreen.DefaultCalendarColors` 와 동일 순서.
+ * 여기서 재선언한 이유는 profile 팔레트가 `private` 라 링크 불가 · 팔레트 변경 시 두 곳 함께
+ * 업데이트해야 한다 (그리 자주 바뀌지 않을 값이라 duplication 감수).
+ */
+private val UsColorOptions = listOf(
+    UsColorOption("blue", CalendarBlue),
+    UsColorOption("mint", CalendarMint),
+    UsColorOption("green", CalendarGreen),
+    UsColorOption("yellow", CalendarYellow),
+    UsColorOption("orange", CalendarOrange),
+    UsColorOption("pink", CalendarPink),
+    UsColorOption("purple", CalendarPurple),
+    UsColorOption("gray", CalendarGray),
+)
+
+/** Profile picker 의 ColorSwatch 와 동일 톤 (링 2dp · 내부 22dp · rest 28dp). */
+@Composable
+private fun UsColorSwatch(color: Color, selected: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(32.dp)
+            .clip(CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (selected) {
+            Box(
+                Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .border(width = 2.dp, color = color, shape = CircleShape),
+            )
+            Box(Modifier.size(22.dp).clip(CircleShape).background(color))
+        } else {
+            Box(Modifier.size(28.dp).clip(CircleShape).background(color))
+        }
+    }
 }
 
 /**
@@ -369,6 +497,7 @@ private fun CoupleLinkScreenPreview_Paired() {
                     profileImageUrl = null,
                     calendarColor = "pink",
                 ),
+                usCalendarColor = "purple",
             ),
         )
     }

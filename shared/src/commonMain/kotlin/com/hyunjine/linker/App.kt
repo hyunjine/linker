@@ -24,6 +24,7 @@ import com.hyunjine.linker.designsystem.theme.LinkerTheme
 import com.hyunjine.linker.feature.anniversary.AnniversaryUi
 import com.hyunjine.linker.feature.auth.AuthGateMode
 import com.hyunjine.linker.feature.auth.AuthGateScreen
+import com.hyunjine.linker.platform.ensureCurrentDeviceRegistered
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserInfo
 import kotlinx.coroutines.delay
@@ -87,11 +88,18 @@ private data class CreateScheduleRoute(
 @Serializable
 private data object AnniversariesRoute : NavKey
 
+/** 디데이 라우트 (#329). 드로워 하단 "기념일" 탭 진입점. */
+@Serializable
+private data object DdayRoute : NavKey
+
 @Serializable
 private data object SearchRoute : NavKey
 
 @Serializable
 private data object ReleaseNotesRoute : NavKey
+
+@Serializable
+private data object EverytimeTimetableRoute : NavKey
 
 private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
     serializersModule = SerializersModule {
@@ -105,8 +113,10 @@ private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
             subclass(CoupleJoinRoute::class, CoupleJoinRoute.serializer())
             subclass(CreateScheduleRoute::class, CreateScheduleRoute.serializer())
             subclass(AnniversariesRoute::class, AnniversariesRoute.serializer())
+            subclass(DdayRoute::class, DdayRoute.serializer())
             subclass(SearchRoute::class, SearchRoute.serializer())
             subclass(ReleaseNotesRoute::class, ReleaseNotesRoute.serializer())
+            subclass(EverytimeTimetableRoute::class, EverytimeTimetableRoute.serializer())
         }
     }
 }
@@ -201,16 +211,12 @@ fun App() {
             // 드로워 "상대방 연결" 진입은 이 상태를 hide/show 로 반영.
             var coupleRefreshTick by remember { mutableStateOf(0) }
 
-            // Outlook 연동 상태 · 서비스. MSAL 로컬 계정이 있으면 이메일 문자열, 없으면 null.
-            // 연동/해제 시 캘린더 chip 재fetch 하도록 scheduleRefreshTick 도 bump.
+            // Outlook 백그라운드 sync — 드로워 연결 UI 는 #308 로 제거됐지만, 기존에 연동된 계정이
+            // 있으면 세션 복원 시 자동 동기화만 유지 (기존 사용자 캘린더 chip 유실 방지).
+            // 신규 연동 진입점은 없음 → 캐시된 MSAL 계정이 없으면 이 블록은 no-op.
             val outlookAuth = rememberOutlookAuthClient()
             val outlookSync = remember(outlookAuth) { OutlookSyncService(outlookAuth) }
             var outlookAccountEmail by remember { mutableStateOf<String?>(null) }
-            // 이전 login coroutine 이 in-flight 동안 사용자가 드로워 재탭·연타 시 MSAL 웹뷰가
-            // 중첩·재현되지 않도록 하는 guard. Swift MSAL SDK 가 완료 콜백을 흘려도 이 guard 로
-            // 결국 사용자 재탭이 필요한 상태로 복귀 (자동 재시도 X).
-            var outlookLoginInFlight by remember { mutableStateOf(false) }
-            // 초기 sync 트리거는 status 선언 후 별도 LaunchedEffect (아래) 에서 처리.
 
             // 세션 상태 기반 부트스트랩 라우팅.
             //  - Initializing / NotAuthenticated / RefreshFailure: AuthRoute 유지
@@ -237,6 +243,12 @@ fun App() {
                 println("[Auth] sessionStatus = ${status::class.simpleName}")
                 when (val s = status) {
                     is SessionStatus.Authenticated -> {
+                        // #317 로그인 성공 시 FCM device 등록 강제 트리거. 세션 복원 · 신규 로그인
+                        // 모두 이 분기로 흘러오고, Repository 가 (user_id, fcm_token) unique 로
+                        // dedupe 하므로 idempotent 안전. 계정 스왑 (test1 → test2) 케이스에서
+                        // onNewToken 이 fire 되지 않아 test2 device row 가 없던 문제를 커버.
+                        runCatching { ensureCurrentDeviceRegistered() }
+                            .onFailure { println("[FCM] ensureCurrentDeviceRegistered 실패: $it") }
                         val target = decideBootstrapTarget()
                         println("[Auth] Authenticated → $target")
                         if (backStack.lastOrNull() != target) {
@@ -355,11 +367,14 @@ fun App() {
                                 )
                             },
                             onEditSchedule = { id -> backStack.add(CreateScheduleRoute(id)) },
-                            onAnniversaryClick = { backStack.add(AnniversariesRoute) },
+                            // 드로워 하단 "기념일" 탭 → 디데이 화면 (#329). 기존
+                            // AnniversariesRoute (다건 기념일 리스트) 는 검색 결과 진입용으로만 유지.
+                            onAnniversaryClick = { backStack.add(DdayRoute) },
                             onSearchClick = { backStack.add(SearchRoute) },
                             onProfileEditClick = { backStack.add(ProfileEditRoute) },
                             onCoupleLinkClick = { backStack.add(CoupleLinkRoute) },
                             onReleaseNotesClick = { backStack.add(ReleaseNotesRoute) },
+                            onEverytimeTimetableClick = { backStack.add(EverytimeTimetableRoute) },
                             onLogout = {
                                 scope.launch {
                                     runCatching { signOut() }
@@ -369,45 +384,6 @@ fun App() {
                             profileRefreshTick = profileRefreshTick,
                             scheduleRefreshTick = scheduleRefreshTick,
                             coupleRefreshTick = coupleRefreshTick,
-                            outlookAccountEmail = outlookAccountEmail,
-                            onOutlookConnectClick = {
-                                if (outlookLoginInFlight) {
-                                    println("[Outlook] login in-flight — 재탭 무시")
-                                } else {
-                                    outlookLoginInFlight = true
-//                                    println("[Outlook] 드로워 연결 탭 → login() 호출 시작")
-                                    scope.launch {
-                                        try {
-                                            val r = outlookAuth.login()
-                                            println("[Outlook] login() 반환: ${r::class.simpleName}")
-                                            when (r) {
-                                                is OutlookAuthResult.Success -> {
-                                                    outlookAccountEmail = r.email
-                                                    println("[Outlook] 계정 세팅: ${r.email}, sync 시작")
-                                                    val from = oneMonthAgo().plus(-30, DateTimeUnit.DAY)
-                                                    outlookSync.syncRange(from, oneMonthAhead())
-                                                    scheduleRefreshTick++
-                                                }
-                                                is OutlookAuthResult.Failure -> println("[Outlook] login 실패: ${r.reason}")
-                                                OutlookAuthResult.Cancelled -> println("[Outlook] 사용자 취소")
-                                            }
-                                        } catch (t: Throwable) {
-                                            println("[Outlook] login flow 예외: $t")
-                                        } finally {
-                                            outlookLoginInFlight = false
-                                        }
-                                    }
-                                }
-                            },
-                            onOutlookDisconnectClick = {
-                                scope.launch {
-                                    runCatching {
-                                        outlookSync.disconnect()
-                                        outlookAccountEmail = null
-                                        scheduleRefreshTick++
-                                    }.onFailure { println("[Outlook] disconnect 예외: $it") }
-                                }
-                            },
                         )
                     }
                     entry<SearchRoute> {
@@ -422,8 +398,20 @@ fun App() {
                             onBack = { backStack.removeLastOrNull() },
                         )
                     }
+                    entry<DdayRoute> {
+                        com.hyunjine.linker.feature.dday.DdayRoute(
+                            onBack = { backStack.removeLastOrNull() },
+                            // 저장 · "설정된 상태" 전환은 후속 커밋 (#329). 우선은 flow 확인용.
+                            onConfirmDate = { /* TODO: persist + switch to filled state */ },
+                        )
+                    }
                     entry<ReleaseNotesRoute> {
                         com.hyunjine.linker.feature.release.ReleaseNotesRoute(
+                            onBack = { backStack.removeLastOrNull() },
+                        )
+                    }
+                    entry<EverytimeTimetableRoute> {
+                        com.hyunjine.linker.feature.everytime.EverytimeTimetableRoute(
                             onBack = { backStack.removeLastOrNull() },
                         )
                     }

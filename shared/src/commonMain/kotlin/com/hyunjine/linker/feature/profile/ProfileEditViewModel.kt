@@ -46,6 +46,7 @@ class ProfileEditViewModel : ViewModel() {
         birthDate: LocalDate?,
         calendarColor: String,
         pickedImage: ImageBitmap?,
+        everytimeIdentifier: String?,
         onSaved: () -> Unit,
     ) {
         if (_uiState.value.saving) return
@@ -60,6 +61,10 @@ class ProfileEditViewModel : ViewModel() {
                     calendarColor = calendarColor,
                     profileImageUrl = newUrl,
                 )
+                // 에브리타임 identifier 는 별도 트랜잭션 — 프로필 필드와 무관한 컬럼이라 실패해도
+                // 다른 필드 저장은 유지. 단, 이 단일 save() 안에서는 하나라도 실패하면 위 runCatching 이
+                // 실패로 잡아 UI 저장 실패 처리 흐름을 따른다.
+                UsersRepository.updateEverytimeIdentifier(everytimeIdentifier)
             }.onSuccess {
                 println("[ProfileEdit] 저장 성공")
                 _uiState.value = _uiState.value.copy(saving = false)

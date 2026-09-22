@@ -1,7 +1,15 @@
 // Supabase Edge Function: send-schedule-push
 //
-// public.schedules INSERT 시 DB trigger 가 pg_net.http_post 로 이 함수를 호출.
-// 파트너들의 FCM device 토큰을 조회해 FCM HTTP v1 API 로 알림 발송.
+// public.schedules INSERT/UPDATE/DELETE trigger 와 pg_cron send_schedule_start_reminders 가
+// pg_net.http_post 로 이 함수를 호출. 정책대로 recipients 를 골라 FCM v1 API 로 발송.
+//
+// 정책 (#301 v2):
+//   INSERT/UPDATE/DELETE → recipients = couple_members - actor_id.
+//     (is_private=true 는 트리거에서 이미 스킵되어 여기까지 오지 않음.)
+//   START_REMINDER:
+//     - owner_kind='us'      → 커플 양쪽 모두
+//     - owner_kind='me'      → creator 만
+//     - owner_kind='partner' → 파트너 (수신자 관점 me) 만  ※ UI 상 신규 저장 불가, 기존 row 만
 //
 // 필요한 Supabase Secrets:
 //   FCM_PROJECT_ID              — Firebase 프로젝트 ID
@@ -21,11 +29,14 @@ interface Payload {
     title: string;
     start_date: string;
     type: string; // 'task' | 'schedule'
-    // START_REMINDER 에서만 채워짐 (pg_cron send_schedule_start_reminders 가 payload 조립).
-    start_time?: string;   // 'HH:MM:SS'
-    all_day?: boolean;
+    // 트리거가 실어주는 필드 (INSERT/UPDATE/DELETE).
+    actor_id?: string;       // auth.uid() — 이 action 을 일으킨 사용자. 알림에서 제외.
+    series_id?: string | null;
+    owner_kind?: string;     // 'me' | 'partner' | 'us'
     is_private?: boolean;
-    owner_kind?: string;   // 'me' | 'partner' | 'us'
+    // START_REMINDER 에서만 채워짐 (pg_cron send_schedule_start_reminders).
+    start_time?: string;     // 'HH:MM:SS'
+    all_day?: boolean;
   };
 }
 
@@ -43,18 +54,16 @@ async function getFcmAccessToken(serviceAccount: ServiceAccount): Promise<string
     return cachedAccessToken.token;
   }
 
-  // 1. Service account 로 JWT 서명 (RS256).
   const pkcs8 = await importPkcs8(serviceAccount.private_key);
   const claims = {
     iss: serviceAccount.client_email,
     scope: "https://www.googleapis.com/auth/firebase.messaging",
     aud: "https://oauth2.googleapis.com/token",
     iat: getNumericDate(0),
-    exp: getNumericDate(60 * 60), // 1h
+    exp: getNumericDate(60 * 60),
   };
   const jwt = await jwtCreate({ alg: "RS256", typ: "JWT" }, claims, pkcs8);
 
-  // 2. Google OAuth2 token endpoint 에서 access token 교환.
   const res = await fetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -74,7 +83,6 @@ async function getFcmAccessToken(serviceAccount: ServiceAccount): Promise<string
   return data.access_token;
 }
 
-// PEM PKCS#8 문자열을 WebCrypto CryptoKey (RS256) 로 파싱.
 async function importPkcs8(pem: string): Promise<CryptoKey> {
   const b64 = pem
     .replace(/-----BEGIN PRIVATE KEY-----/g, "")
@@ -128,9 +136,7 @@ async function sendFcmMessage(
   }
   const text = await res.text();
   console.error(`[push] FCM send 실패 token=${token.substring(0, 12)}… ${res.status}: ${text}`);
-  // 스테일 토큰 정리: FCM 이 UNREGISTERED (앱 삭제·데이터 초기화·rotate) 또는
-  // INVALID_ARGUMENT (토큰 자체가 malformed) 반환하면 다음 발송 때 또 실패하지 않도록
-  // user_devices 에서 해당 row 삭제. 클라이언트는 다음 앱 실행 시 새 토큰을 upsert 한다.
+  // 스테일 토큰 정리 (UNREGISTERED · INVALID_ARGUMENT).
   if (isStaleTokenError(res.status, text)) {
     const { error } = await supabase.from("user_devices").delete().eq("fcm_token", token);
     if (error) {
@@ -146,22 +152,133 @@ function isStaleTokenError(status: number, body: string): boolean {
   return body.includes("UNREGISTERED") || body.includes("INVALID_ARGUMENT");
 }
 
+/** "HH:MM:SS" → "오전 10:00" 스타일. 파싱 실패면 빈 문자열. */
+function formatKoreanClock(hhmmss: string): string {
+  const parts = hhmmss.split(":");
+  if (parts.length < 2) return "";
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  if (Number.isNaN(h) || Number.isNaN(m)) return "";
+  const ampm = h < 12 ? "오전" : "오후";
+  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${ampm} ${h12}:${String(m).padStart(2, "0")}`;
+}
+
 /**
- * pg_cron 이 매 분 fire — 이번 분 (Asia/Seoul) 에 시작하는 시간 있는 스케줄에 대해 이 함수가 호출된다.
+ * INSERT / UPDATE / DELETE 알림.
  *
- * 발송 대상:
- *  - 항상 creator (본인 예약)
- *  - 비공개 (is_private=true) 가 아니면 같은 커플 파트너들도 함께 (owner=us · me · partner 모두 동일 규칙)
- *  이 규칙은 RLS 가 "볼 수 있는 사람" 을 결정하는 규칙과 정확히 일치.
+ * 규칙 (수신자 관점 정책, #301):
+ *   - is_private=true 는 트리거에서 이미 걸러져 여기까지 안 옴 (defense-in-depth 로 재확인).
+ *   - recipients = couple_members - actor_id.
+ *     · owner_kind='me': actor=creator=본인이라 자연히 파트너만 남음.
+ *     · owner_kind='us': actor 가 어느 쪽이든 반대편만 수신 (자기 액션을 자기 알림으로 다시 받지 않음).
+ *     · owner_kind='partner' (legacy): 파트너가 actor 인 케이스가 있어도 동일 규칙.
+ *   - actor_id 가 payload 에 없으면 (구 payload 호환) created_by 로 폴백.
+ */
+async function handleWriteAction(
+  payload: Payload,
+  supabase: ReturnType<typeof createClient>,
+): Promise<Response> {
+  const rec = payload.record;
+  if (rec.is_private) {
+    return new Response("skip (is_private, no recipients)", { status: 200 });
+  }
+  const actorId = rec.actor_id ?? rec.created_by;
+
+  const { data: recipients, error: rErr } = await supabase
+    .from("couple_members")
+    .select("user_id")
+    .eq("couple_id", rec.couple_id)
+    .neq("user_id", actorId);
+  if (rErr) throw rErr;
+  if (!recipients || recipients.length === 0) {
+    return new Response("no recipients", { status: 200 });
+  }
+
+  const targetIds = recipients.map((r: { user_id: string }) => r.user_id);
+  const { data: devices, error: dErr } = await supabase
+    .from("user_devices")
+    .select("fcm_token")
+    .in("user_id", targetIds);
+  if (dErr) throw dErr;
+  if (!devices || devices.length === 0) {
+    return new Response("no devices", { status: 200 });
+  }
+
+  // Actor 닉네임 조회 — 알림 문구 "OO 님이 …" 에 사용. Actor = 이 액션을 일으킨 사람.
+  const { data: actorUser } = await supabase
+    .from("users")
+    .select("nickname")
+    .eq("id", actorId)
+    .single();
+  const actorName = actorUser?.nickname ?? "파트너";
+
+  const projectId = Deno.env.get("FCM_PROJECT_ID")!;
+  const saJson = Deno.env.get("FCM_SERVICE_ACCOUNT_JSON")!;
+  const sa = JSON.parse(saJson) as ServiceAccount;
+  const accessToken = await getFcmAccessToken(sa);
+
+  const kindLabel = rec.type === "task" ? "할 일" : "일정";
+  const actionLabel =
+    payload.type === "INSERT" ? "추가" :
+    payload.type === "UPDATE" ? "수정" : "삭제";
+
+  // 반복 시리즈 (INSERT 에서만 series_id 실려옴). "OO 님이 반복 일정을 설정했어요" 톤 + 특정 날짜 생략.
+  const isRepeatInsert = payload.type === "INSERT" && rec.series_id != null;
+  const title = isRepeatInsert
+    ? `${actorName} 님이 반복 ${kindLabel}을 설정했어요`
+    : `${actorName} 님이 ${kindLabel}을 ${actionLabel}했어요`;
+  const body = isRepeatInsert ? rec.title : `${rec.title} · ${rec.start_date}`;
+
+  for (const dev of devices) {
+    await sendFcmMessage(
+      accessToken,
+      projectId,
+      (dev as { fcm_token: string }).fcm_token,
+      title,
+      body,
+      {
+        schedule_id: rec.id,
+        couple_id: rec.couple_id,
+        action: payload.type.toLowerCase(),
+      },
+      supabase,
+    );
+  }
+
+  return new Response(
+    JSON.stringify({ sent: devices.length, action: payload.type }),
+    { headers: { "Content-Type": "application/json" }, status: 200 },
+  );
+}
+
+/**
+ * START_REMINDER — pg_cron 매 분 fire.
+ *
+ * 규칙:
+ *   - owner_kind='us'      → 커플 양쪽 모두 (공동 일정)
+ *   - owner_kind='me'      → creator 만 (본인 개인 일정)
+ *   - owner_kind='partner' → 파트너 (수신자 관점 me) 만 — legacy, UI 상 신규 저장 불가
+ *   - is_private 는 recipient 선택에 영향 없음 (visibility 는 RLS 가 이미 강제).
  */
 async function handleStartReminder(
   payload: Payload,
   supabase: ReturnType<typeof createClient>,
 ): Promise<Response> {
   const rec = payload.record;
-  const targetIds: string[] = [rec.created_by];
+  const owner = rec.owner_kind ?? "me";
+  const targetIds: string[] = [];
 
-  if (!rec.is_private) {
+  if (owner === "us") {
+    const { data: members, error } = await supabase
+      .from("couple_members")
+      .select("user_id")
+      .eq("couple_id", rec.couple_id);
+    if (error) throw error;
+    (members ?? []).forEach((m: { user_id: string }) => targetIds.push(m.user_id));
+  } else if (owner === "me") {
+    targetIds.push(rec.created_by);
+  } else if (owner === "partner") {
     const { data: partners, error } = await supabase
       .from("couple_members")
       .select("user_id")
@@ -169,6 +286,10 @@ async function handleStartReminder(
       .neq("user_id", rec.created_by);
     if (error) throw error;
     (partners ?? []).forEach((p: { user_id: string }) => targetIds.push(p.user_id));
+  }
+
+  if (targetIds.length === 0) {
+    return new Response("no recipients (owner filter)", { status: 200 });
   }
 
   const { data: devices, error: dErr } = await supabase
@@ -186,11 +307,6 @@ async function handleStartReminder(
   const accessToken = await getFcmAccessToken(sa);
 
   const title = (rec.title || "일정").trim();
-  // 케이스별 본문:
-  //  - 시간 있는 일정: "오전 10:00 시작"
-  //  - 종일 일정:     "오늘 종일"
-  //  - 할 일:         "오늘의 할 일"
-  //  - 폴백:          "곧 시작"
   let body: string;
   if (rec.type === "task") {
     body = "오늘의 할 일";
@@ -222,22 +338,15 @@ async function handleStartReminder(
   );
 }
 
-/** "HH:MM:SS" → "오전 10:00" 스타일. 파싱 실패면 빈 문자열. */
-function formatKoreanClock(hhmmss: string): string {
-  const parts = hhmmss.split(":");
-  if (parts.length < 2) return "";
-  const h = parseInt(parts[0], 10);
-  const m = parseInt(parts[1], 10);
-  if (Number.isNaN(h) || Number.isNaN(m)) return "";
-  const ampm = h < 12 ? "오전" : "오후";
-  const h12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
-  return `${ampm} ${h12}:${String(m).padStart(2, "0")}`;
-}
-
 serve(async (req) => {
   try {
     const payload: Payload = await req.json();
-    if (payload.type !== "INSERT" && payload.type !== "START_REMINDER") {
+    if (
+      payload.type !== "INSERT" &&
+      payload.type !== "UPDATE" &&
+      payload.type !== "DELETE" &&
+      payload.type !== "START_REMINDER"
+    ) {
       return new Response(`skipped (${payload.type})`, { status: 200 });
     }
 
@@ -249,65 +358,7 @@ serve(async (req) => {
     if (payload.type === "START_REMINDER") {
       return await handleStartReminder(payload, supabase);
     }
-
-    // 1. 같은 커플 · 창작자 아닌 유저 조회.
-    const { data: partnerUsers, error: pErr } = await supabase
-      .from("couple_members")
-      .select("user_id")
-      .eq("couple_id", payload.record.couple_id)
-      .neq("user_id", payload.record.created_by);
-    if (pErr) throw pErr;
-    if (!partnerUsers || partnerUsers.length === 0) {
-      return new Response("no partners", { status: 200 });
-    }
-
-    const partnerIds = partnerUsers.map((r: { user_id: string }) => r.user_id);
-    const { data: devices, error: dErr } = await supabase
-      .from("user_devices")
-      .select("fcm_token, platform")
-      .in("user_id", partnerIds);
-    if (dErr) throw dErr;
-    if (!devices || devices.length === 0) {
-      return new Response("no devices", { status: 200 });
-    }
-
-    // 2. 창작자 이름 조회 (알림 본문에 "OO 님이 …" 로 사용).
-    const { data: creator } = await supabase
-      .from("users")
-      .select("nickname")
-      .eq("id", payload.record.created_by)
-      .single();
-    const creatorName = creator?.nickname ?? "파트너";
-
-    // 3. FCM 발송.
-    const projectId = Deno.env.get("FCM_PROJECT_ID")!;
-    const saJson = Deno.env.get("FCM_SERVICE_ACCOUNT_JSON")!;
-    const sa = JSON.parse(saJson) as ServiceAccount;
-    const accessToken = await getFcmAccessToken(sa);
-
-    const kindLabel = payload.record.type === "task" ? "할 일" : "일정";
-    const title = `${creatorName} 님이 ${kindLabel}을 추가했어요`;
-    const body = `${payload.record.title} · ${payload.record.start_date}`;
-
-    for (const dev of devices) {
-      await sendFcmMessage(
-        accessToken,
-        projectId,
-        (dev as { fcm_token: string }).fcm_token,
-        title,
-        body,
-        {
-          schedule_id: payload.record.id,
-          couple_id: payload.record.couple_id,
-        },
-        supabase,
-      );
-    }
-
-    return new Response(
-      JSON.stringify({ sent: devices.length }),
-      { headers: { "Content-Type": "application/json" }, status: 200 },
-    );
+    return await handleWriteAction(payload, supabase);
   } catch (e) {
     console.error("[push] error", e);
     return new Response(String(e), { status: 500 });

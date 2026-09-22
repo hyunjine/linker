@@ -91,7 +91,6 @@ struct TodayScheduleWidget: Widget {
         .description("현진이랑민교의 오늘 스케줄과 할 일을 한눈에.")
         .supportedFamilies([
             .systemSmall,
-            .systemMedium,
             .accessoryRectangular,
             .accessoryInline,
             .accessoryCircular,

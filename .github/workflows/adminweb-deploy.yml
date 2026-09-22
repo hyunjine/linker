@@ -1,0 +1,68 @@
+# :adminWeb (Compose Multiplatform · wasmJs) 을 빌드해 `gh-pages` 브랜치의
+# `admin/` 하위 디렉터리로 배포한다. 배포 완료 후 `https://hyunjine.github.io/linker/admin`
+# 으로 관리자 콘솔에 접근할 수 있다.
+#
+# 트리거 정책:
+#   - `dev` 브랜치 push 시에만 실행 (release/main 은 무관)
+#   - `adminWeb/**` · `shared/**` · 워크플로 자체 변경일 때만 실행 → CI 분 절약
+#   - 필요 시 Actions 탭에서 `workflow_dispatch` 로 수동 재배포 가능
+#
+# 시크릿:
+#   - `ADMIN_WEB_SUPABASE_URL` · `ADMIN_WEB_SUPABASE_ANON_KEY`
+#     빌드 스텝의 환경 변수로 주입 → adminWeb 이 컴파일/런타임에 참조.
+#     (Supabase anon key 는 공개돼도 무방하나 인스턴스 URL 과 함께 secret 로 관리해
+#      실수 커밋을 원천 차단한다)
+name: AdminWeb Deploy (gh-pages)
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - "adminWeb/**"
+      - "shared/**"
+      - ".github/workflows/adminweb-deploy.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: adminweb-deploy
+  cancel-in-progress: true
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Setup Gradle (with cache)
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build :adminWeb wasmJs distribution
+        env:
+          ADMIN_WEB_SUPABASE_URL: ${{ secrets.ADMIN_WEB_SUPABASE_URL }}
+          ADMIN_WEB_SUPABASE_ANON_KEY: ${{ secrets.ADMIN_WEB_SUPABASE_ANON_KEY }}
+          # 관리자 화이트리스트. 콤마 구분 uid. 비어 있으면 로그인 성공해도 콘솔 진입 차단.
+          ADMIN_WEB_ADMIN_UIDS: ${{ secrets.ADMIN_WEB_ADMIN_UIDS }}
+        run: ./gradlew :adminWeb:wasmJsBrowserDistribution --no-daemon
+
+      - name: Deploy to gh-pages (/admin)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          # Kotlin/Wasm Compose 브라우저 distribution 산출물 경로.
+          publish_dir: adminWeb/build/dist/wasmJs/productionExecutable
+          destination_dir: admin
+          # 다른 서브디렉터리 산출물이 gh-pages 에 공존할 수 있도록 파일 보존.
+          keep_files: true
+          user_name: github-actions[bot]
+          user_email: 41898282+github-actions[bot]@users.noreply.github.com
+          commit_message: "chore(adminweb): deploy ${{ github.sha }}"

@@ -27,7 +27,13 @@ object UsersRepository {
         @SerialName("birth_date") val birthDate: String? = null,
         @SerialName("profile_image_url") val profileImageUrl: String? = null,
         @SerialName("calendar_color") val calendarColor: String = "blue",
+        /**
+         * 공동(Us) 캘린더 색상 preference (#245). NULL 이면 클라이언트가 CalendarPurple 로 fallback.
+         * per-user 라 커플 양쪽이 서로 다르게 볼 수 있음 (개인 취향 축).
+         */
+        @SerialName("us_calendar_color") val usCalendarColor: String? = null,
         @SerialName("profile_completed_at") val profileCompletedAt: String? = null,
+        @SerialName("everytime_identifier") val everytimeIdentifier: String? = null,
     ) {
         val isCompleted: Boolean get() = profileCompletedAt != null
     }
@@ -117,6 +123,38 @@ object UsersRepository {
             set("birth_date", birthDate?.toString())
             set("calendar_color", calendarColor)
             if (profileImageUrl != null) set("profile_image_url", profileImageUrl)
+        }) {
+            filter { eq("id", uid) }
+        }
+    }
+
+    /**
+     * 공동(Us) 캘린더 색만 부분 갱신 (#245). 다른 프로필 필드는 건드리지 않는다.
+     * CoupleLinkScreen 의 공동 색 picker 가 값을 고를 때마다 호출.
+     *
+     * @param calendarColor `Color.kt` 의 캘린더 색상 id (프리셋: `blue`, `pink`, ... · 커스텀 `#RRGGBB`).
+     */
+    suspend fun updateUsCalendarColor(calendarColor: String) {
+        val uid = SupabaseProvider.client.auth.currentUserOrNull()?.id
+            ?: error("로그인되지 않은 상태에서 공동 색상 수정 시도")
+        SupabaseProvider.client.from("users").update({
+            set("us_calendar_color", calendarColor)
+        }) {
+            filter { eq("id", uid) }
+        }
+    }
+
+    /**
+     * 에브리타임 시간표 공유 identifier 를 별도 트랜잭션으로 저장 (#306).
+     * `null` 을 넘기면 컬럼을 NULL 로 되돌려 시간표 노출을 취소.
+     * DB CHECK 제약이 형식(`^[A-Za-z0-9]{4,32}$`) 을 강제하므로, 잘못된 값이면 Postgrest 예외.
+     * 정상 값 검증은 UI 층에서 `EverytimeUrl.parseIdentifier` 로 미리 수행한다.
+     */
+    suspend fun updateEverytimeIdentifier(identifier: String?) {
+        val uid = SupabaseProvider.client.auth.currentUserOrNull()?.id
+            ?: error("로그인되지 않은 상태에서 에브리타임 identifier 수정 시도")
+        SupabaseProvider.client.from("users").update({
+            set("everytime_identifier", identifier)
         }) {
             filter { eq("id", uid) }
         }

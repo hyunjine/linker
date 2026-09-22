@@ -16,6 +16,17 @@ struct WidgetSchedule: Codable, Identifiable, Hashable {
     let isDone: Bool
 }
 
+/// 4×2 split 위젯 (#244) 우측 컬럼에 나열되는 미완료 할 일.
+/// `startDate` 가 오늘보다 과거이면 위젯이 "지연" 뱃지로 강조 표시.
+struct WidgetOpenTask: Codable, Identifiable, Hashable {
+    let id: String
+    let title: String
+    /// "yyyy-MM-dd" — overdue 판정용 (오늘보다 과거면 지연).
+    let startDate: String
+    /// "me" · "partner" · "us" — 좌측 owner dot 색.
+    let ownerKind: String
+}
+
 struct WidgetTodayPayload: Codable {
     /// 오늘 날짜 (ISO yyyy-MM-dd). 위젯이 이 날짜 기준 헤더 표시.
     let date: String
@@ -28,20 +39,52 @@ struct WidgetTodayPayload: Codable {
     let meColorHex: String?
     let partnerColorHex: String?
     let usColorHex: String?
+    /// 4×2 split 위젯 (#244) 우측 컬럼 — 오늘까지의 미완료 할 일 (누적).
+    /// 구버전 payload 호환 위해 optional. 기존 today 위젯은 이 필드를 무시.
+    let openTasks: [WidgetOpenTask]?
+    /// 캘린더 위젯 미니 달력용 — 이번 달 각 날짜별 이벤트 owner 리스트.
+    /// key = "yyyy-MM-dd", value = ["me", "partner", …] (중복 제거). 이벤트 없는 날은 map 에 없음.
+    /// 구버전 payload 호환 위해 optional.
+    let monthEvents: [String: [String]]?
+    /// 이번 달 공휴일 "yyyy-MM-dd" 리스트 (#309). 캘린더 위젯이 이 셀 번호를 빨강으로 렌더.
+    /// 구버전 payload 호환 위해 optional. nil / 빈 배열이면 요일 컬러만 적용.
+    let holidays: [String]?
+    /// 디데이 앵커 날짜 "yyyy-MM-dd" (#329). nil 이면 앵커 미설정 → Dday 위젯이 폴백 UI 노출.
+    let ddayAnchorDate: String?
+    /// 다음 milestone 라벨 (예: "100일", "1주년"). nil 이면 다음 milestone 없음.
+    let ddayNextMilestoneLabel: String?
+    /// 다음 milestone 도래일 "yyyy-MM-dd".
+    let ddayNextMilestoneDate: String?
+    /// 다음 milestone 까지 남은 일수 (오늘=0=D-DAY, 미래=양수).
+    let ddayNextMilestoneDelta: Int?
 
-    /// 프리뷰 · 샘플 payload 편의를 위한 default init. 컬러 hex 는 선택 (nil = fallback).
+    /// 프리뷰 · 샘플 payload 편의를 위한 default init. 컬러 hex · openTasks · monthEvents · holidays 는 선택.
     init(
         date: String,
         items: [WidgetSchedule],
         meColorHex: String? = nil,
         partnerColorHex: String? = nil,
         usColorHex: String? = nil,
+        openTasks: [WidgetOpenTask]? = nil,
+        monthEvents: [String: [String]]? = nil,
+        holidays: [String]? = nil,
+        ddayAnchorDate: String? = nil,
+        ddayNextMilestoneLabel: String? = nil,
+        ddayNextMilestoneDate: String? = nil,
+        ddayNextMilestoneDelta: Int? = nil,
     ) {
         self.date = date
         self.items = items
         self.meColorHex = meColorHex
         self.partnerColorHex = partnerColorHex
         self.usColorHex = usColorHex
+        self.openTasks = openTasks
+        self.monthEvents = monthEvents
+        self.holidays = holidays
+        self.ddayAnchorDate = ddayAnchorDate
+        self.ddayNextMilestoneLabel = ddayNextMilestoneLabel
+        self.ddayNextMilestoneDate = ddayNextMilestoneDate
+        self.ddayNextMilestoneDelta = ddayNextMilestoneDelta
     }
 }
 

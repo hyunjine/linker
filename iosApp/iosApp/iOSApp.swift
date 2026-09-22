@@ -70,6 +70,12 @@ struct iOSApp: App {
         // shared → 위젯 refresh 브리지. 스케줄 CRUD 성공 후 CreateScheduleViewModel /
         // MainViewModel.toggleTaskDone 이 이 handler 를 호출 → 앱이 foreground 에 있어도 즉시 반영.
         WidgetBridge.shared.handler = { WidgetSync.refresh() }
+
+        // shared → FCM device 등록 브리지 (#317). shared App.kt 의 LaunchedEffect(status) 가
+        // SessionStatus.Authenticated 진입 시 ensureCurrentDeviceRegistered() 호출 → 여기서
+        // 위임해 캐시된 FCM 토큰을 user_devices 에 upsert. 한 앱 세션 안 계정 스왑 케이스
+        // (test1 로그아웃 → test2 로그인) 커버.
+        PushBridge.shared.handler = { LinkerPushBridge.shared.ensureFcmTokenRegistered() }
     }
 
     var body: some Scene {

@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.ui.platform.LocalFocusManager
@@ -26,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -95,6 +97,10 @@ fun CreateScheduleScreen(
      * scope 는 시리즈 인스턴스 삭제일 때만 값이 채워진다. 단일 스케줄 삭제는 null.
      */
     onDelete: (SeriesEditScope?) -> Unit = {},
+    /** 저장 진행 중 (VM 이 write 중). 저장 pill 안에 인디케이터가 노출된다 (#269). */
+    saving: Boolean = false,
+    /** 삭제 진행 중. 삭제 버튼 라벨 자리에 인디케이터가 노출된다 (#269). */
+    deleting: Boolean = false,
 ) {
     val today = remember { todayLocalDate() }
     // rememberSaveable 을 initial 의 identity 로 key. initial 이 바뀌면 (다른 유형 pill 로 재진입 등)
@@ -155,11 +161,13 @@ fun CreateScheduleScreen(
                 trailing = {
                     SaveActionPill(
                         label = "저장",
-                        enabled = canEdit,
+                        // 삭제 진행 중에도 저장 pill 은 disabled 로 잠가 double-op 를 막는다.
+                        enabled = canEdit && !deleting,
                         onClick = {
                             if (isSeriesEdit) scopeChoiceDialog = true
                             else onSave(draft, null)
                         },
+                        loading = saving,
                     )
                 },
             )
@@ -278,22 +286,32 @@ fun CreateScheduleScreen(
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable(onClick = {
+                                // 저장/삭제 중이면 탭 무시 — 스피너 노출 중에 재클릭 방지.
+                                .clickable(enabled = !saving && !deleting, onClick = {
                                     if (isSeriesEdit) deleteScopeDialog = true
                                     else onDelete(null)
                                 })
                                 .padding(vertical = 14.dp),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text(
-                                text = "일정 삭제",
-                                style = TextStyle(
-                                    fontFamily = LocalPretendardFontFamily.current,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 15.sp,
+                            if (deleting) {
+                                // 라벨 자리에 iOS 시스템 빨강 톤으로 스피너를 얹는다 (#269).
+                                CircularProgressIndicator(
                                     color = Color(0xFFFF3B30),
-                                ),
-                            )
+                                    strokeWidth = 2.dp,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            } else {
+                                Text(
+                                    text = "일정 삭제",
+                                    style = TextStyle(
+                                        fontFamily = LocalPretendardFontFamily.current,
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 15.sp,
+                                        color = Color(0xFFFF3B30),
+                                    ),
+                                )
+                            }
                         }
                     }
                 }
@@ -603,10 +621,19 @@ private fun Card(content: @Composable () -> Unit) {
 @Composable
 private fun RowItem(label: String, value: String, onClick: () -> Unit, enabled: Boolean) {
     val pretendard = LocalPretendardFontFamily.current
+    // 액션 컴포넌트 탭 시 키보드 dismiss (#270). 제목 입력 중 시각·반복·알림 행을 누르면 시트/피커가
+    // 키보드 위로 밀려 올라가는 어색한 레이아웃을 피하려고 onClick 직전에 focus/keyboard 를 내린다.
+    // 이 화면의 모든 sheet-opening 액션은 RowItem 을 거치므로 여기 한 곳에서 처리한다.
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = enabled, onClick = onClick)
+            .clickable(enabled = enabled) {
+                focusManager.clearFocus()
+                keyboardController?.hide()
+                onClick()
+            }
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,

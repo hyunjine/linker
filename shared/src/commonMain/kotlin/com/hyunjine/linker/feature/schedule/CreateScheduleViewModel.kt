@@ -53,7 +53,7 @@ class CreateScheduleViewModel(
      * 반복 시리즈 인스턴스를 편집할 때만 UI 다이얼로그가 [SeriesEditScope] 를 채워 넘긴다.
      */
     fun save(draft: ScheduleDraft, scope: SeriesEditScope? = null, onDone: () -> Unit) {
-        if (_uiState.value.saving) return
+        if (_uiState.value.saving || _uiState.value.deleting) return
         _uiState.value = _uiState.value.copy(saving = true)
         viewModelScope.launch {
             val op = when {
@@ -85,8 +85,8 @@ class CreateScheduleViewModel(
      */
     fun delete(scope: SeriesEditScope? = null, onDone: () -> Unit) {
         val id = scheduleId ?: return
-        if (_uiState.value.saving) return
-        _uiState.value = _uiState.value.copy(saving = true)
+        if (_uiState.value.saving || _uiState.value.deleting) return
+        _uiState.value = _uiState.value.copy(deleting = true)
         viewModelScope.launch {
             val op = when (scope) {
                 SeriesEditScope.ThisAndFuture ->
@@ -96,12 +96,12 @@ class CreateScheduleViewModel(
             }
             op.onSuccess {
                 println("[Schedule] 삭제 성공: $id (scope=$scope)")
-                _uiState.value = _uiState.value.copy(saving = false)
+                _uiState.value = _uiState.value.copy(deleting = false)
                 refreshTodayWidget()
                 onDone()
             }.onFailure {
                 println("[Schedule] 삭제 실패: $it")
-                _uiState.value = _uiState.value.copy(saving = false)
+                _uiState.value = _uiState.value.copy(deleting = false)
             }
         }
     }
@@ -111,4 +111,5 @@ data class CreateScheduleUiState(
     val loaded: Boolean = false,
     val initial: ScheduleDraft? = null,
     val saving: Boolean = false,
+    val deleting: Boolean = false,
 )

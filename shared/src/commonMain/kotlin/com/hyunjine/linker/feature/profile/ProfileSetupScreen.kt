@@ -53,11 +53,14 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import com.hyunjine.linker.platform.rememberImagePicker
 import com.hyunjine.linker.designsystem.common.AppBottomSheet
+import com.hyunjine.linker.designsystem.common.AppInputCard
 import com.hyunjine.linker.designsystem.common.AppTopBar
 import com.hyunjine.linker.designsystem.common.CustomColorSheet
 import com.hyunjine.linker.designsystem.common.PrimaryButton
 import com.hyunjine.linker.designsystem.common.SectionLabel
+import com.hyunjine.linker.designsystem.common.SheetToolbar
 import com.hyunjine.linker.designsystem.common.YearMonthDayPickerSheet
+import com.hyunjine.linker.feature.everytime.EverytimeUrl
 import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderBg
 import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderFg
 import com.hyunjine.linker.designsystem.theme.CalendarBlue
@@ -116,6 +119,13 @@ fun ProfileSetupScreen(
     defaultAvatarUrl: String? = null,
     /** CTA 라벨. 온보딩은 "다음", 편집은 "저장" 등 상위에서 결정. */
     submitText: String = "다음",
+    /**
+     * 에브리타임 URL 필드 초기값 (identifier 문자열). 편집 진입 시 기존 저장 값을 프리필.
+     * `showEverytimeField=false` 인 온보딩 화면에선 무시.
+     */
+    everytimeIdentifierInitial: String? = null,
+    /** 에브리타임 URL 카드 노출 여부. 온보딩엔 숨기고 편집에서만 표시. */
+    showEverytimeField: Boolean = false,
     onBack: () -> Unit = {},
     onEditPhoto: () -> Unit = {},
     onNicknameChange: (String) -> Unit = {},
@@ -124,19 +134,33 @@ fun ProfileSetupScreen(
     /**
      * `pickedImage` 는 사용자가 photo picker 로 새로 고른 이미지. null 이면 사진 변경 안 함
      * (호출자가 기존 URL 을 유지하도록 처리). Kakao/DB 기본 아바타를 그대로 두는 경우도 null.
+     * `everytimeIdentifier` 는 사용자가 입력한 URL 에서 파싱된 최종 identifier (`null` 이면 등록 취소).
+     * 온보딩(=showEverytimeField=false)에선 항상 null.
      */
-    onNext: (nickname: String, birthDate: LocalDate?, colorId: String, pickedImage: ImageBitmap?) -> Unit = { _, _, _, _ -> },
+    onNext: (
+        nickname: String,
+        birthDate: LocalDate?,
+        colorId: String,
+        pickedImage: ImageBitmap?,
+        everytimeIdentifier: String?,
+    ) -> Unit = { _, _, _, _, _ -> },
 ) {
     // 시트 표시 여부. 프로세스 재구성/구성 변경 상황에서도 유지.
     var showBirthDateSheet by rememberSaveable { mutableStateOf(false) }
     var showNicknameSheet by rememberSaveable { mutableStateOf(false) }
     var showCustomColorSheet by rememberSaveable { mutableStateOf(false) }
+    var showEverytimeSheet by rememberSaveable { mutableStateOf(false) }
     // 화면이 직접 소유하는 편집 상태 (uncontrolled). 상위는 콜백으로만 최종 값을 수신.
     // 입력 파라미터를 key 로 걸어야 계정 전환 · 프리필 변경 시 이전 세션 값이 복원되지 않음
     // (기본 rememberSaveable 은 최초 1회만 저장 → 로그아웃/재로그인 후에도 옛 계정 정보 표시되는 버그).
     var currentNickname by rememberSaveable(nickname) { mutableStateOf(nickname) }
     var currentBirthDate by rememberSaveable(birthDate) { mutableStateOf(birthDate) }
     var currentColorId by rememberSaveable(selectedColorId) { mutableStateOf(selectedColorId) }
+    // 에브리타임 URL 은 화면 상에서는 사용자가 붙여넣은 원본 URL 문자열을 그대로 유지 → 시트에서 그
+    // 문자열을 이어서 수정할 수 있게. 저장 시 [EverytimeUrl.parseIdentifier] 로 정규화.
+    var currentEverytimeUrl by rememberSaveable(everytimeIdentifierInitial) {
+        mutableStateOf(everytimeIdentifierInitial?.let(EverytimeUrl::buildShareUrl).orEmpty())
+    }
     // 사용자가 사진 라이브러리에서 고른 아바타. 메모리 전용 (파일 저장은 이후).
     // rememberSaveable 은 ImageBitmap 을 저장할 수 없어 remember 로만 유지. defaultAvatarUrl 이
     // 바뀌면 (다른 계정) 이전에 pick 한 이미지가 남아있지 않도록 함께 리셋.
@@ -175,6 +199,16 @@ fun ProfileSetupScreen(
                 )
             }
 
+            if (showEverytimeField) {
+                Spacer(Modifier.height(16.dp))
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
+                    EverytimeCard(
+                        rawUrl = currentEverytimeUrl,
+                        onClick = { showEverytimeSheet = true },
+                    )
+                }
+            }
+
             Spacer(Modifier.height(20.dp))
 
             SectionLabel("내 캘린더 색상")
@@ -203,7 +237,12 @@ fun ProfileSetupScreen(
                         if (saving) return@PrimaryButton
                         val parsed = parseBirthDate(currentBirthDate)
                         val date = runCatching { LocalDate(parsed.year, parsed.month, parsed.day) }.getOrNull()
-                        onNext(currentNickname.trim(), date, currentColorId, avatarImage)
+                        // 필드가 숨겨진 경우 (온보딩/현재 편집 화면) 초기값을 그대로 흘려보내
+                        // 상위 write 가 no-op 이 되게 한다. null 을 넘기면 DB 컬럼이 지워짐.
+                        val identifier = if (showEverytimeField) {
+                            EverytimeUrl.parseIdentifier(currentEverytimeUrl)
+                        } else everytimeIdentifierInitial
+                        onNext(currentNickname.trim(), date, currentColorId, avatarImage, identifier)
                     },
                 )
             }
@@ -254,6 +293,22 @@ fun ProfileSetupScreen(
                 showNicknameSheet = false
                 currentNickname = newName
                 onNicknameChange(newName)
+            },
+        )
+    }
+
+    AppBottomSheet(
+        visible = showEverytimeSheet,
+        onDismissRequest = { showEverytimeSheet = false },
+        dragHandle = null,
+        containerColor = SurfaceGray,
+    ) {
+        EverytimeUrlEditSheet(
+            initial = currentEverytimeUrl,
+            onCancel = { showEverytimeSheet = false },
+            onConfirm = { newUrl ->
+                showEverytimeSheet = false
+                currentEverytimeUrl = newUrl
             },
         )
     }
@@ -568,6 +623,117 @@ private fun CustomColorSwatch(
  * @param onCancel X 버튼 또는 시트 dismiss 시 호출. 저장 없이 닫는 신호.
  * @param onConfirm 저장 pill 또는 키보드 return 시 호출. 최종 확정 닉네임을 전달.
  */
+/**
+ * 프로필 편집에서 에브리타임 URL 을 표시 · 편집하는 흰 카드. 시안 매치 — cornerRadius 18,
+ * 좌측 라벨 · 우측 값 · Chevron. 값이 비어 있으면 "URL 입력" placeholder.
+ */
+@Composable
+private fun EverytimeCard(
+    rawUrl: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val font = LocalPretendardFontFamily.current
+    val identifier = EverytimeUrl.parseIdentifier(rawUrl)
+    val display = when {
+        rawUrl.isBlank() -> "URL 입력"
+        identifier != null -> "@$identifier"
+        else -> rawUrl // 잘못된 값이면 사용자가 뭘 넣었는지 그대로 노출 (편집 진입 유도)
+    }
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(SurfaceCard)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .height(28.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "에브리타임",
+            style = TextStyle(color = TextPrimary, fontSize = 17.sp, fontFamily = font),
+        )
+        Spacer(Modifier.weight(1f))
+        Text(
+            text = display,
+            style = TextStyle(color = TextSecondary, fontSize = 17.sp, fontFamily = font),
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            text = "›",
+            style = TextStyle(color = Chevron, fontSize = 22.sp, fontFamily = font),
+        )
+    }
+}
+
+/**
+ * 에브리타임 URL 편집 시트. 자유 텍스트 입력을 받고, 실시간으로 파싱 결과를 하단에 표시해
+ * 사용자가 붙여넣은 문자열이 유효한지 즉시 알 수 있게 한다.
+ *
+ * 저장 정책:
+ * - 빈 문자열 저장 = 등록 취소 (파트너 드로워 메뉴에서 항목 숨김).
+ * - 유효한 URL/identifier = 정상 저장.
+ * - 유효하지 않은 값 = 저장 버튼 비활성.
+ */
+@Composable
+private fun EverytimeUrlEditSheet(
+    initial: String,
+    onCancel: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    val font = LocalPretendardFontFamily.current
+    var value by remember { mutableStateOf(initial) }
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+
+    val trimmed = value.trim()
+    val parsed = EverytimeUrl.parseIdentifier(trimmed)
+    val isEmpty = trimmed.isEmpty()
+    val canConfirm = isEmpty || parsed != null
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .imePadding()
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        SheetToolbar(
+            title = "에브리타임 URL",
+            onCancel = onCancel,
+            onConfirm = { onConfirm(trimmed) },
+            confirmEnabled = canConfirm,
+        )
+        AppInputCard(
+            label = "URL",
+            value = value,
+            onValueChange = { value = it },
+            placeholder = "https://everytime.kr/@…",
+            keyboardType = androidx.compose.ui.text.input.KeyboardType.Uri,
+            focusRequester = focusRequester,
+            onImeAction = { if (canConfirm) onConfirm(trimmed) },
+            initialCursorAtEnd = true,
+        )
+        // 실시간 검증 힌트.
+        val hint = when {
+            isEmpty -> "URL 을 지우면 파트너 드로워에서 시간표 항목이 숨겨져요."
+            parsed != null -> "확인됨: @$parsed"
+            else -> "올바른 에브리타임 URL 이 아니에요. 예: https://everytime.kr/@abc123"
+        }
+        val hintColor = when {
+            isEmpty -> TextSecondary
+            parsed != null -> PrimaryBlue
+            else -> Color(0xFFE53935)
+        }
+        Text(
+            text = hint,
+            modifier = Modifier.padding(horizontal = 4.dp),
+            style = TextStyle(color = hintColor, fontSize = 13.sp, fontFamily = font),
+        )
+    }
+}
+
 @Composable
 private fun NicknameEditSheet(
     initial: String,
@@ -615,6 +781,7 @@ private fun ProfileSetupScreenPreview() {
         ProfileSetupScreen(
             nickname = name,
             selectedColorId = selected,
+            showEverytimeField = true,
             onSelectColor = { selected = it },
             onNicknameChange = { name = it },
         )
