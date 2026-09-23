@@ -248,6 +248,53 @@ function loadAdminUids(): Set<string> {
   );
 }
 
+
+/** 알림 내역 (#303) 한 줄. `public.notifications` 컬럼과 1:1. */
+interface NotificationRecord {
+  kind: "partner" | "reminder" | "announcement" | "update";
+  title: string;
+  body: string;
+  scheduleId?: string | null;
+  /** 재시도 중복 방지 키. 있으면 (user_id, dedupe_key) 충돌 시 무시. */
+  dedupeKey?: string | null;
+}
+
+/**
+ * 수신자별로 알림 내역을 남긴다 (#303). 기록 실패는 로그만 남기고 삼킨다 — 푸시 발송을 막지 않기 위함.
+ *
+ * @param supabase service role 클라이언트.
+ * @param userIds 수신자 user id 목록 (device 가 없어도 기록).
+ * @param record 기록할 내용.
+ */
+async function recordNotifications(
+  supabase: ReturnType<typeof createClient>,
+  userIds: string[],
+  record: NotificationRecord,
+): Promise<void> {
+  const uniqueIds = [...new Set(userIds)];
+  if (uniqueIds.length === 0) return;
+  const rows = uniqueIds.map((userId) => ({
+    user_id: userId,
+    kind: record.kind,
+    title: record.title,
+    body: record.body,
+    schedule_id: record.scheduleId ?? null,
+    dedupe_key: record.dedupeKey ?? null,
+  }));
+  try {
+    const { error } = record.dedupeKey
+      ? await supabase
+        .from("notifications")
+        .upsert(rows, { onConflict: "user_id,dedupe_key", ignoreDuplicates: true })
+      : await supabase.from("notifications").insert(rows);
+    if (error) {
+      console.error(`[notifications] 기록 실패 kind=${record.kind} users=${uniqueIds.length} ${error.message}`);
+    }
+  } catch (e) {
+    console.error(`[notifications] 기록 예외 kind=${record.kind}`, e);
+  }
+}
+
 serve(async (req) => {
   // CORS preflight.
   if (req.method === "OPTIONS") {
@@ -312,6 +359,17 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
+    // 알림 내역 (#303) — "all" 이면 전체 유저. device 없는 유저도 기록.
+    let recipientIds: string[];
+    if (userIds === "all") {
+      const { data: users, error: uErr } = await supabase.from("users").select("id");
+      if (uErr) throw uErr;
+      recipientIds = (users ?? []).map((u: { id: string }) => u.id);
+    } else {
+      recipientIds = userIds;
+    }
+    await recordNotifications(supabase, recipientIds, { kind: "announcement", title, body });
+
     const query = supabase.from("user_devices").select("user_id, fcm_token, platform");
     const { data: devices, error: devErr } = userIds === "all"
       ? await query
