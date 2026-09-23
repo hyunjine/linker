@@ -145,3 +145,17 @@ val TaskCheckBorder = Color(0xFFAFAFB4)
 val MenuShadow = Color(0x1F000000)
 // 정렬 드롭다운 메뉴 외곽 1px 그림자 (#304 · 검정 4%)
 val MenuOutlineShadow = Color(0x0A000000)
+
+// 알림 내역 (#303) 종류별 아이콘 원 배경 · 아이콘 색
+val NotiPartnerBg = Color(0xFFFFE5EA)
+val NotiPartnerFg = CalendarPink
+val NotiReminderBg = Color(0xFFE0F0FF)
+val NotiReminderFg = PrimaryBlue
+val NotiAnnouncementBg = Color(0xFFF0F0F2)
+val NotiAnnouncementFg = Color(0xFF6B6B75)
+val NotiUpdateBg = ChipAnniversaryBg
+val NotiUpdateFg = CalendarPurple
+
+// 로딩 스켈레톤 (#303) — 카드 안 블록 · 카드 밖 그룹 라벨 자리
+val SkeletonFill = Color(0xFFF0F0F2)
+val SkeletonLabel = Color(0xFFE5E5EA)

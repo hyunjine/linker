@@ -260,6 +260,53 @@ function jsonResponse(status: number, body: unknown): Response {
 // release.yml 은 순수 semver 만 강제하지만 함수도 방어적으로 재검증.
 const VERSION_REGEX = /^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.\-]+)?$/;
 
+
+/** 알림 내역 (#303) 한 줄. `public.notifications` 컬럼과 1:1. */
+interface NotificationRecord {
+  kind: "partner" | "reminder" | "announcement" | "update";
+  title: string;
+  body: string;
+  scheduleId?: string | null;
+  /** 재시도 중복 방지 키. 있으면 (user_id, dedupe_key) 충돌 시 무시. */
+  dedupeKey?: string | null;
+}
+
+/**
+ * 수신자별로 알림 내역을 남긴다 (#303). 기록 실패는 로그만 남기고 삼킨다 — 푸시 발송을 막지 않기 위함.
+ *
+ * @param supabase service role 클라이언트.
+ * @param userIds 수신자 user id 목록 (device 가 없어도 기록).
+ * @param record 기록할 내용.
+ */
+async function recordNotifications(
+  supabase: ReturnType<typeof createClient>,
+  userIds: string[],
+  record: NotificationRecord,
+): Promise<void> {
+  const uniqueIds = [...new Set(userIds)];
+  if (uniqueIds.length === 0) return;
+  const rows = uniqueIds.map((userId) => ({
+    user_id: userId,
+    kind: record.kind,
+    title: record.title,
+    body: record.body,
+    schedule_id: record.scheduleId ?? null,
+    dedupe_key: record.dedupeKey ?? null,
+  }));
+  try {
+    const { error } = record.dedupeKey
+      ? await supabase
+        .from("notifications")
+        .upsert(rows, { onConflict: "user_id,dedupe_key", ignoreDuplicates: true })
+      : await supabase.from("notifications").insert(rows);
+    if (error) {
+      console.error(`[notifications] 기록 실패 kind=${record.kind} users=${uniqueIds.length} ${error.message}`);
+    }
+  } catch (e) {
+    console.error(`[notifications] 기록 예외 kind=${record.kind}`, e);
+  }
+}
+
 serve(async (req) => {
   // 진입 즉시 request_id 를 뽑아 모든 stage 로그 · 감사 row 에 사용.
   const rid = crypto.randomUUID();
@@ -377,6 +424,27 @@ serve(async (req) => {
 
     const title = NOTIFICATION_TITLE;
     const body = buildBody(version);
+
+    // 3b. 알림 내역 (#303) — 전체 유저에게 기록. 푸시 제목 ("🚨긴급🚨") 대신 내역에선 버전을 제목으로.
+    //     재시도 (in-flight) 로 여기가 다시 실행돼도 dedupe_key 로 한 번만 남는다.
+    {
+      const { data: users, error: uErr } = await supabase.from("users").select("id");
+      if (uErr) {
+        stageErr(rid, "HISTORY_USERS_FAIL", `err=${uErr.message}`);
+      } else {
+        await recordNotifications(
+          supabase,
+          (users ?? []).map((u: { id: string }) => u.id),
+          {
+            kind: "update",
+            title: `v${version} 업데이트`,
+            body: "새 버전이 출시되었어요. 업데이트하고 출시 노트를 확인해 보세요!",
+            dedupeKey: `release:${version}`,
+          },
+        );
+        stageLog(rid, "HISTORY_RECORDED", `users=${users?.length ?? 0}`);
+      }
+    }
 
     // 4. 전체 user_devices 조회 (service role 로 RLS 우회).
     const devQuery = await supabase

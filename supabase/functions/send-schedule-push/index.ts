@@ -11,6 +11,8 @@
 //     - owner_kind='me'      → creator 만
 //     - owner_kind='partner' → 파트너 (수신자 관점 me) 만  ※ UI 상 신규 저장 불가, 기존 row 만
 //
+// 알림 내역 (#303): 발송 전에 수신자마다 public.notifications 에 기록 (device 없어도 기록).
+//
 // 필요한 Supabase Secrets:
 //   FCM_PROJECT_ID              — Firebase 프로젝트 ID
 //   FCM_SERVICE_ACCOUNT_JSON    — Firebase Admin 서비스 계정 JSON (문자열)
@@ -152,6 +154,59 @@ function isStaleTokenError(status: number, body: string): boolean {
   return body.includes("UNREGISTERED") || body.includes("INVALID_ARGUMENT");
 }
 
+/** 알림 내역 (#303) 한 줄. `public.notifications` 컬럼과 1:1. */
+interface NotificationRecord {
+  kind: "partner" | "reminder" | "announcement" | "update";
+  title: string;
+  body: string;
+  scheduleId?: string | null;
+  /** 재시도 중복 방지 키. 있으면 (user_id, dedupe_key) 충돌 시 무시. */
+  dedupeKey?: string | null;
+}
+
+/**
+ * 수신자별로 알림 내역을 남긴다 (#303). 기록 실패는 로그만 남기고 삼킨다 — 푸시 발송을 막지 않기 위함.
+ *
+ * @param supabase service role 클라이언트.
+ * @param userIds 수신자 user id 목록 (device 가 없어도 기록).
+ * @param record 기록할 내용.
+ */
+async function recordNotifications(
+  supabase: ReturnType<typeof createClient>,
+  userIds: string[],
+  record: NotificationRecord,
+): Promise<void> {
+  const uniqueIds = [...new Set(userIds)];
+  if (uniqueIds.length === 0) return;
+  const rows = uniqueIds.map((userId) => ({
+    user_id: userId,
+    kind: record.kind,
+    title: record.title,
+    body: record.body,
+    schedule_id: record.scheduleId ?? null,
+    dedupe_key: record.dedupeKey ?? null,
+  }));
+  try {
+    const { error } = record.dedupeKey
+      ? await supabase
+        .from("notifications")
+        .upsert(rows, { onConflict: "user_id,dedupe_key", ignoreDuplicates: true })
+      : await supabase.from("notifications").insert(rows);
+    if (error) {
+      console.error(`[notifications] 기록 실패 kind=${record.kind} users=${uniqueIds.length} ${error.message}`);
+    }
+  } catch (e) {
+    console.error(`[notifications] 기록 예외 kind=${record.kind}`, e);
+  }
+}
+
+/** "YYYY-MM-DD" → "9월 27일". 파싱 실패면 원문 그대로. */
+function formatKoreanDate(iso: string): string {
+  const [, m, d] = iso.split("-").map((v) => parseInt(v, 10));
+  if (!m || !d) return iso;
+  return `${m}월 ${d}일`;
+}
+
 /** "HH:MM:SS" → "오전 10:00" 스타일. 파싱 실패면 빈 문자열. */
 function formatKoreanClock(hhmmss: string): string {
   const parts = hhmmss.split(":");
@@ -196,14 +251,6 @@ async function handleWriteAction(
   }
 
   const targetIds = recipients.map((r: { user_id: string }) => r.user_id);
-  const { data: devices, error: dErr } = await supabase
-    .from("user_devices")
-    .select("fcm_token")
-    .in("user_id", targetIds);
-  if (dErr) throw dErr;
-  if (!devices || devices.length === 0) {
-    return new Response("no devices", { status: 200 });
-  }
 
   // Actor 닉네임 조회 — 알림 문구 "OO 님이 …" 에 사용. Actor = 이 액션을 일으킨 사람.
   const { data: actorUser } = await supabase
@@ -212,11 +259,6 @@ async function handleWriteAction(
     .eq("id", actorId)
     .single();
   const actorName = actorUser?.nickname ?? "파트너";
-
-  const projectId = Deno.env.get("FCM_PROJECT_ID")!;
-  const saJson = Deno.env.get("FCM_SERVICE_ACCOUNT_JSON")!;
-  const sa = JSON.parse(saJson) as ServiceAccount;
-  const accessToken = await getFcmAccessToken(sa);
 
   const kindLabel = rec.type === "task" ? "할 일" : "일정";
   const actionLabel =
@@ -229,6 +271,28 @@ async function handleWriteAction(
     ? `${actorName} 님이 반복 ${kindLabel}을 설정했어요`
     : `${actorName} 님이 ${kindLabel}을 ${actionLabel}했어요`;
   const body = isRepeatInsert ? rec.title : `${rec.title} · ${rec.start_date}`;
+
+  // 알림 내역 (#303) — device 유무와 무관하게 수신자마다 기록. 날짜는 화면용으로 "9월 27일".
+  await recordNotifications(supabase, targetIds, {
+    kind: "partner",
+    title,
+    body: isRepeatInsert ? rec.title : `${rec.title} · ${formatKoreanDate(rec.start_date)}`,
+    scheduleId: rec.id,
+  });
+
+  const { data: devices, error: dErr } = await supabase
+    .from("user_devices")
+    .select("fcm_token")
+    .in("user_id", targetIds);
+  if (dErr) throw dErr;
+  if (!devices || devices.length === 0) {
+    return new Response("no devices", { status: 200 });
+  }
+
+  const projectId = Deno.env.get("FCM_PROJECT_ID")!;
+  const saJson = Deno.env.get("FCM_SERVICE_ACCOUNT_JSON")!;
+  const sa = JSON.parse(saJson) as ServiceAccount;
+  const accessToken = await getFcmAccessToken(sa);
 
   for (const dev of devices) {
     await sendFcmMessage(
@@ -292,6 +356,26 @@ async function handleStartReminder(
     return new Response("no recipients (owner filter)", { status: 200 });
   }
 
+  const title = (rec.title || "일정").trim();
+  let body: string;
+  if (rec.type === "task") {
+    body = "오늘의 할 일";
+  } else if (rec.all_day) {
+    body = "오늘 종일";
+  } else {
+    const timeLabel = formatKoreanClock(rec.start_time ?? "");
+    body = timeLabel ? `${timeLabel} 시작` : "곧 시작";
+  }
+
+  // 알림 내역 (#303). pg_cron 이 같은 리마인더를 두 번 쏘더라도 한 줄만 남도록 시각까지 키에 포함.
+  await recordNotifications(supabase, targetIds, {
+    kind: "reminder",
+    title,
+    body,
+    scheduleId: rec.id,
+    dedupeKey: `reminder:${rec.id}:${rec.start_date}:${rec.start_time ?? ""}`,
+  });
+
   const { data: devices, error: dErr } = await supabase
     .from("user_devices")
     .select("fcm_token")
@@ -305,17 +389,6 @@ async function handleStartReminder(
   const saJson = Deno.env.get("FCM_SERVICE_ACCOUNT_JSON")!;
   const sa = JSON.parse(saJson) as ServiceAccount;
   const accessToken = await getFcmAccessToken(sa);
-
-  const title = (rec.title || "일정").trim();
-  let body: string;
-  if (rec.type === "task") {
-    body = "오늘의 할 일";
-  } else if (rec.all_day) {
-    body = "오늘 종일";
-  } else {
-    const timeLabel = formatKoreanClock(rec.start_time ?? "");
-    body = timeLabel ? `${timeLabel} 시작` : "곧 시작";
-  }
 
   for (const dev of devices) {
     await sendFcmMessage(
