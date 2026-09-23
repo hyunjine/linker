@@ -19,6 +19,7 @@ import kotlinx.datetime.LocalDate
  * @param onAnniversaryClick 드로워 "기념일 설정" 진입.
  * @param onSearchClick 상단바 검색 아이콘 → 검색 화면.
  * @param onProfileEditClick 드로워 프로필 헤더 탭 → 프로필 수정.
+ * @param onTasksClick 드로워 "할 일" → 할 일 내역 화면 (#304).
  * @param onLogout 드로워 로그아웃.
  */
 @Composable
@@ -29,6 +30,7 @@ fun MainRoute(
     onSearchClick: () -> Unit,
     onProfileEditClick: () -> Unit,
     onCoupleLinkClick: () -> Unit,
+    onTasksClick: () -> Unit,
     onReleaseNotesClick: () -> Unit,
     onEverytimeTimetableClick: () -> Unit,
     onLogout: () -> Unit,
@@ -81,6 +83,7 @@ fun MainRoute(
         onSearchClick = onSearchClick,
         onProfileEditClick = onProfileEditClick,
         onCoupleLinkClick = onCoupleLinkClick,
+        onTasksClick = onTasksClick,
         onReleaseNotesClick = onReleaseNotesClick,
         onEverytimeTimetableClick = onEverytimeTimetableClick,
         onLogout = onLogout,
