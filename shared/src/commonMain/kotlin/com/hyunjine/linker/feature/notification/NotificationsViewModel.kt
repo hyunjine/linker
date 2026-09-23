@@ -3,6 +3,9 @@ package com.hyunjine.linker.feature.notification
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hyunjine.linker.data.remote.NotificationsRepository
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,10 +19,14 @@ import kotlinx.datetime.minus
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
 /** 알림 보관 기간. 서버 pg_cron 정리 주기와 맞춘다. */
 private val RetentionPeriod = 30.days
+
+/** 당겨서 새로고침 인디케이터 최소 노출 시간. 조회가 빨라도 새로고침됐다는 게 보이도록. */
+private val MinRefreshDuration = 500.milliseconds
 
 /**
  * 알림 내역 화면 (#303) 상태 · 로딩 담당. 진입마다 최근 30일치를 새로 받아 날짜별로 묶는다.
@@ -48,13 +55,19 @@ class NotificationsViewModel : ViewModel() {
 
     /**
      * 당겨서 새로고침 (#365). 기존 리스트를 그대로 둔 채 인디케이터만 띄우고, 실패해도 기존 내역 유지.
+     * 조회와 [MinRefreshDuration] 대기를 동시에 돌려 인디케이터는 최소 그 시간만큼 보인다.
      * 이미 새로고침 중이면 무시.
      */
     fun refresh() {
         if (_uiState.value.refreshing) return
         _uiState.update { it.copy(refreshing = true) }
         viewModelScope.launch {
-            fetch()
+            val result = coroutineScope {
+                val fetched = async { fetch() }
+                delay(MinRefreshDuration)
+                fetched.await()
+            }
+            result
                 .onSuccess { groups -> _uiState.update { it.copy(refreshing = false, error = null, groups = groups) } }
                 .onFailure { _uiState.update { it.copy(refreshing = false) } }
         }
