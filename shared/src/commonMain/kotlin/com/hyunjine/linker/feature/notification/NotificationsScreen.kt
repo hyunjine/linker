@@ -27,6 +27,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -84,12 +87,14 @@ private val CardShape = RoundedCornerShape(12.dp)
  * @param ui 화면 상태.
  * @param onBack 뒤로가기.
  * @param onRetry 에러 상태 "다시 시도".
+ * @param onRefresh 리스트 · 빈 상태에서 아래로 당겨 새로고침 (#365).
  */
 @Composable
 fun NotificationsScreen(
     ui: NotificationsUiState,
     onBack: () -> Unit,
     onRetry: () -> Unit,
+    onRefresh: () -> Unit = {},
 ) {
     val bottomInset = WindowInsets.safeDrawing.asPaddingValues().calculateBottomPadding()
     Column(
@@ -104,9 +109,40 @@ fun NotificationsScreen(
         when {
             ui.loading -> LoadingState()
             ui.error != null -> ErrorState(onRetry = onRetry)
-            ui.groups.isEmpty() -> EmptyState()
-            else -> NotificationList(groups = ui.groups, bottomInset = bottomInset)
+            else -> RefreshableContent(refreshing = ui.refreshing, onRefresh = onRefresh) {
+                if (ui.groups.isEmpty()) EmptyState() else NotificationList(groups = ui.groups, bottomInset = bottomInset)
+            }
         }
+    }
+}
+
+/**
+ * 당겨서 새로고침 래퍼 (#365). 인디케이터는 흰 원 + 파란 스피너로 카드 톤에 맞춘다.
+ * 안쪽 콘텐츠는 스크롤 가능해야 당김이 전달된다 (빈 상태도 LazyColumn 으로 감쌈).
+ */
+@Composable
+private fun RefreshableContent(
+    refreshing: Boolean,
+    onRefresh: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val state = rememberPullToRefreshState()
+    PullToRefreshBox(
+        isRefreshing = refreshing,
+        onRefresh = onRefresh,
+        state = state,
+        modifier = Modifier.fillMaxSize(),
+        indicator = {
+            PullToRefreshDefaults.Indicator(
+                state = state,
+                isRefreshing = refreshing,
+                modifier = Modifier.align(Alignment.TopCenter),
+                containerColor = SurfaceCard,
+                color = PrimaryBlue,
+            )
+        },
+    ) {
+        content()
     }
 }
 
@@ -285,39 +321,45 @@ private fun SkeletonBar(width: Dp, height: Dp, modifier: Modifier = Modifier, co
 @Composable
 private fun EmptyState() {
     val font = LocalPretendardFontFamily.current
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(
-            modifier = Modifier.offset(y = (-20).dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Image(
-                painter = painterResource(Res.drawable.ic_bell_empty),
-                contentDescription = null,
-                colorFilter = ColorFilter.tint(TextPrimary),
-                modifier = Modifier.size(80.dp),
-            )
-            Spacer(Modifier.height(16.dp))
-            Text(
-                text = "아직 받은 알림이 없어요",
-                style = TextStyle(
-                    fontFamily = font,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp,
-                    color = TextPrimary,
-                ),
-            )
-            Spacer(Modifier.height(8.dp))
-            Text(
-                text = "일정을 등록하거나\n일정이 곧 시작되면 여기에 모여요",
-                textAlign = TextAlign.Center,
-                style = TextStyle(
-                    fontFamily = font,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 14.sp,
-                    lineHeight = 1.4.em,
-                    color = TextSecondary,
-                ),
-            )
+    // 빈 상태에서도 당겨서 새로고침이 되도록 스크롤 컨테이너 안에 한 화면 크기로 배치.
+    LazyColumn(Modifier.fillMaxSize()) {
+        item {
+            Column(
+                modifier = Modifier
+                    .fillParentMaxSize()
+                    .offset(y = (-20).dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+            ) {
+                Image(
+                    painter = painterResource(Res.drawable.ic_bell_empty),
+                    contentDescription = null,
+                    colorFilter = ColorFilter.tint(TextPrimary),
+                    modifier = Modifier.size(80.dp),
+                )
+                Spacer(Modifier.height(16.dp))
+                Text(
+                    text = "아직 받은 알림이 없어요",
+                    style = TextStyle(
+                        fontFamily = font,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = TextPrimary,
+                    ),
+                )
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = "일정을 등록하거나\n일정이 곧 시작되면 여기에 모여요",
+                    textAlign = TextAlign.Center,
+                    style = TextStyle(
+                        fontFamily = font,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 14.sp,
+                        lineHeight = 1.4.em,
+                        color = TextSecondary,
+                    ),
+                )
+            }
         }
     }
 }

@@ -592,10 +592,10 @@ private fun MainToolbar(
             )
         }
 
-        // 우: 알림 (#303) · 검색 — 햄버거/BackCircleButton 과 동일 톤 (tint TextPrimary), 사이 4dp.
+        // 우: 알림 (#303) · 검색 — 햄버거/BackCircleButton 과 동일 톤 (tint TextPrimary), 사이 8dp.
         Row(
             modifier = Modifier.align(Alignment.CenterEnd),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             IconTapTarget(onClick = onNotificationsClick) {
                 Image(
