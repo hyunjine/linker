@@ -1,0 +1,13 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="16dp"
+    android:height="16dp"
+    android:viewportWidth="16"
+    android:viewportHeight="16">
+    <!-- Figma ci:sort-ascending (#304 할 일 내역 정렬 버튼) -->
+    <path
+        android:pathData="M2.667,11.333L6.667,11.333M2.667,8L8.667,8M12,7.333L12,12.667M12,12.667L14,10.667M12,12.667L10,10.667M2.667,4.667L10.667,4.667"
+        android:strokeWidth="1"
+        android:strokeColor="#FF1A1A1A"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

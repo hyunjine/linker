@@ -85,6 +85,7 @@ fun MainDrawerContent(
     onSettingsClick: () -> Unit = {},
     onAnniversaryClick: () -> Unit = {},
     onCoupleLinkClick: () -> Unit = {},
+    onTasksClick: () -> Unit = {},
     onReleaseNotesClick: () -> Unit = {},
     onToggleMyCalendar: (Boolean) -> Unit = {},
     onTogglePartnerCalendar: (Boolean) -> Unit = {},
@@ -153,6 +154,7 @@ fun MainDrawerContent(
                 onCheckedChange = onToggleSolarTerms,
             )
             Spacer(Modifier.height(16.dp))
+            TasksRow(onClick = onTasksClick)
             ReleaseNotesRow(onClick = onReleaseNotesClick)
             LogoutRow(onClick = onLogout)
         }
@@ -270,6 +272,36 @@ private fun DrawerBottomNavItem(
     }
 }
 
+/** 드로워 하단 텍스트 행 (할 일 · 릴리즈 노트 · 로그아웃) 리플 모양. */
+private val DrawerRowRippleShape = RoundedCornerShape(10.dp)
+
+/** 드로워 하단 "할 일" 진입 행 (#304). [ReleaseNotesRow] 와 동일한 스타일 · 리플 피드백. */
+@Composable
+private fun TasksRow(onClick: () -> Unit) {
+    val pretendard = LocalPretendardFontFamily.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            // 리플 끝을 살짝 둥글게 — 좌우 8dp 안쪽으로 들여 모서리가 드로워 가장자리에 붙지 않게.
+            // 텍스트 시작 위치는 8 + 12 = 20dp 로 기존과 동일.
+            .padding(horizontal = 8.dp)
+            .clip(DrawerRowRippleShape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = "할 일",
+            style = TextStyle(
+                fontFamily = pretendard,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp,
+                color = TextPrimary,
+            ),
+        )
+    }
+}
+
 /**
  * 드로워 하단 "릴리즈 노트" 진입 행. [LogoutRow] 와 동일한 텍스트 스타일이나 컬러만 다르게 —
  * [TextPrimary] 로 로그아웃 대비 강조 (#255).
@@ -280,8 +312,12 @@ private fun ReleaseNotesRow(onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .noRippleClickable(onClick)
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            // 리플 끝을 살짝 둥글게 — 좌우 8dp 안쪽으로 들여 모서리가 드로워 가장자리에 붙지 않게.
+            // 텍스트 시작 위치는 8 + 12 = 20dp 로 기존과 동일.
+            .padding(horizontal = 8.dp)
+            .clip(DrawerRowRippleShape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
@@ -303,8 +339,12 @@ private fun LogoutRow(onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .noRippleClickable(onClick)
-            .padding(horizontal = 20.dp, vertical = 12.dp),
+            // 리플 끝을 살짝 둥글게 — 좌우 8dp 안쪽으로 들여 모서리가 드로워 가장자리에 붙지 않게.
+            // 텍스트 시작 위치는 8 + 12 = 20dp 로 기존과 동일.
+            .padding(horizontal = 8.dp)
+            .clip(DrawerRowRippleShape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(

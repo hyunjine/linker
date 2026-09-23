@@ -214,6 +214,7 @@ fun MainScreen(
     onAnniversaryClick: () -> Unit = {},
     onProfileEditClick: () -> Unit = {},
     onCoupleLinkClick: () -> Unit = {},
+    onTasksClick: () -> Unit = {},
     onReleaseNotesClick: () -> Unit = {},
     onLogout: () -> Unit = {},
     /** 드로워 프로필 헤더에 표시할 값들. 로드 전에는 기본값 표시. */
@@ -313,6 +314,7 @@ fun MainScreen(
                 displayState = displayState,
                 hasPartner = hasPartner,
                 onCoupleLinkClick = onCoupleLinkClick,
+                onTasksClick = onTasksClick,
                 onReleaseNotesClick = onReleaseNotesClick,
                 onSettingsClick = {
                     // 여기서 drawerState.close() 를 부르면 App-scope 저장 상태가 Closed 로

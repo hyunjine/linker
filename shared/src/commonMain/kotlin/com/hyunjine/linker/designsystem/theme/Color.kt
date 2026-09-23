@@ -137,3 +137,11 @@ val DrawerCheckBlue = Color(0xFF599CFF)
 // 드로워 하단 액션바 (기념일 · 에브리타임) 상단 구분선 (#327 · Figma #E7E7E7)
 val DrawerBottomNavBorder = Color(0xFFE7E7E7)
 
+
+// 할 일 내역 (#304) 미완료 체크박스 테두리 (Figma #AFAFB4)
+val TaskCheckBorder = Color(0xFFAFAFB4)
+
+// 정렬 드롭다운 메뉴 그림자 (#304 · 검정 12%)
+val MenuShadow = Color(0x1F000000)
+// 정렬 드롭다운 메뉴 외곽 1px 그림자 (#304 · 검정 4%)
+val MenuOutlineShadow = Color(0x0A000000)
