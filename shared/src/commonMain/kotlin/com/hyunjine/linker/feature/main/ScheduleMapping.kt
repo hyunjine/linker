@@ -34,7 +34,11 @@ internal fun List<SchedulesRepository.Row>.toDayDetail(date: LocalDate, viewerId
     val tasks = mutableListOf<DayTask>()
     val timed = mutableListOf<TimedSchedule>()
     val allDay = mutableListOf<AllDaySchedule>()
-    for (row in this) {
+    // 시각 있는 일정을 시작 시간 오름차순으로. TimedSchedule.startTime 은 한국어 포맷
+    // ("오후 12:00" < "오후 01:00") 이라 사전식 정렬이 뒤집히므로 raw "HH:MM:SS" 기준으로 정렬.
+    // startTime 이 null 인 task · all-day 는 stable sort 로 원 순서 유지.
+    val sortedRows = this.sortedWith(compareBy(nullsLast()) { it.startTime })
+    for (row in sortedRows) {
         val owner = resolveOwnerForViewer(row.ownerKind, row.createdBy, viewerId).toDayOwner()
         // 디데이 milestone (#329) · 생일 자동 등록 (#334): 상세 시트에 노출은 하되 탭 시 편집 화면
         // 이동은 차단 (readOnly). 사용자가 실수로 삭제 · 변경할 수 없게 하고, 데이터는 트리거/앵커
