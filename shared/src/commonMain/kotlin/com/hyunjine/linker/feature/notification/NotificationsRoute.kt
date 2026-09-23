@@ -14,5 +14,5 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 fun NotificationsRoute(onBack: () -> Unit) {
     val viewModel: NotificationsViewModel = viewModel { NotificationsViewModel() }
     val ui by viewModel.uiState.collectAsStateWithLifecycle()
-    NotificationsScreen(ui = ui, onBack = onBack, onRetry = viewModel::load)
+    NotificationsScreen(ui = ui, onBack = onBack, onRetry = viewModel::load, onRefresh = viewModel::refresh)
 }

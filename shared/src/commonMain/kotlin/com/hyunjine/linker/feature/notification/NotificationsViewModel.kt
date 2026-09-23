@@ -32,25 +32,42 @@ class NotificationsViewModel : ViewModel() {
 
     init { load() }
 
-    /** 최근 30일 알림을 다시 받는다. 실패 시 [NotificationsUiState.error] 로 전환. */
+    /** 최근 30일 알림을 다시 받는다. 화면 전체를 스켈레톤으로 바꾸고, 실패 시 에러 상태로 전환. */
     fun load() {
         _uiState.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
-            val now = Clock.System.now()
-            runCatching { NotificationsRepository.listSince(now - RetentionPeriod) }
-                .onSuccess { rows ->
-                    val items = rows.mapNotNull { it.toItemOrNull() }
-                    _uiState.update {
-                        it.copy(loading = false, groups = groupByDay(items, now, TimeZone.currentSystemDefault()))
-                    }
-                }
+            fetch()
+                .onSuccess { groups -> _uiState.update { it.copy(loading = false, groups = groups) } }
                 .onFailure { t ->
-                    println("[Notifications] fetch 실패: $t")
                     _uiState.update {
                         it.copy(loading = false, error = t.message?.takeIf { m -> m.isNotBlank() } ?: "네트워크 오류")
                     }
                 }
         }
+    }
+
+    /**
+     * 당겨서 새로고침 (#365). 기존 리스트를 그대로 둔 채 인디케이터만 띄우고, 실패해도 기존 내역 유지.
+     * 이미 새로고침 중이면 무시.
+     */
+    fun refresh() {
+        if (_uiState.value.refreshing) return
+        _uiState.update { it.copy(refreshing = true) }
+        viewModelScope.launch {
+            fetch()
+                .onSuccess { groups -> _uiState.update { it.copy(refreshing = false, error = null, groups = groups) } }
+                .onFailure { _uiState.update { it.copy(refreshing = false) } }
+        }
+    }
+
+    /** 최근 30일치를 받아 날짜별로 묶는다. 시간 라벨도 호출 시점 기준으로 다시 계산. */
+    private suspend fun fetch(): Result<List<NotificationGroup>> {
+        val now = Clock.System.now()
+        return runCatching { NotificationsRepository.listSince(now - RetentionPeriod) }
+            .map { rows ->
+                groupByDay(rows.mapNotNull { it.toItemOrNull() }, now, TimeZone.currentSystemDefault())
+            }
+            .onFailure { t -> println("[Notifications] fetch 실패: $t") }
     }
 }
 
@@ -100,12 +117,14 @@ data class NotificationGroup(
 )
 
 /**
- * @param loading 로딩 중.
+ * @param loading 최초 로딩 중 (스켈레톤).
+ * @param refreshing 당겨서 새로고침 중 (리스트 유지 + 인디케이터).
  * @param error 로딩 실패 메시지. null 이면 정상.
  * @param groups 날짜별 묶음 (최신 날짜 먼저).
  */
 data class NotificationsUiState(
     val loading: Boolean = true,
+    val refreshing: Boolean = false,
     val error: String? = null,
     val groups: List<NotificationGroup> = emptyList(),
 )
