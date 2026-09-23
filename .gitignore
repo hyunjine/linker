@@ -20,3 +20,7 @@ node_modules/
 .claude/settings.local.json
 .claude/settings.json
 .claude/local/
+.claude/scheduled_tasks.lock
+
+# Supabase CLI 로컬 캐시
+supabase/.temp/
