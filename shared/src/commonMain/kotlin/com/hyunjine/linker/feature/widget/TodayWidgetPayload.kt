@@ -113,7 +113,8 @@ data class TodayWidgetPayload(
  * 오늘 일정 · 할 일을 위젯 payload 로 빌드해 JSON 으로 직렬화.
  * iOS 앱이 이 문자열을 App Group 파일에 write → WidgetKit reload.
  *
- * 정렬: 시각 있는 항목 오름차순, 그 다음 종일/할 일 순 (안정적 표시 위해).
+ * 정렬 (#382): 할 일 먼저 → 시각 있는 일정 오름차순 → 종일 일정. 홈 캘린더 · 분할 위젯 (미완료 할 일
+ * 우선) 과 잠금화면 · 오늘일정 위젯의 순서를 맞춘다.
  * couple 미가입은 빈 items 로 대응 (위젯이 "일정 없음" 표시).
  *
  * 세션이 준비되지 않았거나 일정 조회가 실패하면 **payload 를 만들지 않는다** (#367). 예전엔 실패를
@@ -209,14 +210,21 @@ object TodayWidgetPayloadBuilder {
             println("[Widget] 일정 조회 실패 — 기존 위젯 유지: $it")
             return null
         }
-        val (rows, openTaskRows, monthRows) = schedules
+        // #382: 상대방의 "할 일" 은 위젯 어디에도 노출하지 않는다 (상대방 "일정" 은 그대로).
+        val (rows, openTaskRows, monthRows) = schedules.let { (today, open, month) ->
+            Triple(
+                today.filterNot { it.isPartnerTask(viewerId) },
+                open.filterNot { it.isPartnerTask(viewerId) },
+                month.filterNot { it.isPartnerTask(viewerId) },
+            )
+        }
         val items = rows
             // #351: 완료된 할 일은 위젯 리스트에서 제외. 홈 split 위젯의 openTasks 흐름과 동작 통일 —
             // 완료 즉시 잠금/오늘 위젯에서도 사라져야 남아있는 항목 = 실제 할 일. 일정(type='schedule')
             // 은 완료 개념이 없으므로 그대로 통과.
             .filter { !(it.type == "task" && it.isDone) }
             .map { it.toWidgetItem(viewerId) }
-            .sortedWith(compareBy(nullsLast()) { it.sortKey() })
+            .sortedWith(WidgetItemOrder)
             .map { it.item }
         // #244 split 위젯 우측: 오늘까지의 미완료 할 일 (start_date <= today).
         val openTasks = openTaskRows.map { it.toWidgetOpenTask(viewerId) }
@@ -312,7 +320,26 @@ object TodayWidgetPayloadBuilder {
             ownerKind = resolveOwnerForViewer(ownerKind, createdBy, viewerId),
         )
 
-    private data class SortableItem(val item: TodayWidgetSchedule, val time: String?) {
+    /**
+     * 정렬용 래퍼.
+     *
+     * @param item 위젯 항목.
+     * @param time 시작 시각 "HH:MM:SS" (사전순 = 시간순). 할 일 · 종일 일정은 null.
+     */
+    internal data class SortableItem(val item: TodayWidgetSchedule, val time: String?) {
         fun sortKey(): String? = time
     }
+
+    /** 할 일 먼저 → 시각 있는 일정 시간순 → 종일 일정 (#382). 같은 그룹 안에서는 원래 순서 유지 (stable). */
+    internal val WidgetItemOrder: Comparator<SortableItem> =
+        compareBy<SortableItem> { if (it.item.isTask) 0 else 1 }
+            .thenBy(nullsLast()) { it.sortKey() }
 }
+
+/**
+ * 뷰어 관점에서 상대방 소유의 할 일인지 (#382). 위젯에서는 상대방 할 일만 숨기고 상대방 일정은 보여준다.
+ *
+ * @param viewerId 현재 로그인 유저 id. null 이면 DB 의 creator 관점 owner 로 판단.
+ */
+internal fun SchedulesRepository.Row.isPartnerTask(viewerId: String?): Boolean =
+    type == "task" && resolveOwnerForViewer(ownerKind, createdBy, viewerId) == "partner"
