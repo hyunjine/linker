@@ -10,6 +10,18 @@ Release 노트로 자동 게시된다 (`.github/workflows/release.yml`).
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-09-28
+
+### 버그 수정
+- 새 버전이 출시돼도 업데이트 알림이 오지 않던 문제 해결.
+
+## [1.5.1 · 개발자 노트]
+
+> 이 섹션은 GitHub Release 본문에는 함께 게시되지만, 앱의 릴리즈 노트 화면에서는 렌더링 되지 않는다.
+
+### 인프라 · 빌드
+- Xcode Cloud post-build 스크립트를 `ci_scripts/` → `iosApp/ci_scripts/` 로 이동 (#372). Xcode Cloud 는 `ci_scripts` 를 `.xcodeproj` 와 같은 디렉터리에서만 찾아, 루트에 있던 `ci_post_xcodebuild.sh` 가 실행되지 않았음 → v1.5.0 배포 완료 알림 누락. 1.5.1 archive 부터 broadcast-release-note 가 호출된다.
+
 ## [1.5.0] - 2026-09-28
 
 ### 신규 기능
