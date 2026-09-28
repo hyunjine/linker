@@ -222,7 +222,9 @@ fun MainScreen(
     onLogout: () -> Unit = {},
     /** 드로워 프로필 헤더에 표시할 값들. 로드 전에는 기본값 표시. */
     profileName: String = "",
-    profileHandle: String = "",
+    /** 드로워 커플 헤더 (#335) 파트너 이름 · 사진. [hasPartner] false 면 쓰지 않음. */
+    partnerName: String = "",
+    partnerImageUrl: String? = null,
     profileImageUrl: String? = null,
     /**
      * 드로워 표시 옵션 (일정/달력 정보). 상위 (VM) 가 서버에서 로드해 관리.
@@ -312,8 +314,9 @@ fun MainScreen(
         drawerContent = {
             MainDrawerContent(
                 profileName = profileName,
-                profileHandle = profileHandle,
                 profileImageUrl = profileImageUrl,
+                partnerName = partnerName,
+                partnerImageUrl = partnerImageUrl,
                 displayState = displayState,
                 hasPartner = hasPartner,
                 onCoupleLinkClick = onCoupleLinkClick,

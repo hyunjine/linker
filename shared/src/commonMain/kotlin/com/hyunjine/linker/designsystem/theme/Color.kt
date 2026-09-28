@@ -159,3 +159,16 @@ val NotiUpdateFg = CalendarPurple
 // 로딩 스켈레톤 (#303) — 카드 안 블록 · 카드 밖 그룹 라벨 자리
 val SkeletonFill = Color(0xFFF0F0F2)
 val SkeletonLabel = Color(0xFFE5E5EA)
+
+// 드로워 커플 헤더 (#335) — 상대방 미연결 자리 점선 테두리 (Figma #C6C6C8)
+val DrawerAddPartnerDash = Color(0xFFC6C6C8)
+
+// 커스텀 색상 스와치 무지개 링 (프로필 편집 · 커플 관리 공용)
+val CustomSwatchRainbow = listOf(
+    Color(0xFFFF3B30), Color(0xFFFF9500), Color(0xFFFFCC00),
+    Color(0xFF34C759), Color(0xFF008AFF), Color(0xFFAF52DE),
+    Color(0xFFFF375F), Color(0xFFFF3B30),
+)
+
+// 커플 관리 하단 "연결 해제" 텍스트 (#335 · Figma #A9A9A9) — 파괴적 액션을 눈에 덜 띄게
+val UnlinkTextGray = Color(0xFFA9A9A9)

@@ -1,0 +1,12 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="26dp"
+    android:height="26dp"
+    android:viewportWidth="26"
+    android:viewportHeight="26">
+    <!-- 드로워 "상대방 연결 전" 빈 아바타 자리 플러스 (#335) -->
+    <path
+        android:pathData="M12.9974,5.41602V20.5827M5.41406,12.9993H20.5807"
+        android:strokeWidth="2.16667"
+        android:strokeColor="#FF8C8C99"
+        android:strokeLineCap="round" />
+</vector>

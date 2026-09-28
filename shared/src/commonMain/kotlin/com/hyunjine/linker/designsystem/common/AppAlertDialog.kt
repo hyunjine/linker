@@ -47,6 +47,9 @@ enum class AlertActionStyle {
 
     /** 되돌릴 수 없는 액션 — 빨간 fill + 흰 텍스트. */
     Destructive,
+
+    /** 되돌릴 수 없는 액션의 절제된 톤 — 회색 fill + 빨간 텍스트 (Apple iOS 26 키트 Stacked 알림, #335). */
+    DestructiveText,
 }
 
 private val IosRed = Color(0xFFFF3B30)
@@ -62,7 +65,9 @@ private val IosSecondaryBg = Color(0xFFE5E5EA)
  *
  * @param title 다이얼로그 상단 굵은 제목.
  * @param message 부가 설명 (선택).
- * @param actions 표시할 버튼들. 좌측이 secondary, 우측이 primary 인 iOS 관습을 지킬 것.
+ * @param actions 표시할 버튼들. 가로 배치면 좌측이 secondary, 우측이 primary 인 iOS 관습을 지킬 것.
+ * @param onDismissRequest 스크림 탭 · 시스템 백.
+ * @param stacked true 면 액션 개수와 무관하게 세로로 쌓는다. 위에서부터 [actions] 순서 (iOS 26 Stacked 알림).
  */
 @Composable
 fun AppAlertDialog(
@@ -70,6 +75,7 @@ fun AppAlertDialog(
     message: String? = null,
     actions: List<AlertAction>,
     onDismissRequest: () -> Unit,
+    stacked: Boolean = false,
 ) {
     // Dialog 는 안드로이드 Window/DecorView 로 렌더 → Compose Preview 의 layoutlib 이
     // 렌더 못 함. 그래서 실제 카드 UI 는 [AppAlertDialogContent] 로 분리해서 프리뷰 대상은
@@ -78,7 +84,7 @@ fun AppAlertDialog(
         onDismissRequest = onDismissRequest,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
-        AppAlertDialogContent(title = title, message = message, actions = actions)
+        AppAlertDialogContent(title = title, message = message, actions = actions, stacked = stacked)
     }
 }
 
@@ -91,6 +97,7 @@ internal fun AppAlertDialogContent(
     title: String,
     message: String? = null,
     actions: List<AlertAction>,
+    stacked: Boolean = false,
 ) {
     val font = LocalPretendardFontFamily.current
     Column(
@@ -125,7 +132,7 @@ internal fun AppAlertDialogContent(
             )
         }
         Spacer(Modifier.height(24.dp))
-        if (actions.size <= 2) {
+        if (!stacked && actions.size <= 2) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -151,6 +158,7 @@ private fun CapsuleActionButton(action: AlertAction, modifier: Modifier = Modifi
         AlertActionStyle.Default -> PrimaryBlue to Color.White
         AlertActionStyle.Cancel -> IosSecondaryBg to TextPrimary
         AlertActionStyle.Destructive -> IosRed to Color.White
+        AlertActionStyle.DestructiveText -> IosSecondaryBg to IosRed
     }
     Box(
         modifier = modifier

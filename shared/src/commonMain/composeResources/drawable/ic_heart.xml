@@ -1,0 +1,14 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="14dp"
+    android:height="14dp"
+    android:viewportWidth="14"
+    android:viewportHeight="14">
+    <!-- 드로워 커플 이름 사이 하트 (#335) -->
+    <path
+        android:pathData="M11.0807,8.16667C11.9499,7.315 12.8307,6.29417 12.8307,4.95833C12.8307,4.10743 12.4927,3.29138 11.891,2.6897C11.2894,2.08802 10.4733,1.75 9.6224,1.75C8.59573,1.75 7.8724,2.04167 6.9974,2.91667C6.1224,2.04167 5.39906,1.75 4.3724,1.75C3.52149,1.75 2.70544,2.08802 2.10376,2.6897C1.50208,3.29138 1.16406,4.10743 1.16406,4.95833C1.16406,6.3 2.03906,7.32083 2.91406,8.16667L6.9974,12.25L11.0807,8.16667Z"
+        android:fillColor="#FFFF375F"
+        android:strokeWidth="1.16667"
+        android:strokeColor="#FFFF375F"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>
