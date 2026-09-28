@@ -98,6 +98,10 @@ private data object SearchRoute : NavKey
 @Serializable
 private data object ReleaseNotesRoute : NavKey
 
+/** 더보기 라우트 (#385). 드로워 하단 "더보기" 탭 — 릴리즈 노트 · 버전 · 로그아웃. */
+@Serializable
+private data object MoreRoute : NavKey
+
 /** 알림 내역 라우트 (#303). 메인 상단바 종 아이콘 진입점. */
 @Serializable
 private data object NotificationsRoute : NavKey
@@ -124,6 +128,7 @@ private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
             subclass(DdayRoute::class, DdayRoute.serializer())
             subclass(SearchRoute::class, SearchRoute.serializer())
             subclass(ReleaseNotesRoute::class, ReleaseNotesRoute.serializer())
+            subclass(MoreRoute::class, MoreRoute.serializer())
             subclass(TasksRoute::class, TasksRoute.serializer())
             subclass(NotificationsRoute::class, NotificationsRoute.serializer())
             subclass(EverytimeTimetableRoute::class, EverytimeTimetableRoute.serializer())
@@ -385,14 +390,8 @@ fun App() {
                             onProfileEditClick = { backStack.add(ProfileEditRoute) },
                             onCoupleLinkClick = { backStack.add(CoupleLinkRoute) },
                             onTasksClick = { backStack.add(TasksRoute) },
-                            onReleaseNotesClick = { backStack.add(ReleaseNotesRoute) },
+                            onMoreClick = { backStack.add(MoreRoute) },
                             onEverytimeTimetableClick = { backStack.add(EverytimeTimetableRoute) },
-                            onLogout = {
-                                scope.launch {
-                                    runCatching { signOut() }
-                                        .onFailure { println("[Auth] signOut 실패: $it") }
-                                }
-                            },
                             profileRefreshTick = profileRefreshTick,
                             scheduleRefreshTick = scheduleRefreshTick,
                             coupleRefreshTick = coupleRefreshTick,
@@ -415,6 +414,19 @@ fun App() {
                             onBack = { backStack.removeLastOrNull() },
                             // 저장 · "설정된 상태" 전환은 후속 커밋 (#329). 우선은 flow 확인용.
                             onConfirmDate = { /* TODO: persist + switch to filled state */ },
+                        )
+                    }
+                    entry<MoreRoute> {
+                        com.hyunjine.linker.feature.more.MoreRoute(
+                            onBack = { backStack.removeLastOrNull() },
+                            onReleaseNotesClick = { backStack.add(ReleaseNotesRoute) },
+                            // 세션 종료 → sessionStatus NotAuthenticated → 위 LaunchedEffect 가 AuthRoute 로 리셋.
+                            onLogout = {
+                                scope.launch {
+                                    runCatching { signOut() }
+                                        .onFailure { println("[Auth] signOut 실패: $it") }
+                                }
+                            },
                         )
                     }
                     entry<ReleaseNotesRoute> {

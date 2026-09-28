@@ -21,7 +21,7 @@ import kotlinx.datetime.LocalDate
  * @param onNotificationsClick 상단바 종 아이콘 → 알림 내역 (#303).
  * @param onProfileEditClick 드로워 프로필 헤더 탭 → 프로필 수정.
  * @param onTasksClick 드로워 "할 일" → 할 일 내역 화면 (#304).
- * @param onLogout 드로워 로그아웃.
+ * @param onMoreClick 드로워 하단 "더보기" → 더보기 화면 (릴리즈 노트 · 버전 · 로그아웃, #385).
  */
 @Composable
 fun MainRoute(
@@ -33,9 +33,8 @@ fun MainRoute(
     onProfileEditClick: () -> Unit,
     onCoupleLinkClick: () -> Unit,
     onTasksClick: () -> Unit,
-    onReleaseNotesClick: () -> Unit,
+    onMoreClick: () -> Unit,
     onEverytimeTimetableClick: () -> Unit,
-    onLogout: () -> Unit,
     profileRefreshTick: Int,
     scheduleRefreshTick: Int,
     coupleRefreshTick: Int,
@@ -87,9 +86,8 @@ fun MainRoute(
         onProfileEditClick = onProfileEditClick,
         onCoupleLinkClick = onCoupleLinkClick,
         onTasksClick = onTasksClick,
-        onReleaseNotesClick = onReleaseNotesClick,
+        onMoreClick = onMoreClick,
         onEverytimeTimetableClick = onEverytimeTimetableClick,
-        onLogout = onLogout,
         profileName = uiState.myProfile?.nickname.orEmpty(),
         profileImageUrl = uiState.myProfile?.profileImageUrl?.toSecureImageUrl(),
         partnerName = uiState.partnerProfile?.nickname?.takeIf { it.isNotBlank() } ?: "상대방",
