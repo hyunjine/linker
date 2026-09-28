@@ -22,6 +22,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,6 +36,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.hyunjine.linker.designsystem.common.AlertAction
+import com.hyunjine.linker.designsystem.common.AlertActionStyle
+import com.hyunjine.linker.designsystem.common.AppAlertDialog
 import com.hyunjine.linker.designsystem.common.AppTopBar
 import com.hyunjine.linker.designsystem.theme.CardDivider
 import com.hyunjine.linker.designsystem.theme.Chevron
@@ -54,7 +61,7 @@ private val CardShape = RoundedCornerShape(16.dp)
  * 더보기 화면 (#385 · Figma 4401:80455). 드로워에서 뺀 부가 항목을 모은다.
  *
  *  - 앱 정보: 릴리즈 노트 `›` · 현재 버전 · 최신 버전 (+ 상태 안내)
- *  - 계정: 로그아웃
+ *  - 계정: 로그아웃 — 탭하면 확인 알림 (Figma 4407:80805) 후 실행
  *
  * 최신 버전이 현재보다 높으면 파란 굵은 글씨 + "새 버전이 나왔어요" 안내, 같거나 낮으면 회색 + 초록 점
  * "최신 버전을 사용하고 있어요". 조회 중 · 실패면 값만 `…` / `-` 로 두고 안내는 숨긴다.
@@ -62,7 +69,7 @@ private val CardShape = RoundedCornerShape(16.dp)
  * @param ui 화면 상태.
  * @param onBack 뒤로가기.
  * @param onReleaseNotesClick 릴리즈 노트 행 탭.
- * @param onLogout 로그아웃 행 탭.
+ * @param onLogout 로그아웃 확인 알림에서 "로그아웃" 을 눌렀을 때.
  */
 @Composable
 fun MoreScreen(
@@ -71,6 +78,7 @@ fun MoreScreen(
     onReleaseNotesClick: () -> Unit,
     onLogout: () -> Unit,
 ) {
+    var confirmLogout by remember { mutableStateOf(false) }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -97,11 +105,35 @@ fun MoreScreen(
             }
             Section(label = "계정") {
                 Card {
-                    MenuRow(label = "로그아웃", labelColor = DestructiveRed, onClick = onLogout)
+                    MenuRow(label = "로그아웃", labelColor = DestructiveRed, onClick = { confirmLogout = true })
                 }
             }
         }
     }
+    if (confirmLogout) {
+        LogoutConfirmDialog(
+            onConfirm = {
+                confirmLogout = false
+                onLogout()
+            },
+            onDismiss = { confirmLogout = false },
+        )
+    }
+}
+
+/** 로그아웃 확인 (Figma 4407:80805 · Apple iOS 26 키트 Stacked 알림) — 위 "로그아웃" · 아래 "취소하기". */
+@Composable
+private fun LogoutConfirmDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
+    AppAlertDialog(
+        title = "로그아웃할까요?",
+        message = "다시 로그인하면 일정과 설정을\n그대로 이용할 수 있어요.",
+        actions = listOf(
+            AlertAction("로그아웃", AlertActionStyle.DestructiveText, onClick = onConfirm),
+            AlertAction("취소하기", AlertActionStyle.Cancel, onClick = onDismiss),
+        ),
+        onDismissRequest = onDismiss,
+        stacked = true,
+    )
 }
 
 @Composable
