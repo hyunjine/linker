@@ -37,9 +37,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import coil3.compose.AsyncImage
 import com.hyunjine.linker.data.remote.UsersRepository
-import com.hyunjine.linker.designsystem.common.AlertAction
-import com.hyunjine.linker.designsystem.common.AlertActionStyle
-import com.hyunjine.linker.designsystem.common.AppAlertDialog
 import com.hyunjine.linker.designsystem.common.AppTopBar
 import com.hyunjine.linker.designsystem.common.CustomColorSheet
 import com.hyunjine.linker.designsystem.common.CustomColorSwatch
@@ -59,7 +56,6 @@ import com.hyunjine.linker.designsystem.theme.SurfaceCard
 import com.hyunjine.linker.designsystem.theme.SurfaceGray
 import com.hyunjine.linker.designsystem.theme.TextPrimary
 import com.hyunjine.linker.designsystem.theme.TextSecondary
-import com.hyunjine.linker.designsystem.theme.UnlinkTextGray
 import com.hyunjine.linker.designsystem.theme.calendarColorFor
 import com.hyunjine.linker.designsystem.theme.isCustomHexColorId
 import com.hyunjine.linker.designsystem.theme.toRgbHex
@@ -70,8 +66,9 @@ private val TOP_BAR_HEIGHT = 54.dp
  * 커플 연결 진입 화면. [state] 에 따라 세 갈래로 분기:
  *  - [CoupleLinkUiState.Loading]: 옵션 카드 자리를 비워둠 (로딩 중).
  *  - [CoupleLinkUiState.NotPaired]: 두 옵션 (내 초대코드 · 상대 코드) 노출.
- *  - [CoupleLinkUiState.Paired]: "커플 관리" — 파트너 프로필 카드 + 공동 캘린더 색 (프리셋 · 커스텀) +
- *    하단 "연결 해제" (#335 · Figma 4329:79092).
+ *  - [CoupleLinkUiState.Paired]: "커플 관리" — 파트너 프로필 카드 + 공동 캘린더 색 (프리셋 · 커스텀)
+ *    (#335 · Figma 4329:79092). 연결 해제 버튼 · 확인 알림은 #381 에서 UI 만 제거 — [onUnlink] 와
+ *    ViewModel 의 해제 로직은 남겨 두어 다시 붙일 수 있다.
  *
  * NotPaired 옵션:
  *  - "내 초대코드 만들기" → [CoupleInviteCodeScreen] (내 커플 자동 생성 + 코드 공유)
@@ -85,10 +82,10 @@ fun CoupleLinkScreen(
     onBack: () -> Unit = {},
     onCreateInvite: () -> Unit = {},
     onEnterPartnerCode: () -> Unit = {},
+    /** 커플 연결 해제. 현재 UI 진입점 없음 (#381) — 다시 노출할 때 연결. */
     onUnlink: () -> Unit = {},
     onUsColorChange: (String) -> Unit = {},
 ) {
-    var confirmUnlink by remember { mutableStateOf(false) }
     var showCustomColorSheet by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
@@ -116,10 +113,6 @@ fun CoupleLinkScreen(
                 is CoupleLinkUiState.Loading -> Spacer(Modifier.height(24.dp))
             }
             Spacer(Modifier.weight(1f))
-            // 파괴적 액션은 눈에 덜 띄게 화면 하단 회색 텍스트로 (#335).
-            if (state is CoupleLinkUiState.Paired) {
-                UnlinkButton(onClick = { confirmUnlink = true })
-            }
         }
 
         if (state is CoupleLinkUiState.Paired) {
@@ -133,16 +126,6 @@ fun CoupleLinkScreen(
                     showCustomColorSheet = false
                     onUsColorChange(hex)
                 },
-            )
-        }
-
-        if (confirmUnlink) {
-            UnlinkConfirmDialog(
-                onConfirm = {
-                    confirmUnlink = false
-                    onUnlink()
-                },
-                onDismiss = { confirmUnlink = false },
             )
         }
 
@@ -425,48 +408,6 @@ private fun formatBirthHandle(iso: String): String {
     val month = iso.substring(5, 7)
     val day = iso.substring(8, 10)
     return "$year.$month.$day"
-}
-
-/**
- * 화면 하단 "연결 해제" (#335). 실수로 누르지 않도록 강조 없이 회색 텍스트로 두고, 탭하면 확인 다이얼로그.
- *
- * @param onClick 탭 → 확인 다이얼로그.
- */
-@Composable
-private fun UnlinkButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val font = LocalPretendardFontFamily.current
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            text = "연결 해제",
-            style = TextStyle(
-                fontFamily = font,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 17.sp,
-                color = UnlinkTextGray,
-            ),
-        )
-    }
-}
-
-/** 연결 해제 확인 (#335 · Apple iOS 26 키트 Stacked 알림) — 위 "해제하기" · 아래 "취소하기". */
-@Composable
-private fun UnlinkConfirmDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
-    AppAlertDialog(
-        title = "커플 연결을 해제할까요?",
-        message = "해제하면 상대방 일정이\n더이상 보이지 않아요.",
-        actions = listOf(
-            AlertAction("해제하기", AlertActionStyle.DestructiveText, onClick = onConfirm),
-            AlertAction("취소하기", AlertActionStyle.Cancel, onClick = onDismiss),
-        ),
-        onDismissRequest = onDismiss,
-        stacked = true,
-    )
 }
 
 @Composable
