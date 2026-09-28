@@ -10,8 +10,14 @@
 #
 # 발사 조건 (모두 true 여야 fire):
 #   1) CI_XCODEBUILD_ACTION == archive   — 테스트 · PR 체크 · 시뮬 빌드 제외
-#   2) CI_BRANCH == release              — dev · 다른 브랜치 아카이브 제외
-#   3) 필수 env 세 개 (RELEASE_BROADCAST_SECRET · SUPABASE_URL · SUPABASE_ANON_KEY) 존재
+#   2) CI_XCODEBUILD_EXIT_CODE == 0      — 아카이브 실패 빌드에서 "새 버전 출시" 알림 방지 (#376)
+#   3) CI_BRANCH == release              — dev · 다른 브랜치 아카이브 제외
+#   4) 필수 env 세 개 (RELEASE_BROADCAST_SECRET · SUPABASE_URL · SUPABASE_ANON_KEY) 존재
+#
+# 실패 정책 (#376):
+#   알림은 부가 기능이라 발송 실패 (env 누락 · 네트워크 · HTTP 오류) 가 빌드 결과를 실패로 만들지
+#   않도록 warn 로그만 남기고 exit 0. 빌드가 실패로 표시되면 TestFlight 배포 등 후속 단계가
+#   막힐 수 있어서. 누락된 알림은 로그의 `[post-xcodebuild][warn]` 로 확인 후 수동 재발송.
 #
 # 위치 (#372):
 #   Xcode Cloud 는 ci_scripts 폴더를 워크플로가 쓰는 .xcodeproj 와 같은 디렉터리에서만 찾는다.
@@ -27,16 +33,23 @@ set -eu
 
 log()  { echo "[post-xcodebuild] $*"; }
 warn() { echo "[post-xcodebuild][warn] $*" >&2; }
-fail() { echo "[post-xcodebuild][fail] $*" >&2; exit 1; }
+# 알림 실패는 빌드를 실패시키지 않는다 — 경고만 남기고 정상 종료.
+skip() { warn "$* → 브로드캐스트 건너뜀"; exit 0; }
 
 # ── 조건 게이트 ────────────────────────────────────────────────────────────
 ACTION="${CI_XCODEBUILD_ACTION:-}"
 BRANCH="${CI_BRANCH:-}"
+EXIT_CODE="${CI_XCODEBUILD_EXIT_CODE:-}"
 
-log "CI_XCODEBUILD_ACTION=${ACTION}  CI_BRANCH=${BRANCH}"
+log "CI_XCODEBUILD_ACTION=${ACTION}  CI_XCODEBUILD_EXIT_CODE=${EXIT_CODE}  CI_BRANCH=${BRANCH}"
 
 if [ "${ACTION}" != "archive" ]; then
   log "archive 액션 아님 → 브로드캐스트 스킵"
+  exit 0
+fi
+
+if [ "${EXIT_CODE}" != "0" ]; then
+  log "아카이브 실패 (exit=${EXIT_CODE:-unknown}) → 브로드캐스트 스킵"
   exit 0
 fi
 
@@ -52,12 +65,12 @@ REPO_ROOT="${CI_PRIMARY_REPOSITORY_PATH:-$(cd "$(dirname "$0")/../.." && pwd)}"
 XCCONFIG="${REPO_ROOT}/iosApp/Configuration/Config.xcconfig"
 
 if [ ! -f "$XCCONFIG" ]; then
-  fail "Config.xcconfig 없음: $XCCONFIG"
+  skip "Config.xcconfig 없음: $XCCONFIG"
 fi
 
 VERSION=$(grep -m 1 '^MARKETING_VERSION=' "$XCCONFIG" | cut -d= -f2 | tr -d '[:space:]')
 if [ -z "$VERSION" ]; then
-  fail "MARKETING_VERSION 파싱 실패"
+  skip "MARKETING_VERSION 파싱 실패"
 fi
 log "version=${VERSION}"
 
@@ -68,22 +81,28 @@ missing=""
 [ -n "${SUPABASE_ANON_KEY:-}" ]        || missing="${missing} SUPABASE_ANON_KEY"
 
 if [ -n "$missing" ]; then
-  fail "필수 env 누락:${missing} (Xcode Cloud → Workflow Environment Variables 확인)"
+  skip "필수 env 누락:${missing} (Xcode Cloud → Workflow Environment Variables 확인)"
 fi
 
 # ── 함수 호출 ────────────────────────────────────────────────────────────
 RESP_FILE=$(mktemp)
 trap 'rm -f "$RESP_FILE"' EXIT
 
-log "invoking broadcast-release-note"
+log "invoking broadcast-release-note host=$(echo "$SUPABASE_URL" | sed -E 's#^https?://##; s#/.*##')"
+# 연결은 15초에 끊고 최대 3회 재시도 (러너 네트워크 일시 오류 대비, #376). 함수가 version PK 로
+# 중복 발송을 막으므로 재시도해도 push 는 한 번만 나간다.
 HTTP_STATUS=$(curl -sS -o "$RESP_FILE" -w "%{http_code}" \
+  --connect-timeout 15 \
   --max-time 60 \
+  --retry 3 \
+  --retry-delay 10 \
+  --retry-all-errors \
   -X POST "${SUPABASE_URL}/functions/v1/broadcast-release-note" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
   -H "x-release-broadcast-secret: ${RELEASE_BROADCAST_SECRET}" \
   -d "{\"version\":\"${VERSION}\",\"source\":\"xcode-cloud\"}") || {
-    fail "curl 자체 실패 (network · dns · timeout)"
+    skip "curl 자체 실패 (network · dns · timeout, 재시도 소진)"
   }
 
 log "response HTTP=${HTTP_STATUS}"
@@ -91,7 +110,7 @@ cat "$RESP_FILE" || true
 echo
 
 if [ "$HTTP_STATUS" != "200" ]; then
-  fail "broadcast HTTP=${HTTP_STATUS}"
+  skip "broadcast HTTP=${HTTP_STATUS}"
 fi
 
 # 간단한 결과 요약. jq 는 Xcode Cloud 이미지에 없을 수 있어 grep 폴백.
