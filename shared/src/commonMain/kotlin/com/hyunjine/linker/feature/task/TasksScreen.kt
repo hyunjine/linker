@@ -150,7 +150,7 @@ fun TasksScreen(
                     WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal),
                 ),
         ) {
-            AppTopBar(title = "할 일", onBack = onBack)
+            AppTopBar(title = "할 일 목록", onBack = onBack)
             Spacer(Modifier.height(18.dp))
             SegmentedControl(
                 options = TaskTab.entries,

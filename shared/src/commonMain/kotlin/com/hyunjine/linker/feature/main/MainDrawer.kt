@@ -293,7 +293,7 @@ private fun TasksCard(onClick: () -> Unit) {
             modifier = Modifier.size(20.dp),
         )
         Text(
-            text = "할 일",
+            text = "할 일 목록",
             modifier = Modifier.weight(1f),
             style = TextStyle(
                 fontFamily = LocalPretendardFontFamily.current,
