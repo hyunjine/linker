@@ -120,8 +120,9 @@ final class LinkerPushBridge: NSObject, UNUserNotificationCenterDelegate, Messag
             return
         }
         print("[FCM] silent push received reason=widget_refresh")
+        // 세션 미준비 등으로 건너뛴 경우도 .noData — .failed 가 쌓이면 iOS 가 silent push 를 더 강하게 throttle.
         WidgetSync.refresh { success in
-            completionHandler(success ? .newData : .failed)
+            completionHandler(success ? .newData : .noData)
         }
     }
 }
