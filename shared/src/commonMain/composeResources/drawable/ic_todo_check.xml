@@ -1,0 +1,19 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="20dp"
+    android:height="20dp"
+    android:viewportWidth="20"
+    android:viewportHeight="20">
+    <!-- 드로워 "할 일" 카드 아이콘 (#385) -->
+    <path
+        android:pathData="M14.1667,2.5H5.83333C3.99238,2.5 2.5,3.99238 2.5,5.83333V14.1667C2.5,16.0076 3.99238,17.5 5.83333,17.5H14.1667C16.0076,17.5 17.5,16.0076 17.5,14.1667V5.83333C17.5,3.99238 16.0076,2.5 14.1667,2.5Z"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FF1A1A1A"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M6.66406,10L9.16406,12.5L13.3307,7.5"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FF1A1A1A"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

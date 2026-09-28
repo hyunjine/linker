@@ -169,3 +169,8 @@ val CustomSwatchRainbow = listOf(
     Color(0xFF34C759), Color(0xFF008AFF), Color(0xFFAF52DE),
     Color(0xFFFF375F), Color(0xFFFF3B30),
 )
+
+// 더보기 화면 (#385) — 카드 내부 구분선 · 파괴적 액션 (로그아웃) · 최신 버전 상태 점
+val CardDivider = Color(0xFFE5E5EA)
+val DestructiveRed = Color(0xFFFF3B30)
+val StatusOkGreen = Color(0xFF34C759)

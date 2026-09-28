@@ -40,8 +40,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
-import com.hyunjine.linker.data.Secrets
 import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderBg
+import com.hyunjine.linker.designsystem.theme.Chevron
 import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderFg
 import com.hyunjine.linker.designsystem.theme.DrawerBottomNavBorder
 import com.hyunjine.linker.designsystem.theme.DrawerAddPartnerDash
@@ -53,7 +53,10 @@ import com.hyunjine.linker.designsystem.theme.SurfaceCard
 import com.hyunjine.linker.designsystem.theme.TextPrimary
 import com.hyunjine.linker.designsystem.theme.TextSecondary
 import linker.shared.generated.resources.Res
+import linker.shared.generated.resources.ic_chevron_right
 import linker.shared.generated.resources.ic_dday
+import linker.shared.generated.resources.ic_more
+import linker.shared.generated.resources.ic_todo_check
 import linker.shared.generated.resources.ic_heart
 import linker.shared.generated.resources.ic_link_alt
 import linker.shared.generated.resources.ic_plus
@@ -96,13 +99,13 @@ fun MainDrawerContent(
     onAnniversaryClick: () -> Unit = {},
     onCoupleLinkClick: () -> Unit = {},
     onTasksClick: () -> Unit = {},
-    onReleaseNotesClick: () -> Unit = {},
+    /** 하단 "더보기" 탭 → 더보기 화면 (릴리즈 노트 · 버전 · 로그아웃, #385). */
+    onMoreClick: () -> Unit = {},
     onToggleMyCalendar: (Boolean) -> Unit = {},
     onTogglePartnerCalendar: (Boolean) -> Unit = {},
     onToggleSharedCalendar: (Boolean) -> Unit = {},
     onToggleHolidays: (Boolean) -> Unit = {},
     onToggleSolarTerms: (Boolean) -> Unit = {},
-    onLogout: () -> Unit = {},
     onEverytimeTimetableClick: () -> Unit = {},
     /** 파트너 조인 여부. false 면 "상대방 캘린더" · "공동 캘린더" 토글 자체를 감춘다. */
     hasPartner: Boolean = true,
@@ -161,10 +164,7 @@ fun MainDrawerContent(
                 onCheckedChange = onToggleSolarTerms,
             )
             Spacer(Modifier.height(16.dp))
-            TasksRow(onClick = onTasksClick)
-            ReleaseNotesRow(onClick = onReleaseNotesClick)
-            AppVersionRow()
-            LogoutRow(onClick = onLogout)
+            TasksCard(onClick = onTasksClick)
         }
         // 하단 고정 액션바 — 기념일 (#182) · 에브리타임 (#306). 파트너 · URL 등록 여부와 무관하게
         // 항상 두 탭 노출. 에브리타임 진입 후 empty 상태 처리는 EverytimeTimetableScreen 담당.
@@ -175,18 +175,20 @@ fun MainDrawerContent(
         DrawerBottomNav(
             onAnniversaryClick = onAnniversaryClick,
             onEverytimeClick = onEverytimeTimetableClick,
+            onMoreClick = onMoreClick,
         )
     }
 }
 
 /**
- * 드로워 최하단 고정 액션바 (#327 · #329). 좌측 "디데이" · 우측 "에브리타임" 두 탭 균등 배치.
+ * 드로워 최하단 고정 액션바 (#327 · #329 · #385). "디데이" · "에브리타임" · "더보기" 세 탭 균등 배치.
  * 각 탭은 24dp 아이콘 위, 12sp SemiBold 라벨 아래 형태 — Figma 4168:78837 참고.
  */
 @Composable
 private fun DrawerBottomNav(
     onAnniversaryClick: () -> Unit,
     onEverytimeClick: () -> Unit,
+    onMoreClick: () -> Unit,
 ) {
     Row(
         modifier = Modifier
@@ -216,6 +218,18 @@ private fun DrawerBottomNav(
         ) {
             Image(
                 painter = painterResource(Res.drawable.ic_school),
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(TextPrimary),
+                modifier = Modifier.size(24.dp),
+            )
+        }
+        DrawerBottomNavItem(
+            label = "더보기",
+            onClick = onMoreClick,
+            modifier = Modifier.weight(1f),
+        ) {
+            Image(
+                painter = painterResource(Res.drawable.ic_more),
                 contentDescription = null,
                 colorFilter = ColorFilter.tint(TextPrimary),
                 modifier = Modifier.size(24.dp),
@@ -254,111 +268,45 @@ private fun DrawerBottomNavItem(
 }
 
 /**
- * 드로워 하단 "앱 버전" 행 (#385). 좌측 라벨 · 우측 `vX.Y.Z`. 탭 동작이 없어 리플 없이, 다른 텍스트 행과
- * 글자 위치 (좌우 20dp) · 크기를 맞춘다. 값은 빌드 때 `Config.xcconfig` 의 MARKETING_VERSION 에서 생성.
+ * 드로워 "할 일" 카드 (#385 · Figma 4401:80456). 텍스트 행보다 누를 수 있다는 게 보이도록 회색 라운드
+ * 카드 + 좌측 아이콘 + 우측 `›`. 리플은 카드 모양대로 잘린다.
+ *
+ * @param onClick 할 일 내역 화면으로 이동.
  */
 @Composable
-private fun AppVersionRow() {
-    val style = TextStyle(
-        fontFamily = LocalPretendardFontFamily.current,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 15.sp,
-        color = TextPrimary,
-    )
+private fun TasksCard(onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(text = "앱 버전", style = style, modifier = Modifier.weight(1f))
-        Text(text = "v${Secrets.AppVersion}", style = style)
-    }
-}
-
-/** 드로워 하단 텍스트 행 (할 일 · 릴리즈 노트 · 로그아웃) 리플 모양. */
-private val DrawerRowRippleShape = RoundedCornerShape(10.dp)
-
-/** 드로워 하단 "할 일" 진입 행 (#304). [ReleaseNotesRow] 와 동일한 스타일 · 리플 피드백. */
-@Composable
-private fun TasksRow(onClick: () -> Unit) {
-    val pretendard = LocalPretendardFontFamily.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            // 리플 끝을 살짝 둥글게 — 좌우 8dp 안쪽으로 들여 모서리가 드로워 가장자리에 붙지 않게.
-            // 텍스트 시작 위치는 8 + 12 = 20dp 로 기존과 동일.
-            .padding(horizontal = 8.dp)
-            .clip(DrawerRowRippleShape)
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(DrawerButtonBg)
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 16.dp),
+            .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        Image(
+            painter = painterResource(Res.drawable.ic_todo_check),
+            contentDescription = null,
+            colorFilter = ColorFilter.tint(TextPrimary),
+            modifier = Modifier.size(20.dp),
+        )
         Text(
             text = "할 일",
+            modifier = Modifier.weight(1f),
             style = TextStyle(
-                fontFamily = pretendard,
-                fontWeight = FontWeight.SemiBold,
+                fontFamily = LocalPretendardFontFamily.current,
+                fontWeight = FontWeight.Medium,
                 fontSize = 15.sp,
                 color = TextPrimary,
             ),
         )
-    }
-}
-
-/**
- * 드로워 하단 "릴리즈 노트" 진입 행. [LogoutRow] 와 동일한 텍스트 스타일이나 컬러만 다르게 —
- * [TextPrimary] 로 로그아웃 대비 강조 (#255).
- */
-@Composable
-private fun ReleaseNotesRow(onClick: () -> Unit) {
-    val pretendard = LocalPretendardFontFamily.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            // 리플 끝을 살짝 둥글게 — 좌우 8dp 안쪽으로 들여 모서리가 드로워 가장자리에 붙지 않게.
-            // 텍스트 시작 위치는 8 + 12 = 20dp 로 기존과 동일.
-            .padding(horizontal = 8.dp)
-            .clip(DrawerRowRippleShape)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = "릴리즈 노트",
-            style = TextStyle(
-                fontFamily = pretendard,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp,
-                color = TextPrimary,
-            ),
-        )
-    }
-}
-
-/** 드로워 하단 로그아웃 버튼. 강조 색 없이 텍스트만 (좌측 정렬). */
-@Composable
-private fun LogoutRow(onClick: () -> Unit) {
-    val pretendard = LocalPretendardFontFamily.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            // 리플 끝을 살짝 둥글게 — 좌우 8dp 안쪽으로 들여 모서리가 드로워 가장자리에 붙지 않게.
-            // 텍스트 시작 위치는 8 + 12 = 20dp 로 기존과 동일.
-            .padding(horizontal = 8.dp)
-            .clip(DrawerRowRippleShape)
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 16.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            text = "로그아웃",
-            style = TextStyle(
-                fontFamily = pretendard,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp,
-                color = TextSecondary,
-            ),
+        Image(
+            painter = painterResource(Res.drawable.ic_chevron_right),
+            contentDescription = null,
+            colorFilter = ColorFilter.tint(Chevron),
+            modifier = Modifier.size(18.dp),
         )
     }
 }
