@@ -8,7 +8,7 @@
 #   - CHANGELOG 최상단 버전이 MARKETING_VERSION 과 다르면 실패 (동기화 강제)
 #   - Xcode Cloud 는 이 워크플로와 무관하게 별도로 아카이브를 만든다 — 두 흐름은 독립적
 #   - 배포 완료 push 알림은 여기서 안 보낸다 (#356) — Xcode Cloud 의
-#     `ci_scripts/ci_post_xcodebuild.sh` 가 archive 성공 후에 broadcast-release-note
+#     `iosApp/ci_scripts/ci_post_xcodebuild.sh` 가 archive 성공 후에 broadcast-release-note
 #     함수를 호출하도록 이관. 태그 push 순간엔 아직 스토어에 새 버전이 없는 상태라
 #     알림이 먼저 나가는 문제를 방지.
 name: Release Automation
@@ -108,5 +108,5 @@ jobs:
 
       # 이전엔 이 위치에서 broadcast-release-note 를 호출했으나 (#300), release 브랜치 push
       # 순간엔 아직 Xcode Cloud 아카이브가 안 끝나 스토어에 새 버전이 없는 상태에서 알림이
-      # 먼저 나가는 문제 (#356) 로 트리거를 `ci_scripts/ci_post_xcodebuild.sh` 로 이관.
+      # 먼저 나가는 문제 (#356) 로 트리거를 `iosApp/ci_scripts/ci_post_xcodebuild.sh` 로 이관.
       # release.yml 은 태그 · GitHub Release 생성까지만 담당.
