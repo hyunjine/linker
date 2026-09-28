@@ -44,6 +44,9 @@ val supabaseUrl: String = secret("supabase.url", "SUPABASE_URL")
 val supabasePublishableKey: String = secret("supabase.publishableKey", "SUPABASE_PUBLISHABLE_KEY")
 val googleWebClientId: String = secret("google.web.client.id", "GOOGLE_WEB_CLIENT_ID")
 val outlookClientId: String = secret("outlook.client.id", "OUTLOOK_CLIENT_ID")
+// 앱 버전 (#385). local.properties override 없이 항상 Config.xcconfig 의 MARKETING_VERSION —
+// iOS 번들 · Android versionName 과 같은 단일 소스.
+val appVersion: String = xcconfigProperties["MARKETING_VERSION"].orEmpty()
 
 val generatedSecretsDir: Provider<Directory> =
     layout.buildDirectory.dir("generated/secrets/kotlin")
@@ -55,11 +58,13 @@ val generateSecrets by tasks.registering {
     val sbKey = supabasePublishableKey
     val googleWeb = googleWebClientId
     val outlookClient = outlookClientId
+    val version = appVersion
     inputs.property("holidayApiKey", holidayKey)
     inputs.property("supabaseUrl", sbUrl)
     inputs.property("supabasePublishableKey", sbKey)
     inputs.property("googleWebClientId", googleWeb)
     inputs.property("outlookClientId", outlookClient)
+    inputs.property("appVersion", version)
     outputs.dir(outputDir)
     doLast {
         val file = outputDir.get().asFile.resolve("com/hyunjine/linker/data/Secrets.kt")
@@ -94,6 +99,9 @@ val generateSecrets by tasks.registering {
                  * 넘긴다. Graph API 접근 audience 로 소비. local.properties `outlook.client.id`.
                  */
                 const val OutlookClientId: String = "$outlookClient"
+
+                /** 앱 버전 (`MARKETING_VERSION`, 예: `1.5.1`). 드로워 "앱 버전" 표시용 (#385). */
+                const val AppVersion: String = "$version"
             }
             """.trimIndent() + "\n"
         )

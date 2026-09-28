@@ -10,6 +10,32 @@ Release 노트로 자동 게시된다 (`.github/workflows/release.yml`).
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-09-28
+
+### 신규 기능
+- **더보기** — 드로워 아래 "더보기" 탭에서 릴리즈 노트 · 현재 버전 · 최신 버전을 확인하고 로그아웃할 수 있어요. 새 버전이 나오면 알려줘요.
+- **새 앱 아이콘** — 앱 로고가 바뀌었어요.
+
+### 개선
+- 위젯에는 내 할 일과 공동 할 일만 보여요. 상대방 할 일은 숨기고, 상대방 일정은 그대로 보여요.
+- 홈 화면 위젯에서도 할 일이 일정보다 먼저 보여요.
+- 드로워를 정리했어요. "할 일 목록" 카드가 생기고, 디데이 · 에브리타임 아이콘이 바뀌었어요.
+- 로그아웃할 때 한 번 더 확인해요.
+- 커플 관리 화면에서 연결 해제 버튼을 뺐어요.
+
+## [1.6.0 · 개발자 노트]
+
+> 이 섹션은 GitHub Release 본문에는 함께 게시되지만, 앱의 릴리즈 노트 화면에서는 렌더링 되지 않는다.
+
+### 신규 기능
+- 더보기 화면 (#385) — `feature/more` (`MoreRoute` · `MoreScreen` · `MoreViewModel`). 현재 버전은 `Config.xcconfig` `MARKETING_VERSION` 을 `Secrets.AppVersion` 으로 생성, 최신 버전은 GitHub Releases latest 조회 후 `compareVersions` 로 비교. 로그아웃은 stacked `AppAlertDialog` 확인 후 실행.
+- 앱 로고 교체 (#387) — iOS `app-icon-1024.png` (RGB), Android 런처 아이콘 전 해상도 · adaptive 배경 `#FFFFFF`, 앱 내 `ic_app_logo.png`.
+
+### 리팩터
+- 드로워 (#385) — 릴리즈 노트 · 로그아웃을 더보기로 이동, `TasksCard` ("할 일 목록"), 하단 탭 디데이 · 에브리타임 · 더보기. 할 일 화면 타이틀도 "할 일 목록".
+- 위젯 payload (#382) — `isPartnerTask` 로 상대방 할 일 제외 (상대방 일정은 유지), `WidgetItemOrder` 로 잠금 · 홈 위젯 모두 할 일 우선.
+- 커플 관리 (#381) — 연결 해제 버튼 UI 만 제거 (연결 해제 로직 · RPC 는 유지).
+
 ## [1.5.1] - 2026-09-28
 
 ### 버그 수정

@@ -218,8 +218,8 @@ fun MainScreen(
     onProfileEditClick: () -> Unit = {},
     onCoupleLinkClick: () -> Unit = {},
     onTasksClick: () -> Unit = {},
-    onReleaseNotesClick: () -> Unit = {},
-    onLogout: () -> Unit = {},
+    /** 드로워 하단 "더보기" 탭 (#385). */
+    onMoreClick: () -> Unit = {},
     /** 드로워 프로필 헤더에 표시할 값들. 로드 전에는 기본값 표시. */
     profileName: String = "",
     /** 드로워 커플 헤더 (#335) 파트너 이름 · 사진. [hasPartner] false 면 쓰지 않음. */
@@ -321,7 +321,7 @@ fun MainScreen(
                 hasPartner = hasPartner,
                 onCoupleLinkClick = onCoupleLinkClick,
                 onTasksClick = onTasksClick,
-                onReleaseNotesClick = onReleaseNotesClick,
+                onMoreClick = onMoreClick,
                 onSettingsClick = {
                     // 여기서 drawerState.close() 를 부르면 App-scope 저장 상태가 Closed 로
                     // 굳어져서, 프로필 편집 후 돌아왔을 때 드로워가 다시 열리지 않는다.
@@ -335,10 +335,6 @@ fun MainScreen(
                 onToggleSharedCalendar = { onDisplayStateChange(displayState.copy(showSharedCalendar = it)) },
                 onToggleHolidays = { onDisplayStateChange(displayState.copy(showHolidays = it)) },
                 onToggleSolarTerms = { onDisplayStateChange(displayState.copy(showSolarTerms = it)) },
-                onLogout = {
-                    scope.launch { drawerState.close() }
-                    onLogout()
-                },
             )
         },
     ) {

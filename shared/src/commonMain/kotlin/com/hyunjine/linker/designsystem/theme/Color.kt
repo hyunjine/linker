@@ -170,5 +170,7 @@ val CustomSwatchRainbow = listOf(
     Color(0xFFFF375F), Color(0xFFFF3B30),
 )
 
-// 커플 관리 하단 "연결 해제" 텍스트 (#335 · Figma #A9A9A9) — 파괴적 액션을 눈에 덜 띄게
-val UnlinkTextGray = Color(0xFFA9A9A9)
+// 더보기 화면 (#385) — 카드 내부 구분선 · 파괴적 액션 (로그아웃) · 최신 버전 상태 점
+val CardDivider = Color(0xFFE5E5EA)
+val DestructiveRed = Color(0xFFFF3B30)
+val StatusOkGreen = Color(0xFF34C759)
