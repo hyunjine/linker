@@ -40,6 +40,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import com.hyunjine.linker.data.Secrets
 import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderBg
 import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderFg
 import com.hyunjine.linker.designsystem.theme.DrawerBottomNavBorder
@@ -52,7 +53,7 @@ import com.hyunjine.linker.designsystem.theme.SurfaceCard
 import com.hyunjine.linker.designsystem.theme.TextPrimary
 import com.hyunjine.linker.designsystem.theme.TextSecondary
 import linker.shared.generated.resources.Res
-import linker.shared.generated.resources.ic_cal_31
+import linker.shared.generated.resources.ic_dday
 import linker.shared.generated.resources.ic_heart
 import linker.shared.generated.resources.ic_link_alt
 import linker.shared.generated.resources.ic_plus
@@ -162,6 +163,7 @@ fun MainDrawerContent(
             Spacer(Modifier.height(16.dp))
             TasksRow(onClick = onTasksClick)
             ReleaseNotesRow(onClick = onReleaseNotesClick)
+            AppVersionRow()
             LogoutRow(onClick = onLogout)
         }
         // 하단 고정 액션바 — 기념일 (#182) · 에브리타임 (#306). 파트너 · URL 등록 여부와 무관하게
@@ -199,9 +201,13 @@ private fun DrawerBottomNav(
             onClick = onAnniversaryClick,
             modifier = Modifier.weight(1f),
         ) {
-            // 캘린더 + 가운데 "D" 오버레이 (Figma 4168:78839). 범용 ic_cal_31 은 다른 화면에서
-            // D 없이 재사용되므로 여기서 텍스트만 얹어 디데이 뉘앙스를 준다.
-            AnniversaryCalendarIcon()
+            // 캘린더 + 하트 (#385 · Figma 4401:79774).
+            Image(
+                painter = painterResource(Res.drawable.ic_dday),
+                contentDescription = null,
+                colorFilter = ColorFilter.tint(TextPrimary),
+                modifier = Modifier.size(24.dp),
+            )
         }
         DrawerBottomNavItem(
             label = "에브리타임",
@@ -215,37 +221,6 @@ private fun DrawerBottomNav(
                 modifier = Modifier.size(24.dp),
             )
         }
-    }
-}
-
-/**
- * 기념일 (D-day) 전용 아이콘. 24dp 캘린더 프레임 위 가운데에 "D" 를 겹쳐 표시.
- * Figma 4168:78839 · 4168:78842 대응 — 범용 캘린더 아이콘 (ic_cal_31) 을 그대로 두고 여기서만 조합.
- */
-@Composable
-private fun AnniversaryCalendarIcon() {
-    val pretendard = LocalPretendardFontFamily.current
-    Box(
-        modifier = Modifier.size(24.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Image(
-            painter = painterResource(Res.drawable.ic_cal_31),
-            contentDescription = null,
-            colorFilter = ColorFilter.tint(TextPrimary),
-            modifier = Modifier.size(24.dp),
-        )
-        // Figma: 7px Inter Regular. 캘린더 상단 divider 아래 중앙에 위치 → offset 을 약간 아래로.
-        Text(
-            text = "D",
-            modifier = Modifier.padding(top = 4.dp),
-            style = TextStyle(
-                fontFamily = pretendard,
-                fontWeight = FontWeight.Normal,
-                fontSize = 8.sp,
-                color = TextPrimary,
-            ),
-        )
     }
 }
 
@@ -275,6 +250,29 @@ private fun DrawerBottomNavItem(
                 color = TextPrimary,
             ),
         )
+    }
+}
+
+/**
+ * 드로워 하단 "앱 버전" 행 (#385). 좌측 라벨 · 우측 `vX.Y.Z`. 탭 동작이 없어 리플 없이, 다른 텍스트 행과
+ * 글자 위치 (좌우 20dp) · 크기를 맞춘다. 값은 빌드 때 `Config.xcconfig` 의 MARKETING_VERSION 에서 생성.
+ */
+@Composable
+private fun AppVersionRow() {
+    val style = TextStyle(
+        fontFamily = LocalPretendardFontFamily.current,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 15.sp,
+        color = TextPrimary,
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = "앱 버전", style = style, modifier = Modifier.weight(1f))
+        Text(text = "v${Secrets.AppVersion}", style = style)
     }
 }
 
