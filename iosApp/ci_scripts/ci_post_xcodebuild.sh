@@ -13,6 +13,12 @@
 #   2) CI_BRANCH == release              — dev · 다른 브랜치 아카이브 제외
 #   3) 필수 env 세 개 (RELEASE_BROADCAST_SECRET · SUPABASE_URL · SUPABASE_ANON_KEY) 존재
 #
+# 위치 (#372):
+#   Xcode Cloud 는 ci_scripts 폴더를 워크플로가 쓰는 .xcodeproj 와 같은 디렉터리에서만 찾는다.
+#   프로젝트가 iosApp/iosApp.xcodeproj 라 이 파일은 반드시 iosApp/ci_scripts/ 에 있어야 한다.
+#   (저장소 루트 ci_scripts/ 에 두었을 땐 실행되지 않아 v1.5.0 배포 알림이 누락됐다.)
+#   루트 ci_scripts/compile_kotlin_framework.sh 는 Xcode 빌드 단계가 경로를 직접 지정해 부르므로 별개.
+#
 # 아이덤포턴시:
 #   함수 자체가 `release_broadcasts.version` PK 로 재발송 차단. archive 재실행돼도
 #   "alreadyBroadcasted": true 리턴만 오고 중복 push 없음.
@@ -41,7 +47,8 @@ fi
 
 # ── MARKETING_VERSION 파싱 ────────────────────────────────────────────────
 # Xcode Cloud 는 CI_PRIMARY_REPOSITORY_PATH 에 체크아웃 경로를 넣어준다.
-REPO_ROOT="${CI_PRIMARY_REPOSITORY_PATH:-$(cd "$(dirname "$0")/.." && pwd)}"
+# 로컬 수동 실행 시 fallback: 이 파일 기준 두 단계 위 (iosApp/ci_scripts → 저장소 루트).
+REPO_ROOT="${CI_PRIMARY_REPOSITORY_PATH:-$(cd "$(dirname "$0")/../.." && pwd)}"
 XCCONFIG="${REPO_ROOT}/iosApp/Configuration/Config.xcconfig"
 
 if [ ! -f "$XCCONFIG" ]; then
