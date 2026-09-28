@@ -10,6 +10,46 @@ Release 노트로 자동 게시된다 (`.github/workflows/release.yml`).
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-09-28
+
+### 신규 기능
+- **할 일 내역** — 드로워 "할 일"에서 남은 일 · 끝낸 일을 한눈에 보고, 최신순 · 과거순으로 정렬하거나 바로 체크 · 편집할 수 있어요. 내 할 일과 공동 할 일만 모아 보여줘요.
+- **알림 내역** — 메인 상단 종 아이콘에서 최근 30일 동안 받은 알림 (상대방 일정 변경 · 시작 알림 · 공지 · 업데이트) 을 날짜별로 다시 볼 수 있어요. 아래로 당기면 새로고침돼요.
+- **공동 캘린더 커스텀 색** — 커플 관리에서 기본 색 외에 원하는 색을 직접 골라 공동 캘린더에 쓸 수 있어요.
+
+### 개선
+- 드로워 상단을 새로 디자인했어요. 나와 상대방 프로필이 함께 보이고, "내 프로필" · "커플 설정" 버튼으로 바로 이동해요.
+- 커플 관리 화면을 정리했어요. 연결 해제는 화면 아래로 옮기고, 한 번 더 확인하도록 했어요.
+- 드로워의 할 일 · 릴리즈 노트 · 로그아웃을 누를 때 터치 효과가 보여요.
+
+### 버그 수정
+- 위젯에 할 일이 있는데 가끔 비어 보이던 문제 해결.
+- 일정 상세 시트에서 시간 있는 일정이 시작 시간 순으로 정렬되지 않던 문제 해결.
+
+## [1.5.0 · 개발자 노트]
+
+> 이 섹션은 GitHub Release 본문에는 함께 게시되지만, 앱의 릴리즈 노트 화면에서는 렌더링 되지 않는다.
+
+### 신규 기능
+- 할 일 내역 (#304) — `feature/task` (`TasksRoute` · `TasksScreen` · `TasksViewModel`). 남은 일은 `listOpenTasks(today)` (위젯과 동일 기준), 끝낸 일은 신규 `listDoneTasks()`. 정렬 메뉴는 Popup 대신 화면 내 오버레이로 바깥 1회 탭에 닫힘, 정렬 변경 시 `requestScrollToItem` 으로 인덱스 유지.
+- 알림 내역 (#303 · #365) — `feature/notification`. 기획서 `NOTIFICATION_HISTORY.md`. 당겨서 새로고침은 `PullToRefreshBox`, 인디케이터 최소 500ms.
+- 커플 관리 커스텀 색 (#335) — `CustomColorSwatch` 를 `designsystem/common` 으로 분리해 프로필 편집 · 커플 관리 공용.
+
+### 리팩터
+- 드로워 상단 `CoupleProfileHeader` (#335) — 기존 `ProfileHeader` · `CoupleLinkRow` 대체. `MainUiState.partnerProfile` 추가.
+- `AppAlertDialog` 에 `stacked` 옵션 · `AlertActionStyle.DestructiveText` 추가 (기본값 유지).
+- 위젯 payload (#367) — `TodayWidgetPayloadBuilder.buildJson()` 이 `String?` 반환. 세션이 로그인/로그아웃으로 확정될 때까지 최대 15초 대기, 곧 만료될 토큰은 선갱신, 갱신 · 일정 조회 실패 시 `null` 로 위젯 파일 유지. silent push 건너뜀은 `.noData` 응답.
+
+### DB · 백엔드
+- Migration `20260923000000__notifications_history` — `public.notifications` (본인 row 만 SELECT RLS, 쓰기는 service role), 30일 지난 내역 매일 정리 pg_cron `purge-old-notifications-daily`. 운영 적용 완료.
+- Edge Functions `send-schedule-push` · `send-announcement` · `broadcast-release-note` — 발송 전 수신자별 내역 기록 (`recordNotifications`, `dedupe_key` 로 재시도 중복 차단).
+
+### 버그 수정
+- 일정 상세 시트 timed 일정 정렬을 raw `HH:MM:SS` 기준으로 (#360).
+
+### 인프라 · 빌드
+- 배포 완료 push 를 release 워크플로에서 Xcode Cloud `ci_post_xcodebuild.sh` (archive 성공 후) 로 이관 (#356).
+
 ## [1.4.1] - 2026-09-22
 
 ### 버그 수정

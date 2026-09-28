@@ -11,6 +11,9 @@ import com.hyunjine.linker.designsystem.theme.toRgbHex
 import com.hyunjine.linker.feature.main.resolveOwnerForViewer
 import com.hyunjine.linker.feature.main.toKoreanClock
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.status.SessionStatus
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -23,6 +26,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 
 /**
@@ -110,23 +114,102 @@ data class TodayWidgetPayload(
  * iOS 앱이 이 문자열을 App Group 파일에 write → WidgetKit reload.
  *
  * 정렬: 시각 있는 항목 오름차순, 그 다음 종일/할 일 순 (안정적 표시 위해).
- * couple 미가입 · 세션 없음 등은 빈 items 로 대응 (위젯이 "일정 없음" 표시).
+ * couple 미가입은 빈 items 로 대응 (위젯이 "일정 없음" 표시).
+ *
+ * 세션이 준비되지 않았거나 일정 조회가 실패하면 **payload 를 만들지 않는다** (#367). 예전엔 실패를
+ * 빈 리스트로 삼켜 멀쩡한 위젯 파일을 "할 일 0개" 로 덮어썼다 — 앱 실행 직후 세션 복원 중이거나
+ * 자정 silent push 로 깨어났을 때 토큰이 만료돼 있으면 위젯이 비는 원인.
  */
 object TodayWidgetPayloadBuilder {
 
     private val json = Json { encodeDefaults = true }
 
+    /** 세션 복원 · 갱신 재시도를 기다리는 최대 시간. silent push 실행 한도 (~30초) 안에 끝나도록. */
+    private val SessionWaitTimeout = 15.seconds
+
+    /** 이 시간 안에 만료될 토큰은 미리 갱신하고 조회한다. */
+    private val TokenExpiryMargin = 60.seconds
+
+    /**
+     * 위젯 payload JSON. null 이면 호출 측은 기존 위젯 파일을 **그대로 둬야** 한다
+     * (세션 미준비 · 토큰 갱신 실패 · 일정 조회 실패). 로그아웃 상태는 빈 payload 를 돌려줘 위젯을 비운다.
+     */
     @OptIn(ExperimentalTime::class)
-    suspend fun buildJson(): String {
+    suspend fun buildJson(): String? {
         val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
-        return json.encodeToString(TodayWidgetPayload.serializer(), buildPayload(today))
+        val payload = when (awaitSession()) {
+            SessionReadiness.Ready -> buildPayload(today) ?: return null
+            // 로그아웃: 이전 계정 데이터가 남지 않도록 비운다. 색은 buildPayload 의 기본 fallback 과 동일.
+            SessionReadiness.LoggedOut -> TodayWidgetPayload(
+                date = today.toString(),
+                items = emptyList(),
+                meColorHex = calendarColorFor(null).toRgbHex(),
+                partnerColorHex = calendarColorFor("pink").toRgbHex(),
+                usColorHex = CalendarPurple.toRgbHex(),
+            )
+            SessionReadiness.Unavailable -> return null
+        }
+        return json.encodeToString(TodayWidgetPayload.serializer(), payload)
     }
 
+    private enum class SessionReadiness {
+        /** 유효한 (만료 전) 세션으로 조회 가능. */
+        Ready,
+
+        /** 확실히 로그아웃 — 위젯을 비워도 된다. */
+        LoggedOut,
+
+        /** 복원 중 · 갱신 재시도 중 · 갱신 실패 — 이번엔 건너뛰고 기존 위젯 유지. */
+        Unavailable,
+    }
+
+    /**
+     * 세션이 "로그인됨" 또는 "로그아웃" 으로 확정될 때까지 기다린다. 복원 중 (`Initializing`) 이나
+     * 갱신 재시도 중 (`RefreshFailure` — 라이브러리가 10초마다 자동 재시도) 이면 그 결과를 기다림.
+     * 로그인됨이어도 토큰이 곧 만료되면 먼저 갱신한다 (백그라운드에서 깨어나 자동 갱신 타이머가
+     * 못 돈 경우).
+     */
     @OptIn(ExperimentalTime::class)
-    private suspend fun buildPayload(today: LocalDate): TodayWidgetPayload {
+    private suspend fun awaitSession(): SessionReadiness {
+        val auth = SupabaseProvider.client.auth
+        val status = withTimeoutOrNull(SessionWaitTimeout) {
+            auth.sessionStatus.first { it is SessionStatus.Authenticated || it is SessionStatus.NotAuthenticated }
+        }
+        return when (status) {
+            is SessionStatus.NotAuthenticated -> SessionReadiness.LoggedOut
+            is SessionStatus.Authenticated -> {
+                if (status.session.expiresAt > Clock.System.now() + TokenExpiryMargin) {
+                    SessionReadiness.Ready
+                } else {
+                    runCatching { auth.refreshCurrentSession() }
+                        .onFailure { println("[Widget] 토큰 갱신 실패 — 기존 위젯 유지: $it") }
+                        .fold(onSuccess = { SessionReadiness.Ready }, onFailure = { SessionReadiness.Unavailable })
+                }
+            }
+            else -> {
+                println("[Widget] 세션 확정 대기 시간 초과 — 기존 위젯 유지")
+                SessionReadiness.Unavailable
+            }
+        }
+    }
+
+    /** 일정 조회가 하나라도 실패하면 null — 호출 측이 기존 위젯을 유지한다. */
+    @OptIn(ExperimentalTime::class)
+    private suspend fun buildPayload(today: LocalDate): TodayWidgetPayload? {
         val viewerId = SupabaseProvider.client.auth.currentUserOrNull()?.id
-        val rows = runCatching { SchedulesRepository.listInRange(today, today) }
-            .getOrDefault(emptyList())
+        val schedules = runCatching {
+            val firstOfMonth = LocalDate(today.year, today.month, 1)
+            val lastOfMonth = firstOfMonth.plus(DatePeriod(months = 1)).minus(DatePeriod(days = 1))
+            Triple(
+                SchedulesRepository.listInRange(today, today),
+                SchedulesRepository.listOpenTasks(today),
+                SchedulesRepository.listInRange(firstOfMonth, lastOfMonth),
+            )
+        }.getOrElse {
+            println("[Widget] 일정 조회 실패 — 기존 위젯 유지: $it")
+            return null
+        }
+        val (rows, openTaskRows, monthRows) = schedules
         val items = rows
             // #351: 완료된 할 일은 위젯 리스트에서 제외. 홈 split 위젯의 openTasks 흐름과 동작 통일 —
             // 완료 즉시 잠금/오늘 위젯에서도 사라져야 남아있는 항목 = 실제 할 일. 일정(type='schedule')
@@ -136,16 +219,10 @@ object TodayWidgetPayloadBuilder {
             .sortedWith(compareBy(nullsLast()) { it.sortKey() })
             .map { it.item }
         // #244 split 위젯 우측: 오늘까지의 미완료 할 일 (start_date <= today).
-        // 실패해도 나머지 위젯은 렌더돼야 하므로 빈 리스트 fallback.
-        val openTasks = runCatching { SchedulesRepository.listOpenTasks(today) }
-            .getOrDefault(emptyList())
-            .map { it.toWidgetOpenTask(viewerId) }
+        val openTasks = openTaskRows.map { it.toWidgetOpenTask(viewerId) }
         // 캘린더 위젯 미니 달력용 — 이번 달 (today 가 속한 달) 모든 이벤트를 하루 단위로 그룹핑해
         // owner 리스트를 payload 에 실어준다. Swift 쪽이 각 날짜에 dot 을 렌더.
-        val firstOfMonth = LocalDate(today.year, today.month, 1)
-        val lastOfMonth = firstOfMonth.plus(DatePeriod(months = 1)).minus(DatePeriod(days = 1))
-        val monthEvents = runCatching { SchedulesRepository.listInRange(firstOfMonth, lastOfMonth) }
-            .getOrDefault(emptyList())
+        val monthEvents = monthRows
             .groupBy { it.startDate }
             .mapValues { (_, rows) ->
                 rows.map { resolveOwnerForViewer(it.ownerKind, it.createdBy, viewerId) }.distinct()

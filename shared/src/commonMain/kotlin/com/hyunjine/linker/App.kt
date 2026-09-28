@@ -98,6 +98,14 @@ private data object SearchRoute : NavKey
 @Serializable
 private data object ReleaseNotesRoute : NavKey
 
+/** 알림 내역 라우트 (#303). 메인 상단바 종 아이콘 진입점. */
+@Serializable
+private data object NotificationsRoute : NavKey
+
+/** 할 일 내역 라우트 (#304). 드로워 "할 일" 진입점. */
+@Serializable
+private data object TasksRoute : NavKey
+
 @Serializable
 private data object EverytimeTimetableRoute : NavKey
 
@@ -116,6 +124,8 @@ private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
             subclass(DdayRoute::class, DdayRoute.serializer())
             subclass(SearchRoute::class, SearchRoute.serializer())
             subclass(ReleaseNotesRoute::class, ReleaseNotesRoute.serializer())
+            subclass(TasksRoute::class, TasksRoute.serializer())
+            subclass(NotificationsRoute::class, NotificationsRoute.serializer())
             subclass(EverytimeTimetableRoute::class, EverytimeTimetableRoute.serializer())
         }
     }
@@ -371,8 +381,10 @@ fun App() {
                             // AnniversariesRoute (다건 기념일 리스트) 는 검색 결과 진입용으로만 유지.
                             onAnniversaryClick = { backStack.add(DdayRoute) },
                             onSearchClick = { backStack.add(SearchRoute) },
+                            onNotificationsClick = { backStack.add(NotificationsRoute) },
                             onProfileEditClick = { backStack.add(ProfileEditRoute) },
                             onCoupleLinkClick = { backStack.add(CoupleLinkRoute) },
+                            onTasksClick = { backStack.add(TasksRoute) },
                             onReleaseNotesClick = { backStack.add(ReleaseNotesRoute) },
                             onEverytimeTimetableClick = { backStack.add(EverytimeTimetableRoute) },
                             onLogout = {
@@ -408,6 +420,20 @@ fun App() {
                     entry<ReleaseNotesRoute> {
                         com.hyunjine.linker.feature.release.ReleaseNotesRoute(
                             onBack = { backStack.removeLastOrNull() },
+                        )
+                    }
+                    entry<NotificationsRoute> {
+                        com.hyunjine.linker.feature.notification.NotificationsRoute(
+                            onBack = { backStack.removeLastOrNull() },
+                        )
+                    }
+                    entry<TasksRoute> {
+                        com.hyunjine.linker.feature.task.TasksRoute(
+                            onBack = { backStack.removeLastOrNull() },
+                            onEditTask = { id -> backStack.add(CreateScheduleRoute(id)) },
+                            // 체크 토글 후 캘린더 chip 도 맞춰지도록 Main 재fetch 트리거.
+                            onTasksChanged = { scheduleRefreshTick++ },
+                            scheduleRefreshTick = scheduleRefreshTick,
                         )
                     }
                     entry<EverytimeTimetableRoute> {

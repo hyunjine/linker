@@ -41,6 +41,8 @@ import com.hyunjine.linker.designsystem.common.AlertAction
 import com.hyunjine.linker.designsystem.common.AlertActionStyle
 import com.hyunjine.linker.designsystem.common.AppAlertDialog
 import com.hyunjine.linker.designsystem.common.AppTopBar
+import com.hyunjine.linker.designsystem.common.CustomColorSheet
+import com.hyunjine.linker.designsystem.common.CustomColorSwatch
 import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderBg
 import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderFg
 import com.hyunjine.linker.designsystem.theme.CalendarBlue
@@ -57,7 +59,10 @@ import com.hyunjine.linker.designsystem.theme.SurfaceCard
 import com.hyunjine.linker.designsystem.theme.SurfaceGray
 import com.hyunjine.linker.designsystem.theme.TextPrimary
 import com.hyunjine.linker.designsystem.theme.TextSecondary
+import com.hyunjine.linker.designsystem.theme.UnlinkTextGray
 import com.hyunjine.linker.designsystem.theme.calendarColorFor
+import com.hyunjine.linker.designsystem.theme.isCustomHexColorId
+import com.hyunjine.linker.designsystem.theme.toRgbHex
 
 private val TOP_BAR_HEIGHT = 54.dp
 
@@ -65,7 +70,8 @@ private val TOP_BAR_HEIGHT = 54.dp
  * 커플 연결 진입 화면. [state] 에 따라 세 갈래로 분기:
  *  - [CoupleLinkUiState.Loading]: 옵션 카드 자리를 비워둠 (로딩 중).
  *  - [CoupleLinkUiState.NotPaired]: 두 옵션 (내 초대코드 · 상대 코드) 노출.
- *  - [CoupleLinkUiState.Paired]: 파트너 프로필 카드 + 연결 해제 버튼.
+ *  - [CoupleLinkUiState.Paired]: "커플 관리" — 파트너 프로필 카드 + 공동 캘린더 색 (프리셋 · 커스텀) +
+ *    하단 "연결 해제" (#335 · Figma 4329:79092).
  *
  * NotPaired 옵션:
  *  - "내 초대코드 만들기" → [CoupleInviteCodeScreen] (내 커플 자동 생성 + 코드 공유)
@@ -83,6 +89,7 @@ fun CoupleLinkScreen(
     onUsColorChange: (String) -> Unit = {},
 ) {
     var confirmUnlink by remember { mutableStateOf(false) }
+    var showCustomColorSheet by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -99,8 +106,8 @@ fun CoupleLinkScreen(
                     partner = state.partner,
                     usCalendarColor = state.usCalendarColor,
                     saveError = state.saveError,
-                    onUnlinkClick = { confirmUnlink = true },
                     onUsColorChange = onUsColorChange,
+                    onCustomColorClick = { showCustomColorSheet = true },
                 )
                 is CoupleLinkUiState.NotPaired -> NotPairedContent(
                     onCreateInvite = onCreateInvite,
@@ -109,6 +116,24 @@ fun CoupleLinkScreen(
                 is CoupleLinkUiState.Loading -> Spacer(Modifier.height(24.dp))
             }
             Spacer(Modifier.weight(1f))
+            // 파괴적 액션은 눈에 덜 띄게 화면 하단 회색 텍스트로 (#335).
+            if (state is CoupleLinkUiState.Paired) {
+                UnlinkButton(onClick = { confirmUnlink = true })
+            }
+        }
+
+        if (state is CoupleLinkUiState.Paired) {
+            val usId = state.usCalendarColor ?: DefaultUsColorId
+            CustomColorSheet(
+                visible = showCustomColorSheet,
+                // 커스텀 hex 면 그 값, 프리셋이면 프리셋 색을 hex 로 바꿔 시트 초기값으로.
+                initialHex = calendarColorFor(usId).toRgbHex(),
+                onDismissRequest = { showCustomColorSheet = false },
+                onConfirm = { hex ->
+                    showCustomColorSheet = false
+                    onUsColorChange(hex)
+                },
+            )
         }
 
         if (confirmUnlink) {
@@ -122,7 +147,7 @@ fun CoupleLinkScreen(
         }
 
         AppTopBar(
-            title = "상대방 연결",
+            title = if (state is CoupleLinkUiState.Paired) "커플 관리" else "상대방 연결",
             onBack = onBack,
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -156,45 +181,57 @@ private fun NotPairedContent(
 }
 
 /**
- * 파트너와 연결된 상태. 프로필 카드로 "연결됨" 을 시각적으로 보여주고 아래에 연결 해제 진입.
- * 파트너 프로필 조회 실패 (null) 시엔 카드 없이 해제 버튼만 노출 — 회귀 방지.
+ * 파트너와 연결된 상태 (#335 "커플 관리"). 파트너 프로필 카드 + 공동 캘린더 색 picker.
+ * 연결 해제는 화면 하단에 따로 둔다 ([CoupleLinkScreen]).
+ * 파트너 프로필 조회 실패 (null) 시엔 카드 없이 색 picker 만 노출 — 회귀 방지.
+ *
+ * @param partner 파트너 프로필. null 이면 카드 생략.
+ * @param usCalendarColor 현재 공동 색 id (프리셋 id 또는 `#RRGGBB`). null 이면 [DefaultUsColorId].
+ * @param saveError 공동 색 저장 실패 사유.
+ * @param onUsColorChange 프리셋 스와치 선택.
+ * @param onCustomColorClick 무지개 커스텀 스와치 탭 → 커스텀 색상 시트.
  */
 @Composable
 private fun PairedContent(
     partner: UsersRepository.Profile?,
     usCalendarColor: String?,
     saveError: String?,
-    onUnlinkClick: () -> Unit,
     onUsColorChange: (String) -> Unit,
+    onCustomColorClick: () -> Unit,
 ) {
     Spacer(Modifier.height(24.dp))
     if (partner != null) {
         PartnerProfileCard(partner = partner, modifier = Modifier.padding(horizontal = 16.dp))
-        Spacer(Modifier.height(20.dp))
+        Spacer(Modifier.height(28.dp))
     }
     // 공동(Us) 캘린더 색 picker (#245). Paired 상태에서만 노출 — solo 커플엔 공동 일정 개념이 없음.
     UsCalendarColorSection(
         selectedId = usCalendarColor ?: DefaultUsColorId,
         saveError = saveError,
         onSelect = onUsColorChange,
+        onCustomClick = onCustomColorClick,
         modifier = Modifier.padding(horizontal = 16.dp),
     )
-    Spacer(Modifier.height(12.dp))
-    UnlinkButton(onClick = onUnlinkClick, modifier = Modifier.padding(horizontal = 16.dp))
 }
 
 /** 공동 색 미설정 시 fallback id. `OwnerColors.Default.us` (CalendarPurple) 와 정합. */
 private const val DefaultUsColorId: String = "purple"
 
 /**
- * 공동(Us) 캘린더 색상 preset picker (#245). 라벨 + SurfaceCard 안에 8개 스와치.
- * 프로필 편집 화면의 팔레트와 톤을 맞춘다. 커스텀 hex 는 이번 스코프에서 제외.
+ * 공동(Us) 캘린더 색상 picker (#245). 라벨 + SurfaceCard 안에 프리셋 8개 + 맨 끝 커스텀 스와치 (#335).
+ * 프로필 편집 화면의 팔레트와 톤을 맞춘다.
+ *
+ * @param selectedId 현재 색 id (프리셋 id 또는 `#RRGGBB`).
+ * @param saveError 저장 실패 사유. null 이면 숨김.
+ * @param onSelect 프리셋 스와치 선택.
+ * @param onCustomClick 커스텀 스와치 탭.
  */
 @Composable
 private fun UsCalendarColorSection(
     selectedId: String,
     saveError: String?,
     onSelect: (String) -> Unit,
+    onCustomClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val font = LocalPretendardFontFamily.current
@@ -212,7 +249,7 @@ private fun UsCalendarColorSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
+                .clip(RoundedCornerShape(16.dp))
                 .background(SurfaceCard)
                 .padding(horizontal = 20.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -225,7 +262,21 @@ private fun UsCalendarColorSection(
                     onClick = { onSelect(option.id) },
                 )
             }
+            // 커스텀 hex 가 현재 색이면 그 색으로 선택 링 (프리셋과 동일 하이라이트).
+            CustomColorSwatch(
+                ringColor = if (isCustomHexColorId(selectedId)) calendarColorFor(selectedId) else null,
+                onClick = onCustomClick,
+            )
         }
+        Text(
+            text = "마지막 무지개 원을 눌러 원하는 색을 직접 고를 수 있어요",
+            style = TextStyle(
+                color = TextSecondary,
+                fontSize = 12.sp,
+                fontFamily = font,
+            ),
+            modifier = Modifier.padding(start = 4.dp),
+        )
         // 저장 실패 안내 (#323). 이전엔 optimistic UI 만 반짝 바뀌고 다음 refresh 때 조용히 revert 돼서
         // "저장 됐다고 착각" 하는 문제가 있었음. 실패 시엔 UI 는 이전 값으로 되돌리고 여기 사유를 노출.
         if (saveError != null) {
@@ -304,15 +355,15 @@ private fun PartnerProfileCard(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(18.dp))
+            .clip(RoundedCornerShape(16.dp))
             .background(SurfaceCard)
-            .padding(horizontal = 20.dp, vertical = 18.dp),
+            .padding(horizontal = 20.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        horizontalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         Box(
             modifier = Modifier
-                .size(52.dp)
+                .size(64.dp)
                 .clip(CircleShape)
                 .background(AvatarPlaceholderBg),
             contentAlignment = Alignment.Center,
@@ -322,7 +373,7 @@ private fun PartnerProfileCard(
                     model = secureUrl,
                     contentDescription = "파트너 프로필 사진",
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier.size(52.dp).clip(CircleShape),
+                    modifier = Modifier.size(64.dp).clip(CircleShape),
                 )
             } else {
                 Text(
@@ -330,7 +381,7 @@ private fun PartnerProfileCard(
                     style = TextStyle(
                         fontFamily = font,
                         fontWeight = FontWeight.SemiBold,
-                        fontSize = 22.sp,
+                        fontSize = 26.sp,
                         color = AvatarPlaceholderFg,
                     ),
                 )
@@ -342,7 +393,7 @@ private fun PartnerProfileCard(
                 style = TextStyle(
                     fontFamily = font,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 17.sp,
+                    fontSize = 18.sp,
                     color = TextPrimary,
                 ),
             )
@@ -351,7 +402,7 @@ private fun PartnerProfileCard(
                     text = handle,
                     style = TextStyle(
                         fontFamily = font,
-                        fontSize = 13.sp,
+                        fontSize = 14.sp,
                         color = TextSecondary,
                     ),
                 )
@@ -376,7 +427,11 @@ private fun formatBirthHandle(iso: String): String {
     return "$year.$month.$day"
 }
 
-/** 파괴적 액션 (Row 전체 탭 → 확인 다이얼로그). 톤: 흰 카드 + 빨간 텍스트. */
+/**
+ * 화면 하단 "연결 해제" (#335). 실수로 누르지 않도록 강조 없이 회색 텍스트로 두고, 탭하면 확인 다이얼로그.
+ *
+ * @param onClick 탭 → 확인 다이얼로그.
+ */
 @Composable
 private fun UnlinkButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     val font = LocalPretendardFontFamily.current
@@ -384,31 +439,33 @@ private fun UnlinkButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 16.dp),
+            .padding(vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = "커플 연결 해제",
+            text = "연결 해제",
             style = TextStyle(
                 fontFamily = font,
                 fontWeight = FontWeight.SemiBold,
-                fontSize = 15.sp,
-                color = Color(0xFFFF3B30),
+                fontSize = 17.sp,
+                color = UnlinkTextGray,
             ),
         )
     }
 }
 
+/** 연결 해제 확인 (#335 · Apple iOS 26 키트 Stacked 알림) — 위 "해제하기" · 아래 "취소하기". */
 @Composable
 private fun UnlinkConfirmDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AppAlertDialog(
-        title = "커플 연결 해제",
-        message = "연결을 해제하면 파트너 스케줄은 더 이상 보이지 않습니다. 내가 만든 스케줄은 유지돼요.",
+        title = "커플 연결을 해제할까요?",
+        message = "해제하면 상대방 일정이\n더이상 보이지 않아요.",
         actions = listOf(
-            AlertAction("취소", AlertActionStyle.Cancel, onClick = onDismiss),
-            AlertAction("해제", AlertActionStyle.Destructive, onClick = onConfirm),
+            AlertAction("해제하기", AlertActionStyle.DestructiveText, onClick = onConfirm),
+            AlertAction("취소하기", AlertActionStyle.Cancel, onClick = onDismiss),
         ),
         onDismissRequest = onDismiss,
+        stacked = true,
     )
 }
 

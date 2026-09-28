@@ -137,3 +137,38 @@ val DrawerCheckBlue = Color(0xFF599CFF)
 // 드로워 하단 액션바 (기념일 · 에브리타임) 상단 구분선 (#327 · Figma #E7E7E7)
 val DrawerBottomNavBorder = Color(0xFFE7E7E7)
 
+
+// 할 일 내역 (#304) 미완료 체크박스 테두리 (Figma #AFAFB4)
+val TaskCheckBorder = Color(0xFFAFAFB4)
+
+// 정렬 드롭다운 메뉴 그림자 (#304 · 검정 12%)
+val MenuShadow = Color(0x1F000000)
+// 정렬 드롭다운 메뉴 외곽 1px 그림자 (#304 · 검정 4%)
+val MenuOutlineShadow = Color(0x0A000000)
+
+// 알림 내역 (#303) 종류별 아이콘 원 배경 · 아이콘 색
+val NotiPartnerBg = Color(0xFFFFE5EA)
+val NotiPartnerFg = CalendarPink
+val NotiReminderBg = Color(0xFFE0F0FF)
+val NotiReminderFg = PrimaryBlue
+val NotiAnnouncementBg = Color(0xFFF0F0F2)
+val NotiAnnouncementFg = Color(0xFF6B6B75)
+val NotiUpdateBg = ChipAnniversaryBg
+val NotiUpdateFg = CalendarPurple
+
+// 로딩 스켈레톤 (#303) — 카드 안 블록 · 카드 밖 그룹 라벨 자리
+val SkeletonFill = Color(0xFFF0F0F2)
+val SkeletonLabel = Color(0xFFE5E5EA)
+
+// 드로워 커플 헤더 (#335) — 상대방 미연결 자리 점선 테두리 (Figma #C6C6C8)
+val DrawerAddPartnerDash = Color(0xFFC6C6C8)
+
+// 커스텀 색상 스와치 무지개 링 (프로필 편집 · 커플 관리 공용)
+val CustomSwatchRainbow = listOf(
+    Color(0xFFFF3B30), Color(0xFFFF9500), Color(0xFFFFCC00),
+    Color(0xFF34C759), Color(0xFF008AFF), Color(0xFFAF52DE),
+    Color(0xFFFF375F), Color(0xFFFF3B30),
+)
+
+// 커플 관리 하단 "연결 해제" 텍스트 (#335 · Figma #A9A9A9) — 파괴적 액션을 눈에 덜 띄게
+val UnlinkTextGray = Color(0xFFA9A9A9)

@@ -84,6 +84,7 @@ import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import linker.shared.generated.resources.Res
 import linker.shared.generated.resources.ic_chevron_down
+import linker.shared.generated.resources.ic_bell
 import linker.shared.generated.resources.ic_menu
 import linker.shared.generated.resources.ic_search
 import org.jetbrains.compose.resources.painterResource
@@ -178,6 +179,7 @@ private fun today(): LocalDate =
  * @param onMenuClick 좌상단 햄버거 탭.
  * @param onTitleClick 중앙 "YYYY. M v" 탭 (월 피커 열기).
  * @param onSearchClick 우상단 검색 탭.
+ * @param onNotificationsClick 우상단 종 (검색 왼쪽) 탭 → 알림 내역 (#303).
  * @param onDayClick 그리드 셀 탭 (해당 날짜 상세 열기).
  * @param onAddSchedule 그리드 셀 롱프레스 (iOS 캘린더 관습) — 해당 날짜를 기준으로 일정 생성 화면 진입.
  */
@@ -204,6 +206,7 @@ fun MainScreen(
     onMenuClick: () -> Unit = {},
     onTitleClick: () -> Unit = {},
     onSearchClick: () -> Unit = {},
+    onNotificationsClick: () -> Unit = {},
     onDayClick: (LocalDate) -> Unit = {},
     /**
      * 일정 생성 진입. 롱프레스 · DayDetailSheet "+" 두 경로가 공유. [type] 은 어느 pill/롱프레스인지에
@@ -214,11 +217,14 @@ fun MainScreen(
     onAnniversaryClick: () -> Unit = {},
     onProfileEditClick: () -> Unit = {},
     onCoupleLinkClick: () -> Unit = {},
+    onTasksClick: () -> Unit = {},
     onReleaseNotesClick: () -> Unit = {},
     onLogout: () -> Unit = {},
     /** 드로워 프로필 헤더에 표시할 값들. 로드 전에는 기본값 표시. */
     profileName: String = "",
-    profileHandle: String = "",
+    /** 드로워 커플 헤더 (#335) 파트너 이름 · 사진. [hasPartner] false 면 쓰지 않음. */
+    partnerName: String = "",
+    partnerImageUrl: String? = null,
     profileImageUrl: String? = null,
     /**
      * 드로워 표시 옵션 (일정/달력 정보). 상위 (VM) 가 서버에서 로드해 관리.
@@ -308,11 +314,13 @@ fun MainScreen(
         drawerContent = {
             MainDrawerContent(
                 profileName = profileName,
-                profileHandle = profileHandle,
                 profileImageUrl = profileImageUrl,
+                partnerName = partnerName,
+                partnerImageUrl = partnerImageUrl,
                 displayState = displayState,
                 hasPartner = hasPartner,
                 onCoupleLinkClick = onCoupleLinkClick,
+                onTasksClick = onTasksClick,
                 onReleaseNotesClick = onReleaseNotesClick,
                 onSettingsClick = {
                     // 여기서 drawerState.close() 를 부르면 App-scope 저장 상태가 Closed 로
@@ -353,6 +361,7 @@ fun MainScreen(
                 pickerVisible = true
             },
             onSearchClick = onSearchClick,
+            onNotificationsClick = onNotificationsClick,
         )
         WeekdaysRow()
         HorizontalPager(
@@ -537,25 +546,28 @@ private fun MainToolbar(
     onMenuClick: () -> Unit,
     onTitleClick: () -> Unit,
     onSearchClick: () -> Unit,
+    onNotificationsClick: () -> Unit,
 ) {
     val pretendard = LocalPretendardFontFamily.current
-    Row(
+    // 좌우 버튼 개수가 달라도 (좌 1 · 우 2) 제목이 화면 정중앙에 오도록 Row 대신 Box 정렬.
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp) // 44dp 원형 탭 타겟이 좌우로 튀어나오지 않게 살짝 안쪽
             .padding(top = 8.dp, bottom = 12.dp)
             .height(44.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
+        contentAlignment = Alignment.Center,
     ) {
         // 좌: 햄버거 — 44dp 리퀴드 글래스 원형 버튼 안에 24dp 아이콘 (BackCircleButton 과 동일한 tint)
-        IconTapTarget(onClick = onMenuClick) {
-            Image(
-                painter = painterResource(Res.drawable.ic_menu),
-                contentDescription = "메뉴 열기",
-                colorFilter = ColorFilter.tint(TextPrimary),
-                modifier = Modifier.size(24.dp),
-            )
+        Box(Modifier.align(Alignment.CenterStart)) {
+            IconTapTarget(onClick = onMenuClick) {
+                Image(
+                    painter = painterResource(Res.drawable.ic_menu),
+                    contentDescription = "메뉴 열기",
+                    colorFilter = ColorFilter.tint(TextPrimary),
+                    modifier = Modifier.size(24.dp),
+                )
+            }
         }
 
         // 중앙: "YYYY. M v" — rounded rect 리플
@@ -583,14 +595,27 @@ private fun MainToolbar(
             )
         }
 
-        // 우: 검색 — 햄버거/BackCircleButton 과 동일 톤 (tint TextPrimary)
-        IconTapTarget(onClick = onSearchClick) {
-            Image(
-                painter = painterResource(Res.drawable.ic_search),
-                contentDescription = "검색",
-                colorFilter = ColorFilter.tint(TextPrimary),
-                modifier = Modifier.size(24.dp),
-            )
+        // 우: 알림 (#303) · 검색 — 햄버거/BackCircleButton 과 동일 톤 (tint TextPrimary), 사이 8dp.
+        Row(
+            modifier = Modifier.align(Alignment.CenterEnd),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            IconTapTarget(onClick = onNotificationsClick) {
+                Image(
+                    painter = painterResource(Res.drawable.ic_bell),
+                    contentDescription = "알림",
+                    colorFilter = ColorFilter.tint(TextPrimary),
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+            IconTapTarget(onClick = onSearchClick) {
+                Image(
+                    painter = painterResource(Res.drawable.ic_search),
+                    contentDescription = "검색",
+                    colorFilter = ColorFilter.tint(TextPrimary),
+                    modifier = Modifier.size(24.dp),
+                )
+            }
         }
     }
 }

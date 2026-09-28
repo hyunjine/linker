@@ -197,6 +197,24 @@ object SchedulesRepository {
     }
 
     /**
+     * 완료된 할 일 조회 (#304 할 일 내역 "끝낸 일" 탭). `type='task' AND is_done=true`.
+     * 날짜 상한 없음 — 미리 끝낸 미래 할 일도 포함. 정렬은 화면에서 사용자 선택에 따라 다시 한다.
+     */
+    suspend fun listDoneTasks(): List<Row> {
+        val coupleId = myCoupleId() ?: return emptyList()
+        return SupabaseProvider.client.from("schedules")
+            .select {
+                filter {
+                    eq("couple_id", coupleId)
+                    eq("type", "task")
+                    eq("is_done", true)
+                }
+                order("start_date", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
+            }
+            .decodeList<Row>()
+    }
+
+    /**
      * 새 스케줄 저장. 반환값은 대표 row 의 id.
      *
      * - 반복 없음: 단일 row insert
