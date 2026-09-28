@@ -169,6 +169,3 @@ val CustomSwatchRainbow = listOf(
     Color(0xFF34C759), Color(0xFF008AFF), Color(0xFFAF52DE),
     Color(0xFFFF375F), Color(0xFFFF3B30),
 )
-
-// 커플 관리 하단 "연결 해제" 텍스트 (#335 · Figma #A9A9A9) — 파괴적 액션을 눈에 덜 띄게
-val UnlinkTextGray = Color(0xFFA9A9A9)
