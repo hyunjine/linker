@@ -21,6 +21,7 @@ Release 노트로 자동 게시된다 (`.github/workflows/release.yml`).
 
 ### 인프라 · 빌드
 - Xcode Cloud post-build 스크립트를 `ci_scripts/` → `iosApp/ci_scripts/` 로 이동 (#372). Xcode Cloud 는 `ci_scripts` 를 `.xcodeproj` 와 같은 디렉터리에서만 찾아, 루트에 있던 `ci_post_xcodebuild.sh` 가 실행되지 않았음 → v1.5.0 배포 완료 알림 누락. 1.5.1 archive 부터 broadcast-release-note 가 호출된다.
+- Xcode Cloud 네트워크 일시 오류 대비 (#376). 1.5.1 첫 archive (빌드 8) 가 Gradle 의 kotlin-compiler 다운로드 중 github.com 연결 시간 초과로 실패 → Gradle 다운로드 재시도 · 시간 제한 확대, Release archive Gradle 실패 시 1회 재시도. 배포 알림은 `CI_XCODEBUILD_EXIT_CODE == 0` 일 때만 발송하고, 알림 실패는 빌드를 실패시키지 않음. 빌드 번호 9 로 재출시.
 
 ## [1.5.0] - 2026-09-28
 

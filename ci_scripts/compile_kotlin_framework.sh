@@ -105,7 +105,13 @@ export PATH="$JAVA_HOME/bin:$PATH"
 cd "$SRCROOT/.."
 if [ "$CONFIGURATION" = "Release" ]; then
   echo "[Compile Kotlin Framework] Release archive — single target embedAndSign"
-  ./gradlew :shared:embedAndSignAppleFrameworkForXcode --stacktrace
+  # 러너 네트워크 일시 오류로 의존성 다운로드가 실패하면 한 번 더 시도 (#376). 이미 받은 파일은
+  # Gradle 캐시에 남아 두 번째 시도는 빠진 것만 받는다. 컴파일 오류는 재시도해도 같은 결과라 무해.
+  if ! ./gradlew :shared:embedAndSignAppleFrameworkForXcode --stacktrace; then
+    echo "[Compile Kotlin Framework] Gradle 실패 — 30초 후 1회 재시도"
+    sleep 30
+    ./gradlew :shared:embedAndSignAppleFrameworkForXcode --stacktrace
+  fi
 else
   echo "[Compile Kotlin Framework] Debug — pre-warm sim + device frameworks"
   ./gradlew \
