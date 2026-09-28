@@ -28,6 +28,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.layout.ContentScale
@@ -40,6 +43,7 @@ import coil3.compose.AsyncImage
 import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderBg
 import com.hyunjine.linker.designsystem.theme.AvatarPlaceholderFg
 import com.hyunjine.linker.designsystem.theme.DrawerBottomNavBorder
+import com.hyunjine.linker.designsystem.theme.DrawerAddPartnerDash
 import com.hyunjine.linker.designsystem.theme.DrawerButtonBg
 import com.hyunjine.linker.designsystem.theme.DrawerCheckBlue
 import com.hyunjine.linker.designsystem.theme.LinkerTheme
@@ -49,10 +53,13 @@ import com.hyunjine.linker.designsystem.theme.TextPrimary
 import com.hyunjine.linker.designsystem.theme.TextSecondary
 import linker.shared.generated.resources.Res
 import linker.shared.generated.resources.ic_cal_31
+import linker.shared.generated.resources.ic_heart
+import linker.shared.generated.resources.ic_link_alt
+import linker.shared.generated.resources.ic_plus
+import linker.shared.generated.resources.ic_setting_two
 import linker.shared.generated.resources.ic_check
-import linker.shared.generated.resources.ic_link
 import linker.shared.generated.resources.ic_school
-import linker.shared.generated.resources.ic_setting_outline
+import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 
 /** 사이드 드로워의 캘린더 표시 옵션 상태. */
@@ -69,7 +76,7 @@ data class DrawerDisplayState(
  * 메인 화면 사이드 드로워 콘텐츠. Figma 3114:76134 참고.
  *
  * 구성:
- *  - 프로필 헤더 (아바타 + 이름/핸들 + 설정 아이콘) — Row 전체 탭 → [onSettingsClick]
+ *  - 커플 헤더 (#335) — 겹친 아바타 (나 · 상대방) + 이름 + "내 프로필" · "상대방 연결"/"커플 설정" 버튼
  *  - "기념일 설정" 진입 row
  *  - "일정 표시" 섹션 — 내 캘린더 / 상대방 캘린더
  *  - "달력 정보 표시" 섹션 — 공휴일 / 절기
@@ -79,9 +86,11 @@ data class DrawerDisplayState(
 @Composable
 fun MainDrawerContent(
     profileName: String,
-    profileHandle: String,
     displayState: DrawerDisplayState,
     profileImageUrl: String? = null,
+    /** 파트너 닉네임 · 사진. [hasPartner] 가 true 일 때만 헤더에 노출. */
+    partnerName: String = "",
+    partnerImageUrl: String? = null,
     onSettingsClick: () -> Unit = {},
     onAnniversaryClick: () -> Unit = {},
     onCoupleLinkClick: () -> Unit = {},
@@ -111,16 +120,13 @@ fun MainDrawerContent(
                 .verticalScroll(rememberScrollState()),
         ) {
             Spacer(Modifier.height(16.dp))
-            ProfileHeader(
-                name = profileName,
-                handle = profileHandle,
-                imageUrl = profileImageUrl,
-                onClick = onSettingsClick,
-            )
-            Spacer(Modifier.height(12.dp))
-            CoupleLinkRow(
-                text = "상대방 연결",
-                onClick = onCoupleLinkClick,
+            CoupleProfileHeader(
+                myName = profileName,
+                myImageUrl = profileImageUrl,
+                partnerName = partnerName.takeIf { hasPartner },
+                partnerImageUrl = partnerImageUrl,
+                onMyProfileClick = onSettingsClick,
+                onCoupleClick = onCoupleLinkClick,
             )
             Spacer(Modifier.height(12.dp))
             SectionLabel(text = "일정 표시")
@@ -359,116 +365,213 @@ private fun LogoutRow(onClick: () -> Unit) {
     }
 }
 
+/** 커플 헤더 아바타 지름 (#335 · Figma 72). */
+private val CoupleAvatarSize = 72.dp
+
+/** 아바타 사이를 가르는 흰 테두리 두께 — 겹친 부분 경계. */
+private val CoupleAvatarRing = 3.dp
+
+/** 두 아바타가 겹치는 폭. */
+private val CoupleAvatarOverlap = 17.dp
+
 /**
- * 프로필 헤더. Figma 3114:76145. Row 전체가 탭 타겟 — 톱니 아이콘만이 아니라
- * 사진/이름/핸들 어디를 눌러도 프로필 수정 화면으로 진입.
+ * 드로워 상단 커플 헤더 (#335 · Figma 4329:79092). 연결 전후 같은 틀을 유지해 화면이 흔들리지 않게 한다.
+ *
+ *  - 연결 전: 내 아바타 + 점선 원 `+` · 내 이름 · 안내 문구 · [내 프로필] [상대방 연결]
+ *  - 연결 후: 내 아바타 + 상대방 아바타 · `나 ♥ 상대` · [내 프로필] [커플 설정]
+ *  - 겹침 순서는 항상 오른쪽 (상대방 · `+`) 이 위.
+ *
+ * @param myName 내 닉네임.
+ * @param myImageUrl 내 프로필 사진. null 이면 이름 첫 글자.
+ * @param partnerName 파트너 닉네임. null 이면 미연결 상태로 그린다.
+ * @param partnerImageUrl 파트너 프로필 사진.
+ * @param onMyProfileClick "내 프로필" → 프로필 편집.
+ * @param onCoupleClick "상대방 연결" · "커플 설정" → 커플 연결/관리 화면.
  */
 @Composable
-private fun ProfileHeader(name: String, handle: String, imageUrl: String?, onClick: () -> Unit) {
+private fun CoupleProfileHeader(
+    myName: String,
+    myImageUrl: String?,
+    partnerName: String?,
+    partnerImageUrl: String?,
+    onMyProfileClick: () -> Unit,
+    onCoupleClick: () -> Unit,
+) {
     val pretendard = LocalPretendardFontFamily.current
-    Row(
+    val nameStyle = TextStyle(
+        fontFamily = pretendard,
+        fontWeight = FontWeight.Bold,
+        fontSize = 17.sp,
+        color = TextPrimary,
+    )
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(start = 16.dp, end = 16.dp, top = 20.dp, bottom = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(
-            modifier = Modifier
-                .size(44.dp)
-                .clip(CircleShape)
-                .background(AvatarPlaceholderBg),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (!imageUrl.isNullOrBlank()) {
-                AsyncImage(
-                    model = imageUrl,
-                    contentDescription = "프로필 사진",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.size(44.dp).clip(CircleShape),
-                )
+        // 테두리가 바깥으로 3dp 나가는 Figma 와 맞추려고 각 칸을 링 두께만큼 키우고, 그만큼 더 겹친다.
+        Row(horizontalArrangement = Arrangement.spacedBy(-(CoupleAvatarOverlap + CoupleAvatarRing * 2))) {
+            CoupleAvatar(name = myName, imageUrl = myImageUrl, description = "내 프로필 사진")
+            if (partnerName != null) {
+                CoupleAvatar(name = partnerName, imageUrl = partnerImageUrl, description = "상대방 프로필 사진")
             } else {
-                Text(
-                    text = name.take(1),
-                    style = TextStyle(
-                        fontFamily = pretendard,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 18.sp,
-                        color = AvatarPlaceholderFg,
-                    ),
-                )
+                AddPartnerAvatar()
             }
         }
-        Column(modifier = Modifier.weight(1f)) {
+        Spacer(Modifier.height(14.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(text = myName, style = nameStyle)
+            if (partnerName != null) {
+                Image(
+                    painter = painterResource(Res.drawable.ic_heart),
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp),
+                )
+                Text(text = partnerName, style = nameStyle)
+            }
+        }
+        if (partnerName == null) {
+            Spacer(Modifier.height(4.dp))
             Text(
-                text = name,
+                text = "상대방과 연결하고 일정을 공유해요",
                 style = TextStyle(
                     fontFamily = pretendard,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = TextPrimary,
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 13.sp,
+                    color = TextSecondary,
                 ),
             )
-            if (handle.isNotBlank()) {
-                Text(
-                    text = handle,
-                    style = TextStyle(
-                        fontFamily = pretendard,
-                        fontWeight = FontWeight.Normal,
-                        fontSize = 13.sp,
-                        color = TextSecondary,
-                    ),
-                )
-            }
+            Spacer(Modifier.height(16.dp))
+        } else {
+            Spacer(Modifier.height(20.dp))
         }
-        // 설정 아이콘 — outline 스타일 24dp. Row 전체가 탭 타겟이므로 이 아이콘 자체는 시각 요소.
-        Image(
-            painter = painterResource(Res.drawable.ic_setting_outline),
-            contentDescription = null,
-            colorFilter = ColorFilter.tint(TextPrimary),
-            modifier = Modifier.size(24.dp),
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            HeaderActionButton(
+                icon = Res.drawable.ic_setting_two,
+                label = "내 프로필",
+                onClick = onMyProfileClick,
+                modifier = Modifier.weight(1f),
+            )
+            HeaderActionButton(
+                icon = Res.drawable.ic_link_alt,
+                label = if (partnerName != null) "커플 설정" else "상대방 연결",
+                onClick = onCoupleClick,
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
 }
 
-/**
- * "상대방 연결" 전용 텍스트 행. 회색 라운드 컨테이너 + 좌측 22dp 링크 아이콘 + Bold 15sp (#308).
- */
+/** 흰 테두리를 두른 원형 아바타. 사진이 없으면 이름 첫 글자. */
 @Composable
-private fun CoupleLinkRow(
-    text: String,
-    onClick: () -> Unit,
-) {
-    val pretendard = LocalPretendardFontFamily.current
-    Row(
+private fun CoupleAvatar(name: String, imageUrl: String?, description: String) {
+    Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(12.dp))
+            .size(CoupleAvatarSize + CoupleAvatarRing * 2)
+            .clip(CircleShape)
+            .background(SurfaceCard)
+            .padding(CoupleAvatarRing)
+            .clip(CircleShape)
+            .background(AvatarPlaceholderBg),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (!imageUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = description,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.size(CoupleAvatarSize).clip(CircleShape),
+            )
+        } else {
+            Text(
+                text = name.take(1),
+                style = TextStyle(
+                    fontFamily = LocalPretendardFontFamily.current,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 26.sp,
+                    color = AvatarPlaceholderFg,
+                ),
+            )
+        }
+    }
+}
+
+/** 미연결 상태의 상대방 자리 — 회색 원 + 점선 테두리 + 가운데 `+`. */
+@Composable
+private fun AddPartnerAvatar() {
+    Box(
+        modifier = Modifier.size(CoupleAvatarSize + CoupleAvatarRing * 2),
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(CoupleAvatarSize)
+                .clip(CircleShape)
+                .background(DrawerButtonBg)
+                .drawBehind {
+                    val stroke = 1.5.dp.toPx()
+                    drawCircle(
+                        color = DrawerAddPartnerDash,
+                        radius = (size.minDimension - stroke) / 2,
+                        style = Stroke(
+                            width = stroke,
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(5.dp.toPx(), 4.dp.toPx())),
+                        ),
+                    )
+                },
+            contentAlignment = Alignment.Center,
+        ) {
+            Image(
+                painter = painterResource(Res.drawable.ic_plus),
+                contentDescription = "상대방 연결",
+                modifier = Modifier.size(26.dp),
+            )
+        }
+    }
+}
+
+/** 헤더 하단 반반 버튼 — 회색 라운드 + 16dp 아이콘 + SemiBold 14. */
+@Composable
+private fun HeaderActionButton(
+    icon: DrawableResource,
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
             .background(DrawerButtonBg)
-            .noRippleClickable(onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
+            .clickable(onClick = onClick)
+            .padding(vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Image(
-            painter = painterResource(Res.drawable.ic_link),
+            painter = painterResource(icon),
             contentDescription = null,
             colorFilter = ColorFilter.tint(TextPrimary),
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(16.dp),
         )
         Text(
-            text = text,
+            text = label,
             style = TextStyle(
-                fontFamily = pretendard,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
+                fontFamily = LocalPretendardFontFamily.current,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 14.sp,
                 color = TextPrimary,
             ),
         )
     }
 }
+
 
 @Composable
 private fun SectionLabel(text: String) {
@@ -556,7 +659,6 @@ private fun MainDrawerContentSoloPreview() {
     LinkerTheme {
         MainDrawerContent(
             profileName = "김현진",
-            profileHandle = "@hyunjine",
             displayState = DrawerDisplayState(),
             hasPartner = false,
         )
@@ -569,7 +671,7 @@ private fun MainDrawerContentCouplePreview() {
     LinkerTheme {
         MainDrawerContent(
             profileName = "김현진",
-            profileHandle = "@hyunjine",
+            partnerName = "밍교",
             displayState = DrawerDisplayState(
                 showMyCalendar = true,
                 showPartnerCalendar = true,

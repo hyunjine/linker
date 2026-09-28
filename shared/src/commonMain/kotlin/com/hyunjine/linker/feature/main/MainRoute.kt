@@ -91,21 +91,14 @@ fun MainRoute(
         onEverytimeTimetableClick = onEverytimeTimetableClick,
         onLogout = onLogout,
         profileName = uiState.myProfile?.nickname.orEmpty(),
-        profileHandle = uiState.myProfile?.birthDate?.let(::isoToHandleBirthDate).orEmpty(),
         profileImageUrl = uiState.myProfile?.profileImageUrl?.toSecureImageUrl(),
+        partnerName = uiState.partnerProfile?.nickname?.takeIf { it.isNotBlank() } ?: "상대방",
+        partnerImageUrl = uiState.partnerProfile?.profileImageUrl?.toSecureImageUrl(),
         displayState = displayState,
         onDisplayStateChange = viewModel::updateDrawerDisplay,
         hasPartner = uiState.hasPartner,
         ownerColors = uiState.ownerColors,
     )
-}
-
-/** ISO date → 드로워 핸들 자리에 표시할 "yyyy.MM.dd". */
-private fun isoToHandleBirthDate(iso: String): String {
-    val date = runCatching { LocalDate.parse(iso) }.getOrNull() ?: return ""
-    val m = (date.month.ordinal + 1).toString().padStart(2, '0')
-    val d = date.day.toString().padStart(2, '0')
-    return "${date.year}.$m.$d"
 }
 
 /** Kakao CDN 이 http 로 URL 을 내려주는데 Android 9+ · iOS ATS 가 차단 → https 로 강제. */

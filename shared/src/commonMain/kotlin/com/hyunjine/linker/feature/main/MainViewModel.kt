@@ -75,6 +75,7 @@ class MainViewModel : ViewModel() {
             _uiState.update {
                 it.copy(
                     myProfile = mine,
+                    partnerProfile = partnerProfile,
                     ownerColors = nextColors,
                     hasPartner = partnerProfile != null,
                 )
@@ -181,6 +182,8 @@ class MainViewModel : ViewModel() {
 /** MainScreen 이 소비하는 화면 상태. */
 data class MainUiState(
     val myProfile: com.hyunjine.linker.data.remote.UsersRepository.Profile? = null,
+    /** 연결된 파트너 프로필. 드로워 커플 헤더 (#335) 의 두 번째 아바타 · 이름. 미연결이면 null. */
+    val partnerProfile: com.hyunjine.linker.data.remote.UsersRepository.Profile? = null,
     val ownerColors: OwnerColors = OwnerColors.Default,
     val entriesByMonth: Map<YearMonth, Map<LocalDate, CalendarDayEntry>> = emptyMap(),
     /** 파트너 조인 여부. 드로워의 "상대방 캘린더" 토글 노출 · 캘린더 필터에 사용. */
