@@ -3,6 +3,7 @@ package com.hyunjine.linker.feature.widget
 import com.hyunjine.linker.data.remote.SchedulesRepository
 import com.hyunjine.linker.data.remote.SupabaseProvider
 import com.hyunjine.linker.data.remote.UsersRepository
+import com.hyunjine.linker.data.remote.resolveUsCalendarColorId
 import com.hyunjine.linker.data.specialday.SpecialDayKind
 import com.hyunjine.linker.data.specialday.SpecialDayRepository
 import com.hyunjine.linker.designsystem.theme.CalendarPurple
@@ -267,7 +268,9 @@ object TodayWidgetPayloadBuilder {
             items = items,
             meColorHex = calendarColorFor(mine?.calendarColor).toRgbHex(),
             partnerColorHex = calendarColorFor(partner?.calendarColor ?: "pink").toRgbHex(),
-            usColorHex = mine?.usCalendarColor?.let { calendarColorFor(it).toRgbHex() }
+            // 공동(Us) 색: 커플 공유값 → 내 프로필 값 (#245) → CalendarPurple 순 fallback (#392).
+            usColorHex = resolveUsCalendarColorId(couple?.usCalendarColor, mine?.usCalendarColor)
+                ?.let { calendarColorFor(it).toRgbHex() }
                 ?: CalendarPurple.toRgbHex(),
             openTasks = openTasks,
             monthEvents = monthEvents,
