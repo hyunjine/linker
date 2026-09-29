@@ -103,3 +103,40 @@ $$;
 REVOKE EXECUTE ON FUNCTION public.set_couple_us_calendar_color(TEXT) FROM PUBLIC;
 REVOKE EXECUTE ON FUNCTION public.set_couple_us_calendar_color(TEXT) FROM anon;
 GRANT  EXECUTE ON FUNCTION public.set_couple_us_calendar_color(TEXT) TO authenticated;
+
+-- ─────────────────────────────────────────────────────────────
+-- 4. couple_members INSERT 시 공동 색 채우기
+-- ─────────────────────────────────────────────────────────────
+-- 백필은 migration 시점의 커플만 채우므로, 이후 create_my_couple / join_couple_by_invite /
+-- unlink_couple 로 생긴 커플은 NULL 로 남아 멤버마다 자기 users 값으로 fallback → 서로 다른 색.
+-- 멤버가 들어올 때 커플 색이 NULL 이면 백필과 같은 규칙 (먼저 합류한 멤버 = 보통 초대한 쪽,
+-- 동률이면 user_id 오름차순) 으로 채운다. 이미 값이 있으면 건드리지 않는다.
+CREATE OR REPLACE FUNCTION public.tg_couple_members_fill_us_calendar_color()
+RETURNS TRIGGER
+LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = ''
+AS $$
+BEGIN
+    UPDATE public.couples c
+       SET us_calendar_color = picked.us_calendar_color
+      FROM (
+            SELECT u.us_calendar_color
+              FROM public.couple_members cm
+              JOIN public.users u ON u.id = cm.user_id
+             WHERE cm.couple_id = NEW.couple_id
+               AND u.us_calendar_color IS NOT NULL
+               AND u.us_calendar_color ~ '^([a-z]{1,16}|#[0-9A-Fa-f]{6}|#[0-9A-Fa-f]{8})$'
+             ORDER BY cm.joined_at ASC, cm.user_id ASC
+             LIMIT 1
+           ) AS picked
+     WHERE c.id = NEW.couple_id
+       AND c.us_calendar_color IS NULL;
+    RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_couple_members_fill_us_calendar_color ON public.couple_members;
+CREATE TRIGGER trg_couple_members_fill_us_calendar_color
+    AFTER INSERT ON public.couple_members
+    FOR EACH ROW
+    EXECUTE FUNCTION public.tg_couple_members_fill_us_calendar_color();
