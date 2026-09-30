@@ -37,7 +37,6 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -67,6 +66,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.hyunjine.linker.designsystem.common.AppTopBar
 import com.hyunjine.linker.designsystem.common.SegmentedControl
+import com.hyunjine.linker.designsystem.common.SkeletonBar
+import com.hyunjine.linker.designsystem.common.SkeletonBox
 import com.hyunjine.linker.designsystem.theme.DrawerCheckBlue
 import com.hyunjine.linker.designsystem.theme.LinkerTheme
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
@@ -489,10 +490,37 @@ private fun SortMenu(selected: TaskSort, onSelect: (TaskSort) -> Unit) {
     }
 }
 
+/** 스켈레톤 행 제목 폭 (dp). 줄마다 달라야 목록처럼 보인다. */
+private val SkeletonTitleWidths = listOf(168, 120, 200, 144, 96, 180)
+
+/**
+ * 로딩 스켈레톤 (#401) — [TaskList] 와 같은 한 장짜리 카드에 [TaskRow] 배치 그대로
+ * (체크박스 · 제목 · 날짜 자리). 탭 · 정렬 버튼은 로딩 중에도 실제 컴포넌트가 보인다.
+ */
 @Composable
 private fun LoadingState() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(color = PrimaryBlue)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(SurfaceCard),
+    ) {
+        SkeletonTitleWidths.forEach { titleWidth ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 20.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                SkeletonBox(RoundedCornerShape(6.dp), Modifier.size(22.dp))
+                Box(Modifier.weight(1f)) {
+                    SkeletonBar(width = titleWidth.dp, height = 15.dp)
+                }
+                SkeletonBar(width = 36.dp, height = 13.dp)
+            }
+        }
     }
 }
 
