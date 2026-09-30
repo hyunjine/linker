@@ -156,9 +156,10 @@ val NotiAnnouncementFg = Color(0xFF6B6B75)
 val NotiUpdateBg = ChipAnniversaryBg
 val NotiUpdateFg = CalendarPurple
 
-// 로딩 스켈레톤 (#303) — 카드 안 블록 · 카드 밖 그룹 라벨 자리
+// 로딩 스켈레톤 (#303) — 카드 안 블록 · 카드 밖 그룹 라벨 자리 · shimmer 빛 띠 (#408, 반투명 흰색)
 val SkeletonFill = Color(0xFFF0F0F2)
 val SkeletonLabel = Color(0xFFE5E5EA)
+val SkeletonShimmer = Color(0x99FFFFFF)
 
 // 드로워 커플 헤더 (#335) — 상대방 미연결 자리 점선 테두리 (Figma #C6C6C8)
 val DrawerAddPartnerDash = Color(0xFFC6C6C8)

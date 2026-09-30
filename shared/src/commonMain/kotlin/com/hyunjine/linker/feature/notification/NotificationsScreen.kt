@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.hyunjine.linker.designsystem.common.AppTopBar
 import com.hyunjine.linker.designsystem.common.SkeletonBar
+import com.hyunjine.linker.designsystem.common.SkeletonBox
 import com.hyunjine.linker.designsystem.theme.LinkerTheme
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.designsystem.theme.NotiAnnouncementBg
@@ -57,7 +58,6 @@ import com.hyunjine.linker.designsystem.theme.NotiReminderFg
 import com.hyunjine.linker.designsystem.theme.NotiUpdateBg
 import com.hyunjine.linker.designsystem.theme.NotiUpdateFg
 import com.hyunjine.linker.designsystem.theme.PrimaryBlue
-import com.hyunjine.linker.designsystem.theme.SkeletonFill
 import com.hyunjine.linker.designsystem.theme.SkeletonLabel
 import com.hyunjine.linker.designsystem.theme.SurfaceCard
 import com.hyunjine.linker.designsystem.theme.SurfaceGray
@@ -290,12 +290,7 @@ private fun LoadingState() {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Box(
-                        Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(SkeletonFill),
-                    )
+                    SkeletonBox(CircleShape, Modifier.size(36.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         SkeletonBar(width = title.dp, height = 14.dp)
                         SkeletonBar(width = body.dp, height = 12.dp)
