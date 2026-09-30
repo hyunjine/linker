@@ -48,7 +48,8 @@ jobs:
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
         with:
-          version: latest
+          # latest 는 GitHub API 로 최신 릴리스를 조회하다 rate limit 에 걸려 실패한 적이 있어 고정.
+          version: 2.118.0
 
       - name: Verify secrets
         env:
