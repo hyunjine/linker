@@ -10,6 +10,9 @@ Release 노트로 자동 게시된다 (`.github/workflows/release.yml`).
 
 ## [Unreleased]
 
+### 인프라 · 빌드
+- 배포 완료 알림 자동 발송 제거 (#380). Xcode Cloud `iosApp/ci_scripts/ci_post_xcodebuild.sh` 가 archive 직후 (TestFlight 업로드 · 스토어 출시 전) 알림을 보내던 문제 → 스크립트 삭제. 스토어 출시 확인 후 Actions `Release Broadcast` (`.github/workflows/release-broadcast.yml`, workflow_dispatch) 로 수동 발송.
+
 ## [1.6.0] - 2026-09-28
 
 ### 신규 기능
