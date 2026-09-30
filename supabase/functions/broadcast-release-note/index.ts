@@ -1,6 +1,7 @@
 // Supabase Edge Function: broadcast-release-note
 //
-// 스토어 출시 확인 후 GitHub Actions `release-broadcast.yml` (workflow_dispatch) 로 수동 호출 (#380).
+// TestFlight 빌드 처리 완료 시 `asc-webhook` 함수가 자동 호출 (#395).
+// 폴백으로 GitHub Actions `release-broadcast.yml` (workflow_dispatch) 수동 호출 (#380).
 // 전체 유저의 user_devices.fcm_token 을 조회해 "🚨긴급🚨 / 새 버전 v{version} 이 …" 문구로
 // FCM v1 push 를 병렬 발송한다.
 //
@@ -26,7 +27,7 @@
 //   SUPABASE_SERVICE_ROLE_KEY   — 감사 테이블 · user_devices 접근용 (플랫폼 자동 주입)
 //
 // Request body:
-//   { "version": string, "source"?: "workflow" | "manual" }   // 예: "1.4.2"
+//   { "version": string, "source"?: "workflow" | "manual" | "asc-webhook" }   // 예: "1.4.2"
 //
 // Response:
 //   200 { requestId, version, sent, failed, devicesTotal, alreadyBroadcasted, errors[] }
@@ -40,8 +41,11 @@ import { create as jwtCreate, getNumericDate } from "https://deno.land/x/djwt@v3
 
 interface RequestBody {
   version?: string;
-  source?: "workflow" | "manual";
+  source?: BroadcastSource;
 }
+
+type BroadcastSource = "workflow" | "manual" | "asc-webhook";
+const SOURCES: readonly BroadcastSource[] = ["workflow", "manual", "asc-webhook"];
 
 interface ServiceAccount {
   client_email: string;
@@ -345,8 +349,8 @@ serve(async (req) => {
       stageWarn(rid, "PAYLOAD_VERSION_INVALID", `version=${version || "(empty)"}`);
       return jsonResponse(400, { error: "invalid_version", requestId: rid });
     }
-    const source: "workflow" | "manual" =
-      payload.source === "manual" ? "manual" : "workflow";
+    const source: BroadcastSource =
+      payload.source && SOURCES.includes(payload.source) ? payload.source : "workflow";
     stageLog(rid, "PAYLOAD_OK", `version=${version} source=${source}`);
 
     // 3. 감사 테이블 접근용 클라이언트. service role 로 RLS 우회.

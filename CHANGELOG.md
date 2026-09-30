@@ -12,6 +12,8 @@ Release 노트로 자동 게시된다 (`.github/workflows/release.yml`).
 
 ### 인프라 · 빌드
 - 배포 완료 알림 자동 발송 제거 (#380). Xcode Cloud `iosApp/ci_scripts/ci_post_xcodebuild.sh` 가 archive 직후 (TestFlight 업로드 · 스토어 출시 전) 알림을 보내던 문제 → 스크립트 삭제. 스토어 출시 확인 후 Actions `Release Broadcast` (`.github/workflows/release-broadcast.yml`, workflow_dispatch) 로 수동 발송.
+- 배포 완료 알림을 App Store Connect 웹훅으로 자동 발송 (#395). TestFlight 빌드 처리 완료 (`BUILD_UPLOAD_STATE_UPDATED` → `COMPLETE`) 시 Edge Function `asc-webhook` 이 `buildUploads` 로 버전을 조회해 `broadcast-release-note` 호출. 수동 발송 워크플로 (#380) 는 폴백으로 유지.
+- `supabase-deploy.yml` Supabase CLI 버전 고정 (`latest` 조회 rate limit 로 배포 실패).
 
 ## [1.6.0] - 2026-09-28
 

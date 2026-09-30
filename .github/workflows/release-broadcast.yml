@@ -1,4 +1,5 @@
-# 배포 완료 push 알림 수동 발송 (#380).
+# 배포 완료 push 알림 수동 발송 (#380). 평소엔 ASC 웹훅 → `asc-webhook` 함수가 TestFlight 빌드
+# 처리 완료 시 자동 발송한다 (#395). 이 워크플로는 웹훅이 누락됐을 때의 폴백.
 #
 # 배경: 이전엔 Xcode Cloud `ci_post_xcodebuild.sh` 가 archive 직후 broadcast-release-note 를
 # 자동 호출했지만, archive 직후는 아직 TestFlight 업로드 · 스토어 심사/출시 전이라 사용자가
@@ -25,7 +26,7 @@ on:
         required: false
         type: string
       confirm:
-        description: "App Store / Play Store 에 새 버전이 출시된 것을 확인했습니다"
+        description: "TestFlight 에 새 빌드가 배포된 것을 확인했습니다"
         required: true
         type: boolean
         default: false
@@ -40,10 +41,10 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Confirm store release
+      - name: Confirm release
         if: ${{ !inputs.confirm }}
         run: |
-          echo "::error::스토어 출시 확인 체크 (confirm) 가 필요합니다."
+          echo "::error::배포 확인 체크 (confirm) 가 필요합니다."
           exit 1
 
       - name: Checkout release
