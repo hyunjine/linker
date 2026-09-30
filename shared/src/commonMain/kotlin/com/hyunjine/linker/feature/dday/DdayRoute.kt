@@ -29,8 +29,8 @@ fun DdayRoute(
     when (val s = state) {
         DdayUiState.Loading -> {
             // 로딩이 실제 network round-trip 을 타서 empty state 를 잠깐 보여주면 "설정 안 된 것" 처럼
-            // 오해되는 UX 문제가 있어 (#329) 로딩 중엔 별도 스크린으로 명확히 구분.
-            DdayLoadingScreen()
+            // 오해되는 UX 문제가 있어 (#329) 로딩 중엔 Filled 형태의 스켈레톤으로 구분 (#398).
+            DdayLoadingScreen(onBack = onBack)
         }
         DdayUiState.Empty -> {
             DdayEmptyScreen(onBack = onBack, onConfirmDate = { onConfirm(vm, it, onConfirmDate) })
