@@ -10,10 +10,33 @@ Release 노트로 자동 게시된다 (`.github/workflows/release.yml`).
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-09-30
+
+### 개선
+- 화면을 불러오는 동안 빙글빙글 도는 표시 대신 실제 화면 모양의 로딩 화면이 보여요. 디데이 · 릴리즈 노트 · 에브리타임 시간표 · 할 일 목록에 적용했어요.
+
+### 버그 수정
+- 공동 캘린더 색을 바꿔도 상대방 화면 · 위젯에 반영되지 않던 문제 해결. 이제 커플이 같은 색을 함께 써요.
+- 디데이 화면을 스크롤할 때 하단 영역이 잘려 보이던 문제 해결.
+
+## [1.6.1 · 개발자 노트]
+
+> 이 섹션은 GitHub Release 본문에는 함께 게시되지만, 앱의 릴리즈 노트 화면에서는 렌더링 되지 않는다.
+
+### 개선
+- 로딩 스켈레톤 (#398 · #399 · #400 · #401) — 디데이 · 릴리즈 노트 · 에브리타임 · 할 일 목록의 `CircularProgressIndicator` 를 각 화면 배치의 스켈레톤으로 교체. 공용 `designsystem/common/Skeleton.kt` (`SkeletonBar` · `SkeletonBox`), 에브리타임은 `TimetableCard(skeletonSlots)`.
+- 스켈레톤 최소 노출 0.8초 (#406) — `withSkeletonMinDuration`. 스켈레톤이 보이는 로딩에만 적용 (재진입 · silent 갱신 · 학기 전환 제외).
+- 스켈레톤 shimmer (#408) — 창 좌표 · 프레임 시각 기준으로 모든 블록의 빛 띠가 동기화. draw 단계에서만 상태를 읽어 recomposition 없음.
+
+### 버그 수정
+- 공동 캘린더 색 커플 단위 동기화 (#392) — `couples.us_calendar_color` + RPC `set_couple_us_calendar_color` + `couple_members` INSERT 트리거로 신규 커플 색 채우기. Migration `20260929000000__couples_us_calendar_color` 운영 적용 완료. `users.us_calendar_color` 는 호환용으로 유지 (RPC 가 두 멤버 값도 함께 갱신).
+- 디데이 스크롤 시 하단 바텀바 영역 잘림 (#391).
+
 ### 인프라 · 빌드
 - 배포 완료 알림 자동 발송 제거 (#380). Xcode Cloud `iosApp/ci_scripts/ci_post_xcodebuild.sh` 가 archive 직후 (TestFlight 업로드 · 스토어 출시 전) 알림을 보내던 문제 → 스크립트 삭제. 스토어 출시 확인 후 Actions `Release Broadcast` (`.github/workflows/release-broadcast.yml`, workflow_dispatch) 로 수동 발송.
 - 배포 완료 알림을 App Store Connect 웹훅으로 자동 발송 (#395). TestFlight 빌드 처리 완료 (`BUILD_UPLOAD_STATE_UPDATED` → `COMPLETE`) 시 Edge Function `asc-webhook` 이 `buildUploads` 로 버전을 조회해 `broadcast-release-note` 호출. 수동 발송 워크플로 (#380) 는 폴백으로 유지.
 - `supabase-deploy.yml` Supabase CLI 버전 고정 (`latest` 조회 rate limit 로 배포 실패).
+- App Store Connect 웹훅 등록 (#395) — 이벤트 `BUILD_UPLOAD_STATE_UPDATED`, url `…/functions/v1/asc-webhook`. `ASC_WEBHOOK_SECRET` 재발급 · 반영, `webhookPings` 로 서명 검증 · 200 응답 확인. 1.6.1 이 웹훅 자동 발송의 첫 실전.
 
 ## [1.6.0] - 2026-09-28
 
