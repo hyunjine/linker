@@ -12,9 +12,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -113,8 +116,9 @@ fun DdayFilledScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.safeDrawing)
-                .verticalScroll(rememberScrollState()),
+                .windowInsetsPadding(WindowInsets.safeDrawing.exclude(WindowInsets.navigationBars))
+                .verticalScroll(rememberScrollState())
+                .navigationBarsPadding(),
         ) {
             Spacer(Modifier.height(TOP_BAR_HEIGHT))
             Spacer(Modifier.height(12.dp))
