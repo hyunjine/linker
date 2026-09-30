@@ -1,6 +1,6 @@
 // Supabase Edge Function: broadcast-release-note
 //
-// GitHub Actions 의 release 워크플로 (#300) 에서 배포 완료 후 자동 호출.
+// 스토어 출시 확인 후 GitHub Actions `release-broadcast.yml` (workflow_dispatch) 로 수동 호출 (#380).
 // 전체 유저의 user_devices.fcm_token 을 조회해 "🚨긴급🚨 / 새 버전 v{version} 이 …" 문구로
 // FCM v1 push 를 병렬 발송한다.
 //
