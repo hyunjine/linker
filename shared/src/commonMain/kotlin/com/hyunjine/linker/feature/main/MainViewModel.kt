@@ -4,8 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hyunjine.linker.data.local.DrawerDisplayLocal
 import com.hyunjine.linker.data.remote.CoupleRealtimeSubscription
+import com.hyunjine.linker.data.remote.CouplesRepository
 import com.hyunjine.linker.data.remote.SchedulesRepository
 import com.hyunjine.linker.data.remote.UsersRepository
+import com.hyunjine.linker.data.remote.resolveUsCalendarColorId
 import com.hyunjine.linker.data.remote.subscribeCoupleRealtime
 import com.hyunjine.linker.designsystem.theme.CalendarPurple
 import com.hyunjine.linker.designsystem.theme.calendarColorFor
@@ -61,11 +63,16 @@ class MainViewModel : ViewModel() {
                 .getOrNull()
             val partnerProfile = runCatching { UsersRepository.partnerProfile() }.getOrNull()
             val partnerColor = partnerProfile?.calendarColor
+            // 공동(Us) 색은 커플 공유값 (#392). 조회 실패해도 내 프로필 값으로 fallback 되게 null 처리.
+            val couple = runCatching { CouplesRepository.myCoupleOrNull() }
+                .onFailure { println("[Main] myCouple 실패: $it") }
+                .getOrNull()
             val nextColors = OwnerColors(
                 me = calendarColorFor(mine?.calendarColor),
                 partner = calendarColorFor(partnerColor ?: "pink"),
-                // 공동(Us) 색: 내 프로필 preference 우선. 미설정이면 CalendarPurple fallback (#245).
-                us = mine?.usCalendarColor?.let { calendarColorFor(it) } ?: CalendarPurple,
+                // 공동(Us) 색: 커플 공유값 → 내 프로필 값 (#245) → CalendarPurple 순 fallback.
+                us = resolveUsCalendarColorId(couple?.usCalendarColor, mine?.usCalendarColor)
+                    ?.let { calendarColorFor(it) } ?: CalendarPurple,
             )
             val previousColors = _uiState.value.ownerColors
             val previousViewerId = _uiState.value.myProfile?.id
