@@ -3,6 +3,7 @@ package com.hyunjine.linker.feature.release
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hyunjine.linker.data.remote.ReleasesRepository
+import com.hyunjine.linker.designsystem.common.withSkeletonMinDuration
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,7 +27,8 @@ class ReleaseNotesViewModel : ViewModel() {
     fun load() {
         _uiState.value = _uiState.value.copy(loading = true, error = null)
         viewModelScope.launch {
-            runCatching { repo.fetchAll() }
+            // 스켈레톤 최소 노출 (#406) — 실패도 같이 기다려 에러 화면이 깜빡이듯 뜨지 않게.
+            withSkeletonMinDuration { runCatching { repo.fetchAll() } }
                 .onSuccess { list ->
                     _uiState.value = ReleaseNotesUiState(
                         loading = false,
