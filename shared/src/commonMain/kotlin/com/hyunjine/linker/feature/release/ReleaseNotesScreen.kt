@@ -26,11 +26,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -58,6 +58,8 @@ import linker.shared.generated.resources.ic_chevron_down
 import org.jetbrains.compose.resources.painterResource
 import com.hyunjine.linker.data.remote.ReleasesRepository
 import com.hyunjine.linker.designsystem.common.AppTopBar
+import com.hyunjine.linker.designsystem.common.SkeletonBar
+import com.hyunjine.linker.designsystem.common.SkeletonBox
 import com.hyunjine.linker.designsystem.theme.LinkerTheme
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.designsystem.theme.PrimaryBlue
@@ -70,7 +72,7 @@ import com.hyunjine.linker.designsystem.theme.TextSecondary
  * 릴리즈 노트 화면. 드로워 진입 시 GitHub Releases API 를 호출해 첫 버전부터 시간순으로 표시.
  *
  * 상태별:
- *  - `loading` — 상단바 아래 중앙 스피너
+ *  - `loading` — 상단바 아래 카드 리스트 스켈레톤 (#399)
  *  - `error != null` — 에러 메시지 + 재시도 텍스트
  *  - `releases` 정상 — [ReleaseCard] 리스트
  */
@@ -263,10 +265,69 @@ private fun MarkdownReleaseBody(body: String) {
     )
 }
 
+/** 펼친 첫 카드 본문의 줄 폭 비율 — 줄마다 달라야 문단처럼 보인다. */
+private val SkeletonBodyLines = listOf(0.9f, 0.75f, 0.85f, 0.6f)
+
+/** 접힌 카드 제목 폭 (dp). */
+private val SkeletonCollapsedTitles = listOf(88, 72, 96, 80)
+
+/**
+ * 로딩 스켈레톤 (#399) — [ReleaseList] 와 같은 배치. 최신 버전 카드는 펼친 상태 (헤더 + 본문 줄),
+ * 나머지는 접힌 카드 (헤더만).
+ */
 @Composable
 private fun LoadingState() {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(color = PrimaryBlue)
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(start = 16.dp, end = 16.dp, top = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        SkeletonCard(titleWidth = 104) {
+            Column(
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                SkeletonBar(width = 72.dp, height = 16.dp)
+                SkeletonBodyLines.forEach { ratio ->
+                    SkeletonBox(RoundedCornerShape(7.dp), Modifier.fillMaxWidth(ratio).height(14.dp))
+                }
+            }
+        }
+        SkeletonCollapsedTitles.forEach { SkeletonCard(titleWidth = it) }
+    }
+}
+
+/**
+ * 스켈레톤 릴리즈 카드 한 장 — 헤더 (제목 · 날짜 · chevron 자리) + 선택적 본문.
+ *
+ * @param titleWidth 제목 막대 폭 (dp).
+ * @param body 펼친 카드 본문 자리. 없으면 접힌 카드.
+ */
+@Composable
+private fun SkeletonCard(titleWidth: Int, body: @Composable () -> Unit = {}) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(SurfaceCard),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                SkeletonBar(width = titleWidth.dp, height = 18.dp)
+                SkeletonBar(width = 72.dp, height = 12.dp)
+            }
+            SkeletonBox(RoundedCornerShape(6.dp), Modifier.size(20.dp))
+        }
+        body()
     }
 }
 
