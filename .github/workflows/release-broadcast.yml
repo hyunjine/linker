@@ -1,0 +1,135 @@
+# 배포 완료 push 알림 수동 발송 (#380). 평소엔 ASC 웹훅 → `asc-webhook` 함수가 TestFlight 빌드
+# 처리 완료 시 자동 발송한다 (#395). 이 워크플로는 웹훅이 누락됐을 때의 폴백.
+#
+# 배경: 이전엔 Xcode Cloud `ci_post_xcodebuild.sh` 가 archive 직후 broadcast-release-note 를
+# 자동 호출했지만, archive 직후는 아직 TestFlight 업로드 · 스토어 심사/출시 전이라 사용자가
+# 알림을 눌러도 스토어엔 이전 버전만 있었다 (v1.5.1 빌드 31 진행 중 발송). 스토어 출시를
+# 사람이 확인한 뒤 이 워크플로를 Actions 탭에서 직접 실행한다.
+#
+# 사용법:
+#   Actions → Release Broadcast → Run workflow
+#     - version: 비우면 release 브랜치 `Config.xcconfig` 의 MARKETING_VERSION 사용
+#     - confirm: 스토어 출시 확인 후 체크 (체크 안 하면 실패)
+#
+# 아이덤포턴시: 함수가 `release_broadcasts.version` PK 로 재발송을 막는다. 같은 버전을 다시
+# 실행해도 `alreadyBroadcasted: true` 만 돌아오고 push 는 중복 발송되지 않는다.
+#
+# 시크릿: SUPABASE_URL · SUPABASE_ANON_KEY · RELEASE_BROADCAST_SECRET (Actions Secrets).
+
+name: Release Broadcast
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "알림 보낼 버전 (예: 1.6.0). 비우면 release 브랜치 MARKETING_VERSION"
+        required: false
+        type: string
+      confirm:
+        description: "TestFlight 에 새 빌드가 배포된 것을 확인했습니다"
+        required: true
+        type: boolean
+        default: false
+
+concurrency:
+  group: release-broadcast
+  cancel-in-progress: false
+
+jobs:
+  broadcast:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Confirm release
+        if: ${{ !inputs.confirm }}
+        run: |
+          echo "::error::배포 확인 체크 (confirm) 가 필요합니다."
+          exit 1
+
+      - name: Checkout release
+        uses: actions/checkout@v4
+        with:
+          ref: release
+
+      - name: Resolve version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          VERSION=$(echo "$INPUT_VERSION" | tr -d '[:space:]' | sed -E 's/^v//')
+          if [ -z "$VERSION" ]; then
+            VERSION=$(grep -m 1 '^MARKETING_VERSION=' iosApp/Configuration/Config.xcconfig | cut -d= -f2 | tr -d '[:space:]')
+          fi
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::버전 형식 오류: '$VERSION' (X.Y.Z)"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "── Version: $VERSION ──"
+
+      - name: Invoke broadcast-release-note
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          RELEASE_BROADCAST_SECRET: ${{ secrets.RELEASE_BROADCAST_SECRET }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          # secret 값은 출력하지 않고 존재 여부만 확인.
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ] || [ -z "$RELEASE_BROADCAST_SECRET" ]; then
+            echo "::error::secret 누락 (SUPABASE_URL · SUPABASE_ANON_KEY · RELEASE_BROADCAST_SECRET 확인)"
+            exit 1
+          fi
+
+          # 함수가 version PK 로 중복 발송을 막으므로 재시도해도 push 는 한 번만 나간다.
+          HTTP_STATUS=$(curl -sS -o response.json -w "%{http_code}" \
+            --connect-timeout 15 \
+            --max-time 60 \
+            --retry 3 \
+            --retry-delay 10 \
+            -X POST "$SUPABASE_URL/functions/v1/broadcast-release-note" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+            -H "x-release-broadcast-secret: $RELEASE_BROADCAST_SECRET" \
+            -d "{\"version\":\"$VERSION\",\"source\":\"manual\"}") || {
+              echo "::error::curl 실패 (network · dns · timeout)"
+              exit 1
+            }
+
+          echo "── response HTTP=$HTTP_STATUS ──"
+          cat response.json; echo
+
+          if [ "$HTTP_STATUS" != "200" ]; then
+            REQ_ID=$(jq -r '.requestId // "(없음)"' response.json 2>/dev/null || echo "(파싱 불가)")
+            ERR=$(jq -r '.error // "(없음)"' response.json 2>/dev/null || echo "(파싱 불가)")
+            echo "::error::broadcast HTTP=$HTTP_STATUS requestId=$REQ_ID error=$ERR"
+            exit 1
+          fi
+
+          REQ_ID=$(jq -r '.requestId' response.json)
+          SENT=$(jq -r '.sent' response.json)
+          FAILED=$(jq -r '.failed' response.json)
+          TOTAL=$(jq -r '.devicesTotal' response.json)
+          IDEMPOTENT=$(jq -r '.alreadyBroadcasted' response.json)
+
+          {
+            echo "### 📣 Release note broadcast"
+            echo ""
+            echo "| 필드 | 값 |"
+            echo "|---|---|"
+            echo "| version | \`$VERSION\` |"
+            echo "| requestId | \`$REQ_ID\` |"
+            echo "| devicesTotal | $TOTAL |"
+            echo "| sent | $SENT |"
+            echo "| failed | $FAILED |"
+            echo "| alreadyBroadcasted | $IDEMPOTENT |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$IDEMPOTENT" = "true" ]; then
+            echo "::notice::v$VERSION 은 이미 발송됨 — 재발송 없음"
+          elif [ "$TOTAL" -gt 0 ] && [ "$SENT" -eq 0 ]; then
+            echo "::error::devicesTotal=$TOTAL 인데 sent=0"
+            exit 1
+          elif [ "$FAILED" -gt 0 ]; then
+            echo "::warning::일부 발송 실패 failed=$FAILED"
+          fi

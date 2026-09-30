@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hyunjine.linker.data.remote.SchedulesRepository
 import com.hyunjine.linker.data.remote.SupabaseProvider
+import com.hyunjine.linker.designsystem.common.withSkeletonMinDuration
 import com.hyunjine.linker.feature.main.resolveOwnerForViewer
 import com.hyunjine.linker.platform.refreshTodayWidget
 import io.github.jan.supabase.auth.auth
@@ -43,7 +44,13 @@ class TasksViewModel : ViewModel() {
     fun load(silent: Boolean = false) {
         if (!silent) _uiState.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
-            runCatching { fetchTasks() }
+            // 스켈레톤을 띄운 로딩만 최소 노출 시간 보장 (#406). silent 갱신은 바로 반영.
+            val result = if (silent) {
+                runCatching { fetchTasks() }
+            } else {
+                withSkeletonMinDuration { runCatching { fetchTasks() } }
+            }
+            result
                 .onSuccess { tasks ->
                     _uiState.update { it.copy(loading = false, error = null, tasks = tasks) }
                 }

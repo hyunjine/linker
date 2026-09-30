@@ -26,6 +26,8 @@ object CouplesRepository {
     /**
      * 파트너 조인 여부까지 포함한 full couple row. [linkedAt] 이 non-null 이면 두 명 매칭 완료.
      * [ddayAnchorDate] 는 디데이 시작 날짜 (#329). NULL 이면 아직 설정 안 됨.
+     * [usCalendarColor] 는 커플 공유 공동(Us) 캘린더 색 (#392). NULL 이면 아직 커플 단위로 저장된 적
+     * 없음 → [resolveUsCalendarColorId] 로 내 `users.us_calendar_color` 에 fallback.
      */
     @Serializable
     data class CoupleFull(
@@ -33,6 +35,7 @@ object CouplesRepository {
         @SerialName("invite_code") val inviteCode: String,
         @SerialName("linked_at") val linkedAt: String? = null,
         @SerialName("dday_anchor_date") val ddayAnchorDate: String? = null,
+        @SerialName("us_calendar_color") val usCalendarColor: String? = null,
     )
 
     /**
@@ -49,6 +52,12 @@ object CouplesRepository {
         SupabaseProvider.client.from("couples")
             .select { filter { eq("id", id) } }
             .decodeSingleOrNull<CoupleFull>()
+
+    /** 내가 속한 커플의 full row. 커플 미소속 · 세션 없음이면 null. */
+    suspend fun myCoupleOrNull(): CoupleFull? {
+        val id = myCoupleIdOrNull() ?: return null
+        return getCoupleById(id)
+    }
 
     /**
      * 현재 유저의 couple_id 만 조회. **생성하지 않음** — 부트스트랩 라우팅에서
@@ -108,4 +117,30 @@ object CouplesRepository {
             filter { eq("id", coupleId) }
         }
     }
+
+    /**
+     * 공동(Us) 캘린더 색 저장 (#392). `public.set_couple_us_calendar_color` RPC 로 위임 — 서버가
+     * 호출자의 커플을 찾아 `couples.us_calendar_color` 를 갱신하고, 예전 앱 호환을 위해 두 멤버의
+     * `users.us_calendar_color` 도 같은 값으로 맞춘다. 형식이 틀리거나 커플 미소속이면 서버 예외.
+     *
+     * @param calendarColor `Color.kt` 의 캘린더 색상 id (프리셋: `blue`, `pink`, ... · 커스텀 `#RRGGBB`).
+     */
+    suspend fun updateUsCalendarColor(calendarColor: String) {
+        SupabaseProvider.client.postgrest.rpc(
+            function = "set_couple_us_calendar_color",
+            parameters = buildJsonObject {
+                put("p_color", calendarColor)
+            },
+        )
+    }
 }
+
+/**
+ * 공동(Us) 캘린더 색 id 결정 (#392). 커플 공유값 → 내 per-user 값 (#245, 전환기 호환) 순.
+ * 둘 다 null 이면 null — 호출부가 CalendarPurple 로 fallback.
+ *
+ * @param coupleColor `couples.us_calendar_color`. 새 앱이 저장한 커플 공유값.
+ * @param myColor 내 `users.us_calendar_color`. 백필 전 · 예전 앱이 저장한 값.
+ */
+fun resolveUsCalendarColorId(coupleColor: String?, myColor: String?): String? =
+    coupleColor ?: myColor

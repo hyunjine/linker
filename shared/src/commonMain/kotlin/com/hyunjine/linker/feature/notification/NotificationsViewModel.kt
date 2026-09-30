@@ -3,6 +3,7 @@ package com.hyunjine.linker.feature.notification
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hyunjine.linker.data.remote.NotificationsRepository
+import com.hyunjine.linker.designsystem.common.withSkeletonMinDuration
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -43,7 +44,8 @@ class NotificationsViewModel : ViewModel() {
     fun load() {
         _uiState.update { it.copy(loading = true, error = null) }
         viewModelScope.launch {
-            fetch()
+            // 스켈레톤 최소 노출 (#406).
+            withSkeletonMinDuration { fetch() }
                 .onSuccess { groups -> _uiState.update { it.copy(loading = false, groups = groups) } }
                 .onFailure { t ->
                     _uiState.update {

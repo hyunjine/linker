@@ -51,3 +51,21 @@ supabase functions deploy send-announcement
 - `FCM_PROJECT_ID` · `FCM_SERVICE_ACCOUNT_JSON` — send-schedule-push 와 동일
 - `ADMIN_UIDS` — 관리자 auth uid 콤마 구분 리스트 (예: `uuid1,uuid2`)
 - `SUPABASE_URL` · `SUPABASE_ANON_KEY` · `SUPABASE_SERVICE_ROLE_KEY` — 기본 제공
+
+## asc-webhook
+
+App Store Connect 웹훅 수신 (#395). TestFlight 빌드 처리 완료 (`BUILD_UPLOAD_STATE_UPDATED` →
+`COMPLETE`) 시 `buildUploads/{id}` 로 버전을 조회해 `broadcast-release-note` 를 호출한다.
+`verify_jwt = false` (config.toml) — 대신 `x-apple-signature` (HMAC-SHA256) 로 검증.
+
+### 필요한 Secrets
+
+- `ASC_WEBHOOK_SECRET` — 웹훅 등록 (`POST /v1/webhooks`) 시 넣은 secret
+- `ASC_API_KEY_ID` · `ASC_API_ISSUER_ID` · `ASC_API_PRIVATE_KEY` (.p8 원문) — App Store Connect API 키
+- `RELEASE_BROADCAST_SECRET` — broadcast-release-note 와 동일
+
+### 웹훅 등록
+
+함수 배포 후 App Store Connect API 로 `POST /v1/webhooks` (eventTypes `BUILD_UPLOAD_STATE_UPDATED`,
+url `https://<project>.supabase.co/functions/v1/asc-webhook`) 등록 → `POST /v1/webhookPings` 로 확인.
+전달 이력은 `GET /v1/webhooks/{id}/deliveries`, 재전송은 `POST /v1/webhookDeliveries`.

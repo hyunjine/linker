@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -46,6 +45,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.hyunjine.linker.designsystem.common.AppTopBar
+import com.hyunjine.linker.designsystem.common.SkeletonBar
+import com.hyunjine.linker.designsystem.common.SkeletonBox
 import com.hyunjine.linker.designsystem.theme.LinkerTheme
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.designsystem.theme.NotiAnnouncementBg
@@ -57,7 +58,6 @@ import com.hyunjine.linker.designsystem.theme.NotiReminderFg
 import com.hyunjine.linker.designsystem.theme.NotiUpdateBg
 import com.hyunjine.linker.designsystem.theme.NotiUpdateFg
 import com.hyunjine.linker.designsystem.theme.PrimaryBlue
-import com.hyunjine.linker.designsystem.theme.SkeletonFill
 import com.hyunjine.linker.designsystem.theme.SkeletonLabel
 import com.hyunjine.linker.designsystem.theme.SurfaceCard
 import com.hyunjine.linker.designsystem.theme.SurfaceGray
@@ -290,12 +290,7 @@ private fun LoadingState() {
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    Box(
-                        Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(SkeletonFill),
-                    )
+                    SkeletonBox(CircleShape, Modifier.size(36.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         SkeletonBar(width = title.dp, height = 14.dp)
                         SkeletonBar(width = body.dp, height = 12.dp)
@@ -304,17 +299,6 @@ private fun LoadingState() {
             }
         }
     }
-}
-
-@Composable
-private fun SkeletonBar(width: Dp, height: Dp, modifier: Modifier = Modifier, color: Color = SkeletonFill) {
-    Box(
-        modifier
-            .width(width)
-            .height(height)
-            .clip(RoundedCornerShape(height / 2))
-            .background(color),
-    )
 }
 
 /** 빈 상태 (Figma Screen 2) — 화면 가운데보다 살짝 위. */

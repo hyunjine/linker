@@ -23,7 +23,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -44,9 +43,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hyunjine.linker.designsystem.common.FrostedTopBar
 import com.hyunjine.linker.designsystem.common.SegmentedControl
+import com.hyunjine.linker.designsystem.common.SkeletonBox
 import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.designsystem.theme.PrimaryBlue
 import com.hyunjine.linker.designsystem.theme.Separator
+import com.hyunjine.linker.designsystem.theme.SkeletonLabel
 import com.hyunjine.linker.designsystem.theme.SurfaceCard
 import com.hyunjine.linker.designsystem.theme.SurfaceGray
 import com.hyunjine.linker.designsystem.theme.TextPrimary
@@ -173,11 +174,43 @@ private fun OwnerTabs(state: EverytimeUiState, onSelect: (TimetableOwner) -> Uni
     )
 }
 
+/**
+ * 스켈레톤 강의 블록 자리 (요일 0=월 · 5분 슬롯 시작/끝). 격자 위에 흩어져 있어야 시간표처럼 보인다.
+ *
+ * @param day 요일 인덱스 (0=월 ~ 4=금).
+ * @param startSlot 시작 슬롯 (5분 단위, 108 = 09:00).
+ * @param endSlot 끝 슬롯.
+ */
+private data class SkeletonSlot(val day: Int, val startSlot: Int, val endSlot: Int)
+
+private val SkeletonSlots = listOf(
+    SkeletonSlot(day = 0, startSlot = 120, endSlot = 138),
+    SkeletonSlot(day = 2, startSlot = 120, endSlot = 138),
+    SkeletonSlot(day = 1, startSlot = 144, endSlot = 162),
+    SkeletonSlot(day = 3, startSlot = 144, endSlot = 162),
+    SkeletonSlot(day = 4, startSlot = 132, endSlot = 156),
+    SkeletonSlot(day = 0, startSlot = 180, endSlot = 198),
+    SkeletonSlot(day = 2, startSlot = 174, endSlot = 198),
+)
+
+/**
+ * 로딩 스켈레톤 (#400) — 학기 chip 자리 + 실제 [TimetableCard] 격자 위에 회색 강의 블록.
+ * 격자 · 요일 · 시간 축은 데이터와 무관해 그대로 그리고, 강의 자리만 스켈레톤으로 채운다.
+ */
 @Composable
 private fun LoadingBox() {
-    Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
-        CircularProgressIndicator(color = PrimaryBlue)
+    Row(
+        modifier = Modifier.padding(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        repeat(3) { SkeletonBox(RoundedCornerShape(18.dp), Modifier.width(96.dp).height(34.dp), color = SkeletonLabel) }
     }
+    Spacer(Modifier.height(12.dp))
+    TimetableCard(
+        lectures = emptyList(),
+        skeletonSlots = SkeletonSlots,
+        modifier = Modifier.padding(horizontal = 16.dp),
+    )
 }
 
 @Composable
@@ -334,11 +367,16 @@ private fun SemesterSwitcher(
 /**
  * 요일 (월~금) × 시간 (09~19) 격자 위에 강의 카드를 절대 좌표로 배치.
  * 폭은 부모의 실제 폭으로부터 계산하고, 높이는 슬롯 × [rowH] 로 고정.
+ *
+ * @param lectures 표시할 강의.
+ * @param skeletonSlots 로딩 스켈레톤용 회색 블록 자리. 강의와 같은 좌표 계산으로 그린다.
+ * @param modifier 카드 modifier.
  */
 @Composable
 private fun TimetableCard(
     lectures: List<Lecture>,
     modifier: Modifier = Modifier,
+    skeletonSlots: List<SkeletonSlot> = emptyList(),
 ) {
     val font = LocalPretendardFontFamily.current
     // 시간 범위: 09~19 (강의가 밖에 나가면 클립).
@@ -422,6 +460,22 @@ private fun TimetableCard(
                     .width(1.dp)
                     .height(cardHeight - headerH - 8.dp)
                     .background(SurfaceGray),
+            )
+        }
+
+        // 스켈레톤 블록 (로딩 중)
+        skeletonSlots.forEach { slot ->
+            val relStart = slot.startSlot - slotStart
+            val relEnd = slot.endSlot - slotStart
+            SkeletonBox(
+                shape = RoundedCornerShape(6.dp),
+                modifier = Modifier
+                    .offset(
+                        x = gutter + colWidth * slot.day + 2.dp,
+                        y = headerH + rowH * relStart / slotsPerHour + 2.dp,
+                    )
+                    .width(colWidth - 4.dp)
+                    .height(rowH * (relEnd - relStart) / slotsPerHour - 4.dp),
             )
         }
 
