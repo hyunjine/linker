@@ -5,6 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.hyunjine.linker.data.remote.EverytimeException
 import com.hyunjine.linker.data.remote.EverytimeRepository
 import com.hyunjine.linker.data.remote.UsersRepository
+import com.hyunjine.linker.designsystem.common.SkeletonMinDuration
+import com.hyunjine.linker.designsystem.common.withSkeletonMinDuration
+import kotlin.time.TimeSource
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -37,6 +41,7 @@ class EverytimeTimetableViewModel : ViewModel() {
     private fun loadProfiles() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(loadingProfiles = true)
+            val start = TimeSource.Monotonic.markNow()
             val me = runCatching { UsersRepository.myProfile() }
                 .onFailure { println("[Everytime] 본인 프로필 조회 실패: $it") }
                 .getOrNull()
@@ -49,6 +54,13 @@ class EverytimeTimetableViewModel : ViewModel() {
             val initialActive = when {
                 myId.isNullOrBlank() && !partnerId.isNullOrBlank() -> TimetableOwner.Partner
                 else -> TimetableOwner.Me
+            }
+            // 시간표 fetch 로 이어지지 않으면 (등록된 URL 없음) 여기서 스켈레톤이 끝나므로 최소 노출 시간 보장 (#406).
+            // 이어지면 fetch 쪽이 스켈레톤을 이어받아 최소 시간을 보장한다.
+            val activeId = if (initialActive == TimetableOwner.Me) myId else partnerId
+            if (activeId.isNullOrBlank()) {
+                val remaining = SkeletonMinDuration - start.elapsedNow()
+                if (remaining.isPositive()) delay(remaining)
             }
             _uiState.value = _uiState.value.copy(
                 loadingProfiles = false,
@@ -131,10 +143,14 @@ class EverytimeTimetableViewModel : ViewModel() {
 
     private fun fetch(owner: TimetableOwner, identifier: String) {
         viewModelScope.launch {
+            // 시간표가 아직 없으면 스켈레톤이 뜨므로 최소 노출 시간 보장 (#406). 학기 전환은 기존 표 유지라 바로 반영.
+            val showsSkeleton = _uiState.value.tabOf(owner).timetable == null
             _uiState.value = _uiState.value.updateTab(owner) {
                 it.copy(loading = true, error = null)
             }
-            runCatching { EverytimeRepository.fetchTimetable(identifier) }
+            val fetchTimetable = suspend { runCatching { EverytimeRepository.fetchTimetable(identifier) } }
+            val result = if (showsSkeleton) withSkeletonMinDuration { fetchTimetable() } else fetchTimetable()
+            result
                 .onSuccess { data ->
                     _uiState.value = _uiState.value.updateTab(owner) { prev ->
                         prev.copy(

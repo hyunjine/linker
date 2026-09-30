@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.hyunjine.linker.data.remote.CouplesRepository
 import com.hyunjine.linker.data.remote.SchedulesRepository
 import com.hyunjine.linker.data.remote.UsersRepository
+import com.hyunjine.linker.designsystem.common.withSkeletonMinDuration
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,30 +33,40 @@ class DdayViewModel : ViewModel() {
     val state: StateFlow<DdayUiState> = _state.asStateFlow()
 
     /** 화면 진입 시 · 편집 후 재조회 시 호출. */
-    @OptIn(ExperimentalTime::class)
     fun refresh() {
         viewModelScope.launch {
-            val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
-            val coupleId = runCatching { CouplesRepository.myCoupleIdOrNull() }.getOrNull()
-            val couple = coupleId?.let {
-                runCatching { CouplesRepository.getCoupleById(it) }.getOrNull()
-            }
-            val mine = runCatching { UsersRepository.myProfile() }.getOrNull()
-            val partner = runCatching { UsersRepository.partnerProfile() }.getOrNull()
-            val anchor = couple?.ddayAnchorDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
-
-            _state.value = if (anchor != null) {
-                DdayUiState.Filled(
-                    anchor = anchor,
-                    today = today,
-                    myImageUrl = mine?.profileImageUrl,
-                    myName = mine?.nickname.orEmpty(),
-                    partnerImageUrl = partner?.profileImageUrl,
-                    partnerName = partner?.nickname.orEmpty(),
-                )
+            // 스켈레톤 (Loading) 을 띄운 첫 조회만 최소 노출 시간 보장 (#406). 재진입 갱신은 바로 반영.
+            _state.value = if (_state.value == DdayUiState.Loading) {
+                withSkeletonMinDuration { load() }
             } else {
-                DdayUiState.Empty
+                load()
             }
+        }
+    }
+
+    /** anchor · 프로필을 조회해 Filled / Empty 상태를 만든다. */
+    @OptIn(ExperimentalTime::class)
+    private suspend fun load(): DdayUiState {
+        val today = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
+        val coupleId = runCatching { CouplesRepository.myCoupleIdOrNull() }.getOrNull()
+        val couple = coupleId?.let {
+            runCatching { CouplesRepository.getCoupleById(it) }.getOrNull()
+        }
+        val mine = runCatching { UsersRepository.myProfile() }.getOrNull()
+        val partner = runCatching { UsersRepository.partnerProfile() }.getOrNull()
+        val anchor = couple?.ddayAnchorDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+
+        return if (anchor != null) {
+            DdayUiState.Filled(
+                anchor = anchor,
+                today = today,
+                myImageUrl = mine?.profileImageUrl,
+                myName = mine?.nickname.orEmpty(),
+                partnerImageUrl = partner?.profileImageUrl,
+                partnerName = partner?.nickname.orEmpty(),
+            )
+        } else {
+            DdayUiState.Empty
         }
     }
 
