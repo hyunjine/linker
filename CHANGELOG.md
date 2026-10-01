@@ -10,6 +10,18 @@ Release 노트로 자동 게시된다 (`.github/workflows/release.yml`).
 
 ## [Unreleased]
 
+## [1.6.3] - 2026-10-01
+
+### 개선
+- 가을맞이 새 앱 아이콘 🍂 — 바닥에 낙엽이 소복이 쌓였어요.
+
+## [1.6.3 · 개발자 노트]
+
+> 이 섹션은 GitHub Release 본문에는 함께 게시되지만, 앱의 릴리즈 노트 화면에서는 렌더링 되지 않는다.
+
+### 개선
+- 가을 시즌 앱 아이콘 (#416) — Figma 4527:79052. iOS `app-icon-1024.png` (RGB), Android `ic_launcher` · `ic_launcher_round` · `ic_launcher_foreground` (흰 배경 70% 배치) 전 해상도. 앱 내 `ic_app_logo.png` 는 유지.
+
 ## [1.6.2] - 2026-10-01
 
 ### 버그 수정
