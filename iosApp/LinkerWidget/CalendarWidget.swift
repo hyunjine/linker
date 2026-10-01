@@ -126,13 +126,22 @@ private struct MiniCalendarView: View {
         return f.string(from: today)
     }
 
-    /// 월 라벨. 첫 요일 셀 안에서 center 정렬해 아래 "일" 요일 헤더와 x 정렬 일치.
+    /// 월 라벨. 첫 요일 칸 위에 overlay 로 얹어 아래 "일" 요일 헤더와 center 정렬을 맞춘다.
+    /// 칸 폭 (≈ 1/7) 으로 제한하면 "10월" 처럼 두 자리 달이 "1…" 로 잘리므로 (#412)
+    /// `fixedSize` 로 글자 폭 그대로 그리고, 넘치는 부분은 양옆 빈 칸으로 흘린다.
     private var monthHeader: some View {
         HStack(spacing: 0) {
-            Text(monthLabel)
+            // 바탕은 높이만 잡는 숨김 텍스트 (한 자리 달 폭). 실제 라벨은 그 위 overlay.
+            Text("9월")
                 .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.primary.opacity(0.88))
+                .hidden()
                 .frame(maxWidth: .infinity)
+                .overlay(
+                    Text(monthLabel)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.primary.opacity(0.88))
+                        .fixedSize()
+                )
             ForEach(1..<7, id: \.self) { _ in
                 Color.clear.frame(maxWidth: .infinity)
             }
