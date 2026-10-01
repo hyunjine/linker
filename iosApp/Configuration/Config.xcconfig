@@ -33,6 +33,6 @@ GOOGLE_WEB_CLIENT_ID=319241271170-talfk79qn5qdu8lkjm27rhm7r52ocfep.apps.googleus
 HOLIDAY_API_KEY=MDrnWhPMe%2FUxsbwq%2FchXWEaPt81DPw%2BIkTIDFm0O8n%2BKF29ZHGKyyA1FbhY2oW39RnRUkwHMyDzGmclKFrJHnQ%3D%3D
 
 // Microsoft Entra ID (Azure AD) 앱 등록의 Application (client) ID.
-// Multi-tenant + personal accounts 로 등록 → tenant 는 코드에서 `common` 사용.
+// 회사 테넌트 단일 등록 (#242, 앱 이름 "Dashborad" · 사내 다른 앱과 공용). authority 는 테넌트 ID 고정.
 // MSAL SDK (iOS/Android) 및 Graph API 접근 audience 로 소비.
-OUTLOOK_CLIENT_ID=4978b49b-6810-4e3e-9ee8-bea4631667f9
+OUTLOOK_CLIENT_ID=7e970034-cbcd-4a89-9e40-0a3dc40024db

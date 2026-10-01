@@ -4,7 +4,10 @@ import com.hyunjine.linker.auth.OutlookAuthClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.daysUntil
+import kotlinx.datetime.plus
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -21,6 +24,10 @@ import kotlinx.serialization.Serializable
  * 반복 시리즈 · exception 은 Graph 가 `calendarView` 에서 발생별로 이미 확장해서 주기 때문에
  * 우리 앱의 `series_id` · `schedule_repeat_rules` 는 사용하지 않는다. Outlook 이벤트는 항상
  * 단일 row 로 mirror (사용자가 앱에서 편집하면 그때 규칙 재해석).
+ *
+ * 필터 (#242): `재택(이름) HH:MM-HH:MM` 제목 ([RemoteWorkSubject]) 만 미러링한다. 회의 · 출장 등
+ * 업무 일정은 파트너에게 보이지 않는다. 미러는 제목 `재택`, 시각은 제목 안의 시각, 날짜는 시작일 하루.
+ * 앱에서 미러를 고치면 [pushEdit] · [pushDelete] 로 원본에도 반영 (양방향).
  */
 class OutlookSyncService(
     private val auth: OutlookAuthClient,
@@ -95,6 +102,46 @@ class OutlookSyncService(
         }
     }
 
+    /**
+     * 앱에서 고친 재택 미러를 원본 Outlook 일정에 반영. 제목은 원본의 이름을 유지한 채 시각만
+     * `재택(이름) HH:MM-HH:MM` 으로 다시 쓰고, 날짜가 바뀌었으면 원본 시작 · 종료를 같은 일수만큼
+     * 옮긴다 (종일 · 시각 등 원본 형태 유지). 본문 · 장소 · 참석자는 건드리지 않는다.
+     *
+     * @param externalId 미러의 external_id (Graph event id).
+     * @param previousDate 수정 전 미러 날짜.
+     * @param newDate 수정 후 미러 날짜.
+     * @param startTime 수정 후 시작 `HH:mm`. null 이면 원본 제목의 시각 유지.
+     * @param endTime 수정 후 종료 `HH:mm`. null 이면 원본 제목의 시각 유지.
+     */
+    suspend fun pushEdit(
+        externalId: String,
+        previousDate: LocalDate,
+        newDate: LocalDate,
+        startTime: String?,
+        endTime: String?,
+    ): Result<Unit> = runCatching {
+        val original = graph.getEvent(externalId).getOrThrow()
+        val work = RemoteWorkSubject.parse(original.subject)
+        val subject = work?.let {
+            RemoteWorkSubject.format(it.name, startTime ?: it.startTime, endTime ?: it.endTime)
+        }
+        val shift = previousDate.daysUntil(newDate)
+        val patch = OutlookEventPatch(
+            subject = subject?.takeIf { it != original.subject },
+            start = if (shift != 0) original.start.shiftDays(shift) else null,
+            end = if (shift != 0) original.end.shiftDays(shift) else null,
+        )
+        if (patch.subject == null && patch.start == null) return@runCatching
+        graph.patchEvent(externalId, patch).getOrThrow()
+    }
+
+    /**
+     * 앱에서 지운 재택 미러의 원본 Outlook 일정을 삭제.
+     *
+     * @param externalId 미러의 external_id (Graph event id).
+     */
+    suspend fun pushDelete(externalId: String): Result<Unit> = graph.deleteEvent(externalId)
+
     data class SyncResult(val account: com.hyunjine.linker.auth.OutlookAccount, val upserted: Int, val deleted: Int)
 
     // ────────── mapping helpers ──────────
@@ -122,21 +169,27 @@ class OutlookSyncService(
         @SerialName("external_id") val externalId: String,
     )
 
+    /** 재택 형식 제목만 미러로 바꾼다. 그 외 일정은 null (미러링 안 함). */
     private fun OutlookEventDto.toMirrorPayload(coupleId: String, uid: String): OutlookMirrorInsert? {
-        val title = subject?.takeIf { it.isNotBlank() } ?: "(제목 없음)"
-        val (startDate, startTime) = parseGraphDateTime(start.dateTime) ?: return null
-        val (endDate, endTime) = parseGraphDateTime(end.dateTime) ?: return null
+        val work = RemoteWorkSubject.parse(subject) ?: return null
+        val (startDate, _) = parseGraphDateTime(start.dateTime) ?: return null
         return OutlookMirrorInsert(
             coupleId = coupleId,
             createdBy = uid,
-            title = title,
+            title = RemoteWorkSubject.MirrorTitle,
             startDate = startDate,
-            endDate = endDate,
-            allDay = isAllDay,
-            startTime = if (isAllDay) null else startTime,
-            endTime = if (isAllDay) null else endTime,
+            endDate = startDate,
+            allDay = false,
+            startTime = "${work.startTime}:00",
+            endTime = "${work.endTime}:00",
             externalId = id,
         )
+    }
+
+    /** `2026-09-10T09:00:00.0000000` 의 날짜만 [days] 일 옮긴다. 시각 · 타임존은 그대로. */
+    private fun OutlookDateTime.shiftDays(days: Int): OutlookDateTime {
+        val date = LocalDate.parse(dateTime.substringBefore('T')).plus(days, DateTimeUnit.DAY)
+        return copy(dateTime = "$date" + "T" + dateTime.substringAfter('T'))
     }
 
     /**

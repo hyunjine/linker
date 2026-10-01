@@ -226,12 +226,18 @@ fun App() {
             // 드로워 "상대방 연결" 진입은 이 상태를 hide/show 로 반영.
             var coupleRefreshTick by remember { mutableStateOf(0) }
 
-            // Outlook 백그라운드 sync — 드로워 연결 UI 는 #308 로 제거됐지만, 기존에 연동된 계정이
-            // 있으면 세션 복원 시 자동 동기화만 유지 (기존 사용자 캘린더 chip 유실 방지).
-            // 신규 연동 진입점은 없음 → 캐시된 MSAL 계정이 없으면 이 블록은 no-op.
+            // Outlook 재택 일정 연동 (#242). 더보기 "캘린더 연동" 에서 연결 · 해제하고, 연결돼 있으면
+            // 세션 복원 · 커플 변경 시 자동 동기화. 캐시된 MSAL 계정이 없으면 sync 는 no-op.
             val outlookAuth = rememberOutlookAuthClient()
             val outlookSync = remember(outlookAuth) { OutlookSyncService(outlookAuth) }
-            var outlookAccountEmail by remember { mutableStateOf<String?>(null) }
+            var outlook by remember { mutableStateOf(com.hyunjine.linker.feature.more.OutlookLinkState()) }
+            // 재택 미러 동기화 (약 2달 전 ~ 3달 뒤). 성공하면 캘린더 chip 재조회. 오류는 삼키고 로그만.
+            val syncOutlook: suspend () -> Boolean = {
+                runCatching { outlookSync.syncRange(oneMonthAgo().plus(-30, DateTimeUnit.DAY), oneMonthAhead()) }
+                    .onFailure { println("[Outlook] sync 실패: $it") }
+                    .getOrNull()
+                    ?.also { scheduleRefreshTick++ } != null
+            }
 
             // 세션 상태 기반 부트스트랩 라우팅.
             //  - Initializing / NotAuthenticated / RefreshFailure: AuthRoute 유지
@@ -243,15 +249,9 @@ fun App() {
             LaunchedEffect(status, coupleRefreshTick) {
                 if (status is SessionStatus.Authenticated) {
                     runCatching { outlookAuth.currentAccount()?.email }
-                        .onSuccess { outlookAccountEmail = it }
+                        .onSuccess { outlook = outlook.copy(email = it) }
                         .onFailure { println("[Outlook] currentAccount 실패: $it") }
-                    if (outlookAccountEmail != null) {
-                        runCatching {
-                            val from = oneMonthAgo().plus(-30, DateTimeUnit.DAY)
-                            outlookSync.syncRange(from, oneMonthAhead())
-                        }.onSuccess { scheduleRefreshTick++ }
-                            .onFailure { println("[Outlook] 초기 sync 실패: $it") }
-                    }
+                    if (outlook.email != null) syncOutlook()
                 }
             }
             LaunchedEffect(status) {
@@ -418,8 +418,44 @@ fun App() {
                     }
                     entry<MoreRoute> {
                         com.hyunjine.linker.feature.more.MoreRoute(
+                            outlook = outlook,
                             onBack = { backStack.removeLastOrNull() },
                             onReleaseNotesClick = { backStack.add(ReleaseNotesRoute) },
+                            // 로그인 → 바로 첫 동기화. 실패 · 취소는 더보기 안내 문구로.
+                            onOutlookConnect = {
+                                scope.launch {
+                                    outlook = outlook.copy(busy = true, error = null)
+                                    when (val r = outlookAuth.login()) {
+                                        is OutlookAuthResult.Success -> {
+                                            outlook = outlook.copy(email = r.email)
+                                            if (!syncOutlook()) {
+                                                outlook = outlook.copy(error = "재택 일정을 가져오지 못했어요. 앱을 다시 열면 재시도해요.")
+                                            }
+                                        }
+                                        OutlookAuthResult.Cancelled -> Unit
+                                        is OutlookAuthResult.Failure -> {
+                                            println("[Outlook] login 실패: ${r.reason}")
+                                            outlook = outlook.copy(error = "Outlook 에 연결하지 못했어요. 회사 계정으로 다시 시도해 주세요.")
+                                        }
+                                    }
+                                    outlook = outlook.copy(busy = false)
+                                }
+                            },
+                            // MSAL 계정 삭제 + 재택 미러 삭제 (파트너 화면에서도 사라짐).
+                            onOutlookDisconnect = {
+                                scope.launch {
+                                    outlook = outlook.copy(busy = true, error = null)
+                                    runCatching { outlookSync.disconnect() }
+                                        .onSuccess {
+                                            outlook = com.hyunjine.linker.feature.more.OutlookLinkState()
+                                            scheduleRefreshTick++
+                                        }
+                                        .onFailure {
+                                            println("[Outlook] disconnect 실패: $it")
+                                            outlook = outlook.copy(busy = false, error = "연결을 해제하지 못했어요. 잠시 후 다시 시도해 주세요.")
+                                        }
+                                }
+                            },
                             // 세션 종료 → sessionStatus NotAuthenticated → 위 LaunchedEffect 가 AuthRoute 로 리셋.
                             onLogout = {
                                 scope.launch {

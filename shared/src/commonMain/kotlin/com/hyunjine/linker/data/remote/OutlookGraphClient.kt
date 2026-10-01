@@ -9,7 +9,6 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
-import io.ktor.client.request.post
 import io.ktor.client.request.setBody
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
@@ -17,6 +16,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
@@ -44,7 +44,10 @@ class OutlookGraphClient(
      */
     suspend fun calendarView(startIso: String, endIso: String): Result<List<OutlookEventDto>> =
         withBearer { token ->
-            val response: GraphListResponse<OutlookEventDto> = client
+            // 회사 캘린더는 몇 달치만 해도 수백 건이라 `@odata.nextLink` 를 끝까지 따라간다 (#242).
+            // nextLink 에는 원래 쿼리가 모두 들어 있어 Prefer 헤더만 다시 실으면 된다.
+            val events = mutableListOf<OutlookEventDto>()
+            var page: GraphListResponse<OutlookEventDto> = client
                 .get("$BASE/me/calendarview") {
                     bearer(token)
                     header("Prefer", """outlook.timezone="$timeZone"""")
@@ -57,31 +60,51 @@ class OutlookGraphClient(
                     parameter("\$top", 200)
                 }
                 .body()
-            response.value
+            events += page.value
+            var pages = 1
+            while (page.nextLink != null && pages < MaxPages) {
+                page = client.get(page.nextLink!!) {
+                    bearer(token)
+                    header("Prefer", """outlook.timezone="$timeZone"""")
+                }.body()
+                events += page.value
+                pages++
+            }
+            events
         }
 
-    /** `/me/events` POST — 새 이벤트 생성. 반환값은 Graph 가 생성한 이벤트 (id 포함). */
-    suspend fun createEvent(payload: OutlookEventWrite): Result<OutlookEventDto> =
+    /**
+     * `/me/events/{id}` GET — 단건 조회. 앱에서 미러를 고칠 때 원본 제목 (이름) · 시각을 읽는 용도.
+     * start · end 는 [timeZone] 기준 로컬 시각으로 받는다.
+     *
+     * @param id Graph event id (미러의 external_id).
+     */
+    suspend fun getEvent(id: String): Result<OutlookEventDto> =
         withBearer { token ->
-            val response = client.post("$BASE/me/events") {
+            val response = client.get("$BASE/me/events/$id") {
                 bearer(token)
-                contentType(ContentType.Application.Json)
-                setBody(payload)
+                header("Prefer", """outlook.timezone="$timeZone"""")
+                parameter("\$select", "id,subject,start,end,isAllDay,seriesMasterId,type")
             }
-            if (!response.status.isSuccess()) error("createEvent HTTP ${response.status.value}")
+            if (!response.status.isSuccess()) error("getEvent HTTP ${response.status.value}")
             response.body<OutlookEventDto>()
         }
 
-    /** `/me/events/{id}` PATCH — 부분 업데이트. 필요한 필드만 [payload] 에 담아 넘김. */
-    suspend fun updateEvent(id: String, payload: OutlookEventWrite): Result<OutlookEventDto> =
+    /**
+     * `/me/events/{id}` PATCH — [patch] 에 담긴 필드만 바꾼다. 본문 · 장소 · 참석자 등 나머지는
+     * 원본 그대로 유지 (null 필드는 직렬화하지 않음).
+     *
+     * @param id Graph event id.
+     * @param patch 바꿀 필드.
+     */
+    suspend fun patchEvent(id: String, patch: OutlookEventPatch): Result<Unit> =
         withBearer { token ->
             val response = client.patch("$BASE/me/events/$id") {
                 bearer(token)
                 contentType(ContentType.Application.Json)
-                setBody(payload)
+                setBody(PatchJson.encodeToString(OutlookEventPatch.serializer(), patch))
             }
-            if (!response.status.isSuccess()) error("updateEvent HTTP ${response.status.value}")
-            response.body<OutlookEventDto>()
+            if (!response.status.isSuccess()) error("patchEvent HTTP ${response.status.value}")
         }
 
     /**
@@ -111,6 +134,12 @@ class OutlookGraphClient(
     companion object {
         private const val BASE = "https://graph.microsoft.com/v1.0"
 
+        /** nextLink 무한 루프 방지용 상한 (200건 × 20쪽 = 4,000건). */
+        private const val MaxPages = 20
+
+        /** PATCH body 용 — null 필드를 아예 빼서 Graph 가 "삭제" 로 해석하지 않게. */
+        private val PatchJson = Json { explicitNulls = false; encodeDefaults = false }
+
         private fun defaultClient(): HttpClient = HttpClient {
             install(ContentNegotiation) {
                 json(Json { ignoreUnknownKeys = true; isLenient = true; encodeDefaults = true })
@@ -121,9 +150,17 @@ class OutlookGraphClient(
 
 // ────────── DTOs ──────────
 
-/** Graph list response wrapper. `@odata.nextLink` 은 무시 (한 페이지 200개면 충분). */
+/**
+ * Graph list response wrapper.
+ *
+ * @param value 이번 페이지 항목.
+ * @param nextLink 다음 페이지 전체 URL. 마지막 페이지면 null.
+ */
 @Serializable
-data class GraphListResponse<T>(val value: List<T>)
+data class GraphListResponse<T>(
+    val value: List<T>,
+    @SerialName("@odata.nextLink") val nextLink: String? = null,
+)
 
 /**
  * Graph event 응답 축약. 프로젝트 내부 모델 (`ScheduleDraft` · `Schedule`) 로 변환하는 매퍼는
@@ -159,21 +196,15 @@ data class OutlookLocation(
 )
 
 /**
- * 생성 · 수정 시 body. Graph 는 optional 필드를 아예 안 보내면 유지, `null` 로 보내면 삭제 처리.
- * [end] 를 null 로 넘기지 말 것 (`Bad Request`). All-day 이벤트는 [isAllDay]=true + 시간 00:00.
+ * 부분 수정 body. null 인 필드는 보내지 않아 원본 값이 유지된다.
+ *
+ * @param subject 새 제목.
+ * @param start 새 시작 시각.
+ * @param end 새 종료 시각.
  */
 @Serializable
-data class OutlookEventWrite(
-    val subject: String,
-    val start: OutlookDateTime,
-    val end: OutlookDateTime,
-    val isAllDay: Boolean = false,
-    val body: OutlookBodyWrite? = null,
-    val location: OutlookLocation? = null,
-)
-
-@Serializable
-data class OutlookBodyWrite(
-    val contentType: String = "text",
-    val content: String,
+data class OutlookEventPatch(
+    val subject: String? = null,
+    val start: OutlookDateTime? = null,
+    val end: OutlookDateTime? = null,
 )

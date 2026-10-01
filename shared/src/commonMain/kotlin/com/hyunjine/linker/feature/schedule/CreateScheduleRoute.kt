@@ -8,16 +8,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hyunjine.linker.auth.rememberOutlookAuthClient
-import com.hyunjine.linker.data.remote.OutlookBodyWrite
-import com.hyunjine.linker.data.remote.OutlookDateTime
-import com.hyunjine.linker.data.remote.OutlookEventWrite
-import com.hyunjine.linker.data.remote.OutlookGraphClient
-import com.hyunjine.linker.data.remote.OutlookLocation
+import com.hyunjine.linker.data.remote.OutlookSyncService
 import kotlinx.coroutines.launch
-import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlin.time.Clock
 import kotlin.time.ExperimentalTime
@@ -30,9 +24,9 @@ import kotlin.time.ExperimentalTime
  * Screen 이 mount 되는 순간 initial 이 이미 확정돼 rememberSaveable 이 첫 값을 정확히 잡는다.
  * 편집 case: VM 이 DB 에서 prefetch → uiState.loaded=true 후 mount.
  *
- * 편집 대상이 `source='outlook'` 이면 Supabase 저장/삭제 완료 후 Graph API 도 함께 update/delete
- * → 파트너 화면 + 원본 Outlook 캘린더 양쪽에 반영. Graph 요청 실패는 로그만 남기고 UI flow 는
- * 계속 진행 (Supabase mirror 는 다음 sync 사이클에서 다시 원본으로 덮어써질 수 있음).
+ * 편집 대상이 `source='outlook'` (재택 미러, #242) 이면 Supabase 저장/삭제 완료 후 원본 Outlook 일정도
+ * [OutlookSyncService.pushEdit] · [OutlookSyncService.pushDelete] 로 반영 → 파트너 화면 + 원본 양쪽 일치.
+ * Graph 요청 실패는 로그만 남기고 UI flow 는 계속 진행 (미러는 다음 sync 때 원본으로 다시 덮어써질 수 있음).
  */
 @Composable
 fun CreateScheduleRoute(
@@ -47,7 +41,7 @@ fun CreateScheduleRoute(
     }
     val ui by viewModel.uiState.collectAsStateWithLifecycle()
     val outlookAuth = rememberOutlookAuthClient()
-    val outlookGraph = remember(outlookAuth) { OutlookGraphClient(outlookAuth) }
+    val outlookSync = remember(outlookAuth) { OutlookSyncService(outlookAuth) }
     val bgScope = rememberCoroutineScope()
 
     if (viewModel.editing) {
@@ -64,11 +58,16 @@ fun CreateScheduleRoute(
             onSave = { draft, scope ->
                 viewModel.save(draft, scope) {
                     if (original?.source == "outlook" && original.externalId != null) {
-                        // Supabase 는 이미 갱신됨. 원본 Outlook 이벤트도 반영해서
-                        // 다음 sync 때 서버 상태가 튀지 않도록 유지.
+                        // Supabase 는 이미 갱신됨. 원본 Outlook 재택 일정도 반영해서 (#242)
+                        // 다음 sync 때 서버 상태가 튀지 않도록 유지. 제목 · 날짜 · 시각만 바꾸고 나머지는 유지.
                         bgScope.launch {
-                            outlookGraph.updateEvent(original.externalId, draft.toOutlookWrite())
-                                .onFailure { println("[Outlook] updateEvent 실패: $it") }
+                            outlookSync.pushEdit(
+                                externalId = original.externalId,
+                                previousDate = original.startDate,
+                                newDate = draft.startDate,
+                                startTime = draft.startTime.takeUnless { draft.allDay },
+                                endTime = draft.endTime.takeUnless { draft.allDay },
+                            ).onFailure { println("[Outlook] pushEdit 실패: $it") }
                         }
                     }
                     onDone()
@@ -78,8 +77,8 @@ fun CreateScheduleRoute(
                 viewModel.delete(scope) {
                     if (original?.source == "outlook" && original.externalId != null) {
                         bgScope.launch {
-                            outlookGraph.deleteEvent(original.externalId)
-                                .onFailure { println("[Outlook] deleteEvent 실패: $it") }
+                            outlookSync.pushDelete(original.externalId)
+                                .onFailure { println("[Outlook] pushDelete 실패: $it") }
                         }
                     }
                     onDone()
@@ -130,35 +129,3 @@ private fun buildCreateInitial(initialDate: String?, initialType: String?): Sche
 @OptIn(ExperimentalTime::class)
 private fun today(): LocalDate =
     Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
-
-/**
- * ScheduleDraft → Graph API PATCH body. 종일 여부에 따라 시각을 `T00:00:00` / `startTime` 로 분기.
- * TZ 는 KST 고정 — Graph 는 `Prefer: outlook.timezone` 헤더가 안 걸린 PATCH 요청에서도
- * `timeZone` 필드 값을 기준으로 로컬 시각을 해석하므로 일관성 유지.
- */
-private fun ScheduleDraft.toOutlookWrite(): OutlookEventWrite {
-    val tz = "Asia/Seoul"
-    val startStr: String
-    val endStr: String
-    if (allDay) {
-        // Graph 는 all-day 이벤트도 dateTime 문자열을 요구. 시작 00:00, 종료 익일 00:00 관례.
-        startStr = "${startDate}T00:00:00"
-        endStr = "${endDate.plus1Day()}T00:00:00"
-    } else {
-        val st = startTime ?: "00:00"
-        val et = endTime ?: st
-        startStr = "${startDate}T$st:00"
-        endStr = "${endDate}T$et:00"
-    }
-    return OutlookEventWrite(
-        subject = title,
-        start = OutlookDateTime(dateTime = startStr, timeZone = tz),
-        end = OutlookDateTime(dateTime = endStr, timeZone = tz),
-        isAllDay = allDay,
-        body = OutlookBodyWrite(content = ""),
-        location = OutlookLocation(displayName = null),
-    )
-}
-
-/** LocalDate +1일 (all-day 이벤트 종료 표기용). */
-private fun LocalDate.plus1Day(): LocalDate = plus(1, DateTimeUnit.DAY)
