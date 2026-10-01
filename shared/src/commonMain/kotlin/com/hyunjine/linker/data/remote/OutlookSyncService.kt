@@ -152,20 +152,22 @@ class OutlookSyncService(
         @SerialName("external_id") val externalId: String,
     )
 
+    // 기본값을 두지 않는다 — Supabase 직렬화는 encodeDefaults=false 라 기본값 필드를 빼고 보내
+    // type NOT NULL 위반 · source 가 'internal' 로 저장되는 문제가 생긴다 (#242).
     @Serializable
     private data class OutlookMirrorInsert(
         @SerialName("couple_id") val coupleId: String,
         @SerialName("created_by") val createdBy: String,
-        val type: String = "schedule",
-        @SerialName("owner_kind") val ownerKind: String = "me",
+        val type: String,
+        @SerialName("owner_kind") val ownerKind: String,
         val title: String,
         @SerialName("start_date") val startDate: String,
         @SerialName("end_date") val endDate: String,
         @SerialName("all_day") val allDay: Boolean,
-        @SerialName("start_time") val startTime: String? = null,
-        @SerialName("end_time") val endTime: String? = null,
-        @SerialName("is_private") val isPrivate: Boolean = false,
-        val source: String = "outlook",
+        @SerialName("start_time") val startTime: String?,
+        @SerialName("end_time") val endTime: String?,
+        @SerialName("is_private") val isPrivate: Boolean,
+        val source: String,
         @SerialName("external_id") val externalId: String,
     )
 
@@ -176,12 +178,16 @@ class OutlookSyncService(
         return OutlookMirrorInsert(
             coupleId = coupleId,
             createdBy = uid,
+            type = "schedule",
+            ownerKind = "me",
             title = RemoteWorkSubject.MirrorTitle,
             startDate = startDate,
             endDate = startDate,
             allDay = false,
             startTime = "${work.startTime}:00",
             endTime = "${work.endTime}:00",
+            isPrivate = false,
+            source = "outlook",
             externalId = id,
         )
     }
