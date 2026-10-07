@@ -36,13 +36,31 @@ object RemoteWorkSubject {
     }
 
     /**
-     * Outlook 원본에 쓸 제목. 원본의 이름은 유지하고 시각만 바꾼다.
+     * 제목 속 이름과 내 이름이 같은지. 공백 차이 (`양 현진`) 는 무시한다.
      *
-     * @param name 괄호 안 이름.
-     * @param startTime `HH:mm`.
-     * @param endTime `HH:mm`.
+     * @param subjectName [Parsed.name].
+     * @param myName 설정한 내 이름.
      */
-    fun format(name: String, startTime: String, endTime: String): String = "재택($name) $startTime-$endTime"
+    fun sameName(subjectName: String, myName: String): Boolean =
+        subjectName.filterNot { it.isWhitespace() } == myName.filterNot { it.isWhitespace() }
+
+    // 재택(이름) 뒤 첫 시각 범위. 구분자 (` ~ ` · `-` 등) 는 그룹으로 잡아 그대로 되돌려 쓴다.
+    private val TimeRange = Regex("""(\)\s*)(\d{1,2}:\d{2})(\s*[-~–]\s*)(\d{1,2}:\d{2})""")
+
+    /**
+     * Outlook 원본 제목의 시각만 바꾼 새 제목. 이름 · 구분자 · 띄어쓰기 · 뒤에 붙은 메모 등 나머지는
+     * 원본 그대로 둔다 (`재택(양현진) 08:30 ~ 17:30` → `재택(양현진) 09:00 ~ 18:00`).
+     *
+     * @param subject 원본 제목. 재택 형식이 아니면 그대로 반환.
+     * @param startTime 새 시작 `HH:mm`.
+     * @param endTime 새 종료 `HH:mm`.
+     */
+    fun withTimes(subject: String, startTime: String, endTime: String): String {
+        if (parse(subject) == null) return subject
+        val m = TimeRange.find(subject) ?: return subject
+        val replaced = m.groupValues[1] + startTime + m.groupValues[3] + endTime
+        return subject.replaceRange(m.range, replaced)
+    }
 
     private fun hhmm(h: String, m: String): String? {
         val hour = h.toInt()

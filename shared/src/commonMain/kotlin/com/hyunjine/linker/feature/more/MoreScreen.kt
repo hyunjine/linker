@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,6 +73,7 @@ private val CardShape = RoundedCornerShape(16.dp)
  * @param onBack 뒤로가기.
  * @param onReleaseNotesClick 릴리즈 노트 행 탭.
  * @param onOutlookConnect 미연결 상태에서 Outlook 행 탭.
+ * @param onOutlookNameChange 팀 캘린더 이름 시트에서 저장.
  * @param onOutlookDisconnect 연결 해제 확인 알림에서 "연결 해제" 를 눌렀을 때.
  * @param onLogout 로그아웃 확인 알림에서 "로그아웃" 을 눌렀을 때.
  */
@@ -82,11 +84,17 @@ fun MoreScreen(
     onBack: () -> Unit,
     onReleaseNotesClick: () -> Unit,
     onOutlookConnect: () -> Unit,
+    onOutlookNameChange: (String) -> Unit,
     onOutlookDisconnect: () -> Unit,
     onLogout: () -> Unit,
 ) {
     var confirmLogout by remember { mutableStateOf(false) }
     var confirmDisconnect by remember { mutableStateOf(false) }
+    var nameSheet by remember { mutableStateOf(false) }
+    // 연결 직후 이름이 없으면 바로 입력 시트를 띄운다 — 이름이 있어야 재택을 가져올 수 있음.
+    LaunchedEffect(outlook.email, outlook.teamName) {
+        if (outlook.email != null && outlook.teamName == null) nameSheet = true
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -115,10 +123,15 @@ fun MoreScreen(
                 OutlookCard(
                     outlook = outlook,
                     onConnect = onOutlookConnect,
+                    onEditName = { nameSheet = true },
                     onDisconnect = { confirmDisconnect = true },
                 )
                 Hint(
-                    text = outlook.error ?: "회사 Outlook 캘린더의 재택 일정을 가져와 함께 보여줘요.",
+                    text = outlook.error ?: when {
+                        outlook.email != null && outlook.teamName == null ->
+                            "팀 캘린더에 쓰는 이름을 입력하면 내 재택 일정을 가져와요."
+                        else -> "TeamAIVN 캘린더에서 내 재택 일정을 가져와 함께 보여줘요."
+                    },
                     color = if (outlook.error != null) DestructiveRed else TextSecondary,
                 )
             }
@@ -129,6 +142,15 @@ fun MoreScreen(
             }
         }
     }
+    OutlookNameSheet(
+        visible = nameSheet,
+        initial = outlook.teamName.orEmpty(),
+        onDismiss = { nameSheet = false },
+        onConfirm = {
+            nameSheet = false
+            onOutlookNameChange(it)
+        },
+    )
     if (confirmDisconnect) {
         AppAlertDialog(
             title = "Outlook 연결을 해제할까요?",
@@ -278,11 +300,16 @@ private fun LatestValue(ui: MoreUiState) {
 }
 
 /**
- * Outlook 연동 카드 (#242). 미연결: "Outlook 캘린더 · 연결", 연결됨: 계정 이메일 + "연결 해제" 행.
- * 진행 중엔 값 자리에 `…` 를 두고 탭을 막는다.
+ * Outlook 연동 카드 (#242). 미연결: "Outlook 캘린더 · 연결", 연결됨: 계정 이메일 · 팀 캘린더 이름 ·
+ * "연결 해제" 행. 진행 중엔 값 자리에 `…` 를 두고 탭을 막는다.
  */
 @Composable
-private fun OutlookCard(outlook: OutlookLinkState, onConnect: () -> Unit, onDisconnect: () -> Unit) {
+private fun OutlookCard(
+    outlook: OutlookLinkState,
+    onConnect: () -> Unit,
+    onEditName: () -> Unit,
+    onDisconnect: () -> Unit,
+) {
     Card {
         val email = outlook.email
         if (email == null) {
@@ -297,6 +324,15 @@ private fun OutlookCard(outlook: OutlookLinkState, onConnect: () -> Unit, onDisc
             MenuRow(
                 label = "Outlook 캘린더",
                 trailing = { ValueText(if (outlook.busy) "…" else email) },
+            )
+            CardDividerLine()
+            MenuRow(
+                label = "팀 캘린더 이름",
+                onClick = onEditName.takeUnless { outlook.busy },
+                trailing = {
+                    val name = outlook.teamName
+                    if (name == null) ValueText("입력", color = PrimaryBlue, weight = FontWeight.SemiBold) else ValueText(name)
+                },
             )
             CardDividerLine()
             MenuRow(
@@ -371,6 +407,7 @@ private fun MoreScreenUpdatePreview() {
             onBack = {},
             onReleaseNotesClick = {},
             onOutlookConnect = {},
+            onOutlookNameChange = {},
             onOutlookDisconnect = {},
             onLogout = {},
         )
@@ -383,10 +420,11 @@ private fun MoreScreenLatestPreview() {
     LinkerTheme {
         MoreScreen(
             ui = MoreUiState(currentVersion = "1.5.1", latest = LatestVersion.Loaded("1.5.1")),
-            outlook = OutlookLinkState(email = "me@example.com"),
+            outlook = OutlookLinkState(email = "me@example.com", teamName = "양현진"),
             onBack = {},
             onReleaseNotesClick = {},
             onOutlookConnect = {},
+            onOutlookNameChange = {},
             onOutlookDisconnect = {},
             onLogout = {},
         )

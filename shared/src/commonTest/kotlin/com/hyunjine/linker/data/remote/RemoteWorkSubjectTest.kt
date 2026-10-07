@@ -37,9 +37,16 @@ class RemoteWorkSubjectTest {
     }
 
     @Test
-    fun formatRoundTrips() {
-        val subject = RemoteWorkSubject.format("현진", "10:00", "19:00")
-        assertEquals("재택(현진) 10:00-19:00", subject)
-        assertEquals(RemoteWorkSubject.Parsed("현진", "10:00", "19:00"), RemoteWorkSubject.parse(subject))
+    fun withTimesKeepsOriginalStyle() {
+        assertEquals("재택(양현진) 09:00 ~ 18:00", RemoteWorkSubject.withTimes("재택(양현진) 08:30 ~ 17:30", "09:00", "18:00"))
+        assertEquals("재택(김다혜) 08:00-17:00 (오후 외근)", RemoteWorkSubject.withTimes("재택(김다혜) 7:30-16:30 (오후 외근)", "08:00", "17:00"))
+        assertEquals("주간회의", RemoteWorkSubject.withTimes("주간회의", "09:00", "18:00"))
+    }
+
+    @Test
+    fun sameNameIgnoresWhitespaceOnly() {
+        kotlin.test.assertTrue(RemoteWorkSubject.sameName("양 현진", "양현진"))
+        kotlin.test.assertFalse(RemoteWorkSubject.sameName("김현진", "양현진"))
+        kotlin.test.assertFalse(RemoteWorkSubject.sameName("현진", "양현진"))
     }
 }

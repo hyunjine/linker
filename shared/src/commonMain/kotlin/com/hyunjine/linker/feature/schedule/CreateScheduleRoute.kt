@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hyunjine.linker.auth.rememberOutlookAuthClient
@@ -42,7 +41,6 @@ fun CreateScheduleRoute(
     val ui by viewModel.uiState.collectAsStateWithLifecycle()
     val outlookAuth = rememberOutlookAuthClient()
     val outlookSync = remember(outlookAuth) { OutlookSyncService(outlookAuth) }
-    val bgScope = rememberCoroutineScope()
 
     if (viewModel.editing) {
         // 매 mount 마다 fresh 조회 — 저장 후 재편집해도 stale 값 안 보이도록. VM 이 재사용되는
@@ -60,7 +58,8 @@ fun CreateScheduleRoute(
                     if (original?.source == "outlook" && original.externalId != null) {
                         // Supabase 는 이미 갱신됨. 원본 Outlook 재택 일정도 반영해서 (#242)
                         // 다음 sync 때 서버 상태가 튀지 않도록 유지. 제목 · 날짜 · 시각만 바꾸고 나머지는 유지.
-                        bgScope.launch {
+                        // 저장 직후 화면이 닫히므로 컴포지션 scope 가 아닌 앱 전역 scope 에서 실행.
+                        OutlookSyncService.writeBackScope.launch {
                             outlookSync.pushEdit(
                                 externalId = original.externalId,
                                 previousDate = original.startDate,
@@ -76,7 +75,7 @@ fun CreateScheduleRoute(
             onDelete = { scope ->
                 viewModel.delete(scope) {
                     if (original?.source == "outlook" && original.externalId != null) {
-                        bgScope.launch {
+                        OutlookSyncService.writeBackScope.launch {
                             outlookSync.pushDelete(original.externalId)
                                 .onFailure { println("[Outlook] pushDelete 실패: $it") }
                         }

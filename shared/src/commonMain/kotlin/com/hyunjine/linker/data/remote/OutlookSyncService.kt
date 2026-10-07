@@ -1,9 +1,13 @@
 package com.hyunjine.linker.data.remote
 
 import com.hyunjine.linker.auth.OutlookAuthClient
+import com.hyunjine.linker.data.local.OutlookLocal
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Columns
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.daysUntil
@@ -25,8 +29,9 @@ import kotlinx.serialization.Serializable
  * 우리 앱의 `series_id` · `schedule_repeat_rules` 는 사용하지 않는다. Outlook 이벤트는 항상
  * 단일 row 로 mirror (사용자가 앱에서 편집하면 그때 규칙 재해석).
  *
- * 필터 (#242): `재택(이름) HH:MM-HH:MM` 제목 ([RemoteWorkSubject]) 만 미러링한다. 회의 · 출장 등
- * 업무 일정은 파트너에게 보이지 않는다. 미러는 제목 `재택`, 시각은 제목 안의 시각, 날짜는 시작일 하루.
+ * 대상 (#242): 공유받은 팀 캘린더 [TeamCalendarName] 에서 `재택(이름) HH:MM-HH:MM` 제목
+ * ([RemoteWorkSubject]) 중 괄호 안 이름이 [OutlookLocal.teamName] 인 것만 미러링한다. 팀원 재택 ·
+ * 사무실 · 출장 · 휴가 등은 파트너에게 보이지 않는다. 이름이 미설정이면 동기화하지 않는다. 미러는 제목 `재택`, 시각은 제목 안의 시각, 날짜는 시작일 하루.
  * 앱에서 미러를 고치면 [pushEdit] · [pushDelete] 로 원본에도 반영 (양방향).
  */
 class OutlookSyncService(
@@ -34,21 +39,31 @@ class OutlookSyncService(
     private val graph: OutlookGraphClient = OutlookGraphClient(auth),
 ) {
 
+    /** 팀 캘린더 id 캐시 — 이름으로 매번 찾지 않도록. */
+    private var teamCalendarId: String? = null
+
+    /** 팀 캘린더 id. 내 캘린더 목록에 없으면 예외 (공유가 안 됐거나 이름이 바뀜). */
+    private suspend fun teamCalendarId(): String =
+        teamCalendarId ?: (graph.findCalendarId(TeamCalendarName).getOrThrow()
+            ?: error("$TeamCalendarName 캘린더를 찾지 못함"))
+            .also { teamCalendarId = it }
+
     /**
-     * [from] ~ [to] 범위를 Outlook 과 sync. 연동 안 됐거나 토큰 만료면 no-op 반환 (실패 무시 —
-     * 캘린더 rendering 은 계속 진행돼야 함).
-     * @return 성공 시 (upserted, deleted) 카운트, 미로그인/오류면 null
+     * [from] ~ [to] 범위를 Outlook 팀 캘린더와 sync. 미로그인 · 미연동 · 이름 미설정이면 no-op (null).
+     * Graph · DB 오류는 예외로 던진다 (호출자가 안내 문구 결정).
+     * @return 성공 시 (upserted, deleted) 카운트, no-op 이면 null
      */
     suspend fun syncRange(from: LocalDate, to: LocalDate): SyncResult? {
         val uid = SupabaseProvider.client.auth.currentUserOrNull()?.id ?: return null
         val coupleId = CouplesRepository.myCoupleIdOrNull() ?: return null
         val account = auth.currentAccount() ?: return null // 연동 안 됨
+        val myName = OutlookLocal.teamName ?: return null // 이름 미설정
 
         val startIso = "${from}T00:00:00"
         val endIso = "${to}T23:59:59"
-        val events = graph.calendarView(startIso, endIso).getOrElse { return null }
+        val events = graph.calendarView(teamCalendarId(), startIso, endIso).getOrThrow()
 
-        val payloads = events.mapNotNull { it.toMirrorPayload(coupleId, uid) }
+        val payloads = events.mapNotNull { it.toMirrorPayload(coupleId, uid, myName) }
         val fetchedIds = payloads.map { it.externalId }.toSet()
 
         // Upsert. Postgrest 는 conflict target 을 서버 unique 제약 (partial index) 으로 지정 가능.
@@ -103,8 +118,8 @@ class OutlookSyncService(
     }
 
     /**
-     * 앱에서 고친 재택 미러를 원본 Outlook 일정에 반영. 제목은 원본의 이름을 유지한 채 시각만
-     * `재택(이름) HH:MM-HH:MM` 으로 다시 쓰고, 날짜가 바뀌었으면 원본 시작 · 종료를 같은 일수만큼
+     * 앱에서 고친 재택 미러를 원본 Outlook 일정에 반영. 제목은 원본 형식 그대로 시각만 바꾸고
+     * ([RemoteWorkSubject.withTimes]), 날짜가 바뀌었으면 원본 시작 · 종료를 같은 일수만큼
      * 옮긴다 (종일 · 시각 등 원본 형태 유지). 본문 · 장소 · 참석자는 건드리지 않는다.
      *
      * @param externalId 미러의 external_id (Graph event id).
@@ -120,10 +135,12 @@ class OutlookSyncService(
         startTime: String?,
         endTime: String?,
     ): Result<Unit> = runCatching {
-        val original = graph.getEvent(externalId).getOrThrow()
-        val work = RemoteWorkSubject.parse(original.subject)
-        val subject = work?.let {
-            RemoteWorkSubject.format(it.name, startTime ?: it.startTime, endTime ?: it.endTime)
+        val calendarId = teamCalendarId()
+        val original = graph.getEvent(calendarId, externalId).getOrThrow()
+        val subject = original.subject?.let { orig ->
+            RemoteWorkSubject.parse(orig)?.let { work ->
+                RemoteWorkSubject.withTimes(orig, startTime ?: work.startTime, endTime ?: work.endTime)
+            }
         }
         val shift = previousDate.daysUntil(newDate)
         val patch = OutlookEventPatch(
@@ -132,7 +149,7 @@ class OutlookSyncService(
             end = if (shift != 0) original.end.shiftDays(shift) else null,
         )
         if (patch.subject == null && patch.start == null) return@runCatching
-        graph.patchEvent(externalId, patch).getOrThrow()
+        graph.patchEvent(calendarId, externalId, patch).getOrThrow()
     }
 
     /**
@@ -140,7 +157,19 @@ class OutlookSyncService(
      *
      * @param externalId 미러의 external_id (Graph event id).
      */
-    suspend fun pushDelete(externalId: String): Result<Unit> = graph.deleteEvent(externalId)
+    suspend fun pushDelete(externalId: String): Result<Unit> =
+        runCatching { graph.deleteEvent(teamCalendarId(), externalId).getOrThrow() }
+
+    companion object {
+        /** 재택 일정이 올라오는 공유 팀 캘린더 이름. */
+        const val TeamCalendarName = "TeamAIVN"
+
+        /**
+         * 원본 반영 ([pushEdit] · [pushDelete]) 전용 앱 전역 scope. 편집 화면은 저장 직후 닫혀
+         * `rememberCoroutineScope` 가 취소되므로 (ForgottenCoroutineScopeException) 화면 수명과 분리한다.
+         */
+        val writeBackScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    }
 
     data class SyncResult(val account: com.hyunjine.linker.auth.OutlookAccount, val upserted: Int, val deleted: Int)
 
@@ -171,9 +200,10 @@ class OutlookSyncService(
         @SerialName("external_id") val externalId: String,
     )
 
-    /** 재택 형식 제목만 미러로 바꾼다. 그 외 일정은 null (미러링 안 함). */
-    private fun OutlookEventDto.toMirrorPayload(coupleId: String, uid: String): OutlookMirrorInsert? {
+    /** 내 이름의 재택 제목만 미러로 바꾼다. 그 외 일정은 null (미러링 안 함). */
+    private fun OutlookEventDto.toMirrorPayload(coupleId: String, uid: String, myName: String): OutlookMirrorInsert? {
         val work = RemoteWorkSubject.parse(subject) ?: return null
+        if (!RemoteWorkSubject.sameName(work.name, myName)) return null
         val (startDate, _) = parseGraphDateTime(start.dateTime) ?: return null
         return OutlookMirrorInsert(
             coupleId = coupleId,

@@ -21,7 +21,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
- * Microsoft Graph API 클라이언트 (v1.0 `/me/calendarview` · `/me/events`).
+ * Microsoft Graph API 클라이언트 (v1.0 `/me/calendars/{id}/calendarView` · `/me/calendars/{id}/events`).
  *
  * Bearer 토큰은 [auth] 에서 매 요청 시 [OutlookAuthClient.accessToken] 로 fresh 발급받아
  * 헤더에 실는다. 토큰 만료는 SDK 가 refresh_token 으로 자동 갱신하고, refresh 도 실패하면
@@ -37,18 +37,35 @@ class OutlookGraphClient(
 ) {
 
     /**
-     * `/me/calendarview` — 지정 date range 내의 모든 (반복 시리즈 인스턴스 포함) 이벤트.
+     * 내 캘린더 목록에서 [name] 과 이름이 같은 캘린더 id. 공유받은 팀 캘린더 (TeamAIVN) 도 포함.
+     *
+     * @param name 캘린더 표시 이름.
+     * @return 없으면 null.
+     */
+    suspend fun findCalendarId(name: String): Result<String?> =
+        withBearer { token ->
+            val response: GraphListResponse<CalendarDto> = client.get("$BASE/me/calendars") {
+                bearer(token)
+                parameter("\$select", "id,name")
+                parameter("\$top", 100)
+            }.body()
+            response.value.firstOrNull { it.name.trim() == name }?.id
+        }
+
+    /**
+     * `/me/calendars/{id}/calendarView` — 지정 캘린더 · date range 내의 모든 (반복 시리즈 인스턴스 포함) 이벤트.
      * Graph 는 series master 하나만 주지 않고 매 발생일마다 별도 인스턴스로 확장해 반환.
+     * @param calendarId [findCalendarId] 로 찾은 캘린더 id.
      * @param startIso `2026-09-01T00:00:00` 같은 ISO-8601 로컬 시간 문자열 (Z/오프셋 없이).
      * @param endIso 동일 형식.
      */
-    suspend fun calendarView(startIso: String, endIso: String): Result<List<OutlookEventDto>> =
+    suspend fun calendarView(calendarId: String, startIso: String, endIso: String): Result<List<OutlookEventDto>> =
         withBearer { token ->
             // 회사 캘린더는 몇 달치만 해도 수백 건이라 `@odata.nextLink` 를 끝까지 따라간다 (#242).
             // nextLink 에는 원래 쿼리가 모두 들어 있어 Prefer 헤더만 다시 실으면 된다.
             val events = mutableListOf<OutlookEventDto>()
             var page: GraphListResponse<OutlookEventDto> = client
-                .get("$BASE/me/calendarview") {
+                .get("$BASE/me/calendars/$calendarId/calendarView") {
                     bearer(token)
                     header("Prefer", """outlook.timezone="$timeZone"""")
                     parameter("startDateTime", startIso)
@@ -77,11 +94,12 @@ class OutlookGraphClient(
      * `/me/events/{id}` GET — 단건 조회. 앱에서 미러를 고칠 때 원본 제목 (이름) · 시각을 읽는 용도.
      * start · end 는 [timeZone] 기준 로컬 시각으로 받는다.
      *
+     * @param calendarId 일정이 있는 캘린더 id.
      * @param id Graph event id (미러의 external_id).
      */
-    suspend fun getEvent(id: String): Result<OutlookEventDto> =
+    suspend fun getEvent(calendarId: String, id: String): Result<OutlookEventDto> =
         withBearer { token ->
-            val response = client.get("$BASE/me/events/$id") {
+            val response = client.get("$BASE/me/calendars/$calendarId/events/$id") {
                 bearer(token)
                 header("Prefer", """outlook.timezone="$timeZone"""")
                 parameter("\$select", "id,subject,start,end,isAllDay,seriesMasterId,type")
@@ -94,12 +112,13 @@ class OutlookGraphClient(
      * `/me/events/{id}` PATCH — [patch] 에 담긴 필드만 바꾼다. 본문 · 장소 · 참석자 등 나머지는
      * 원본 그대로 유지 (null 필드는 직렬화하지 않음).
      *
+     * @param calendarId 일정이 있는 캘린더 id.
      * @param id Graph event id.
      * @param patch 바꿀 필드.
      */
-    suspend fun patchEvent(id: String, patch: OutlookEventPatch): Result<Unit> =
+    suspend fun patchEvent(calendarId: String, id: String, patch: OutlookEventPatch): Result<Unit> =
         withBearer { token ->
-            val response = client.patch("$BASE/me/events/$id") {
+            val response = client.patch("$BASE/me/calendars/$calendarId/events/$id") {
                 bearer(token)
                 contentType(ContentType.Application.Json)
                 setBody(PatchJson.encodeToString(OutlookEventPatch.serializer(), patch))
@@ -110,10 +129,13 @@ class OutlookGraphClient(
     /**
      * `/me/events/{id}` DELETE. 204 · 404 (이미 지워짐) 를 성공으로 취급. 반복 시리즈 인스턴스
      * id 를 넘기면 그 발생만 삭제된다 (전체 시리즈 삭제는 seriesMasterId 로 호출).
+     *
+     * @param calendarId 일정이 있는 캘린더 id.
+     * @param id Graph event id.
      */
-    suspend fun deleteEvent(id: String): Result<Unit> =
+    suspend fun deleteEvent(calendarId: String, id: String): Result<Unit> =
         withBearer { token ->
-            val response = client.delete("$BASE/me/events/$id") { bearer(token) }
+            val response = client.delete("$BASE/me/calendars/$calendarId/events/$id") { bearer(token) }
             val ok = response.status.value == HttpStatusCode.NoContent.value ||
                 response.status.value == HttpStatusCode.NotFound.value
             if (!ok) error("deleteEvent HTTP ${response.status.value}")
@@ -181,6 +203,15 @@ data class OutlookEventDto(
     val bodyPreview: String? = null,
     val location: OutlookLocation? = null,
 )
+
+/**
+ * 캘린더 목록 항목.
+ *
+ * @param id 캘린더 id.
+ * @param name 표시 이름.
+ */
+@Serializable
+data class CalendarDto(val id: String, val name: String)
 
 @Serializable
 data class OutlookDateTime(

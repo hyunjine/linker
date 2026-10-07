@@ -15,6 +15,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
  * @param onBack 뒤로가기.
  * @param onReleaseNotesClick 릴리즈 노트 화면으로.
  * @param onOutlookConnect Outlook 로그인 → 연결.
+ * @param onOutlookNameChange 팀 캘린더 이름 저장.
  * @param onOutlookDisconnect Outlook 연결 해제.
  * @param onLogout 로그아웃.
  */
@@ -24,6 +25,7 @@ fun MoreRoute(
     onBack: () -> Unit,
     onReleaseNotesClick: () -> Unit,
     onOutlookConnect: () -> Unit,
+    onOutlookNameChange: (String) -> Unit,
     onOutlookDisconnect: () -> Unit,
     onLogout: () -> Unit,
 ) {
@@ -35,6 +37,7 @@ fun MoreRoute(
         onBack = onBack,
         onReleaseNotesClick = onReleaseNotesClick,
         onOutlookConnect = onOutlookConnect,
+        onOutlookNameChange = onOutlookNameChange,
         onOutlookDisconnect = onOutlookDisconnect,
         onLogout = onLogout,
     )
@@ -44,11 +47,13 @@ fun MoreRoute(
  * 더보기 "캘린더 연동" 의 Outlook 상태 (#242).
  *
  * @param email 연결된 계정 이메일. null 이면 미연결.
+ * @param teamName 팀 캘린더에 쓰는 내 이름. null 이면 미설정 (동기화 안 함).
  * @param busy 로그인 · 동기화 · 해제 진행 중.
  * @param error 마지막 실패 안내 문구. null 이면 없음.
  */
 data class OutlookLinkState(
     val email: String? = null,
+    val teamName: String? = null,
     val busy: Boolean = false,
     val error: String? = null,
 )
