@@ -13,6 +13,7 @@ import com.hyunjine.linker.designsystem.theme.CalendarPurple
 import com.hyunjine.linker.designsystem.theme.calendarColorFor
 import com.hyunjine.linker.platform.refreshTodayWidget
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,6 +22,8 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.plus
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 
 /**
  * MainScreen 의 state · 도메인 로직. Nav 진입/이탈에 살아남아 검색 왕복 시 chip 재fetch 로 인한
@@ -31,6 +34,9 @@ import kotlinx.datetime.plus
  * - 월별 chip 캐시는 [uiState.entriesByMonth] 에 담고 [loadMonthIfNeeded] 로 lazy 채움.
  * - [ownerColors] 가 바뀌면 캐시를 통째로 비워 새 색으로 다시 tint (프로필 색 변경 대응).
  */
+/** 재진입 갱신 최소 간격 (#422). */
+private val ResumeRefreshInterval = 30.seconds
+
 class MainViewModel : ViewModel() {
 
     private val _uiState = MutableStateFlow(MainUiState())
@@ -94,8 +100,18 @@ class MainViewModel : ViewModel() {
         }
     }
 
+    /** 화면에 한 번이라도 요청된 달. 조회가 실패해 캐시에 없는 달도 재진입 때 다시 받기 위해 기억 (#422). */
+    private val requestedMonths = mutableSetOf<YearMonth>()
+
+    /** 지금 조회 중인 달 — 같은 달 중복 요청 방지. */
+    private val inFlightMonths = mutableSetOf<YearMonth>()
+
+    /** 마지막 재진입 갱신 시각. 진입 직후 초기 로드와 겹치지 않도록 생성 시각으로 시작. */
+    private var lastResumeRefresh = TimeSource.Monotonic.markNow()
+
     /** 해당 달의 chip 이 캐시에 없으면 fetch 해 채운다. 이미 있으면 no-op. */
     fun loadMonthIfNeeded(yearMonth: YearMonth) {
+        requestedMonths += yearMonth
         if (_uiState.value.entriesByMonth.containsKey(yearMonth)) return
         fetchAndReplaceMonth(yearMonth)
     }
@@ -103,21 +119,55 @@ class MainViewModel : ViewModel() {
     /**
      * 강제로 다시 fetch 해서 도착한 즉시 해당 달 entry 를 atomic 하게 교체.
      * 캐시를 미리 비우지 않아 사용자 화면에서 chip 이 "잠깐 사라졌다 다시 뜨는" 깜빡임 없음.
+     *
+     * 실패 처리 (#422): 백그라운드에서 막 돌아온 직후엔 iOS 가 끊어 둔 연결 때문에 첫 요청이 자주
+     * 실패한다 (connection abort). 1초 뒤 한 번 더 시도하고, 그래도 실패하면 **캐시를 건드리지 않는다**
+     * — 예전엔 빈 목록을 저장해 그 달이 계속 빈 채로 남거나, 떠 있던 일정이 빈 값으로 덮어써졌다.
      */
     private fun fetchAndReplaceMonth(yearMonth: YearMonth) {
+        if (!inFlightMonths.add(yearMonth)) return
         viewModelScope.launch {
-            val first = LocalDate(yearMonth.year, yearMonth.month, 1)
-            val from = first.plus(-7, DateTimeUnit.DAY)
-            val to = first.plus(1, DateTimeUnit.MONTH).plus(7, DateTimeUnit.DAY)
-            val rows = runCatching { SchedulesRepository.listInRange(from, to) }
-                .onFailure { println("[Schedule] listInRange($yearMonth) 실패: $it") }
-                .getOrDefault(emptyList())
-            val fetched = rows.toCalendarEntries(
-                ownerColors = _uiState.value.ownerColors,
-                viewerId = _uiState.value.myProfile?.id,
-            )
-            _uiState.update { it.copy(entriesByMonth = it.entriesByMonth + (yearMonth to fetched)) }
+            try {
+                val first = LocalDate(yearMonth.year, yearMonth.month, 1)
+                val from = first.plus(-7, DateTimeUnit.DAY)
+                val to = first.plus(1, DateTimeUnit.MONTH).plus(7, DateTimeUnit.DAY)
+                val rows = fetchRangeWithRetry(from, to, yearMonth) ?: return@launch
+                val fetched = rows.toCalendarEntries(
+                    ownerColors = _uiState.value.ownerColors,
+                    viewerId = _uiState.value.myProfile?.id,
+                )
+                _uiState.update { it.copy(entriesByMonth = it.entriesByMonth + (yearMonth to fetched)) }
+            } finally {
+                inFlightMonths -= yearMonth
+            }
         }
+    }
+
+    /** 범위 조회를 최대 2회 시도. 둘 다 실패하면 null. */
+    private suspend fun fetchRangeWithRetry(
+        from: LocalDate,
+        to: LocalDate,
+        yearMonth: YearMonth,
+    ): List<SchedulesRepository.Row>? {
+        repeat(2) { attempt ->
+            runCatching { SchedulesRepository.listInRange(from, to) }
+                .onSuccess { return it }
+                .onFailure { println("[Schedule] listInRange($yearMonth) 실패 (${attempt + 1}/2): $it") }
+            if (attempt == 0) delay(1.seconds)
+        }
+        return null
+    }
+
+    /**
+     * 앱이 다시 앞으로 올 때 (#422). 백그라운드 동안 실시간 소켓이 끊겨 놓친 변경을 따라잡도록
+     * 프로필 · 요청됐던 모든 달 (조회 실패로 비어 있는 달 포함) 을 다시 받는다. 30초 안 재호출은 생략.
+     */
+    fun onResume() {
+        if (lastResumeRefresh.elapsedNow() < ResumeRefreshInterval) return
+        lastResumeRefresh = TimeSource.Monotonic.markNow()
+        refreshProfile()
+        requestedMonths.toSet().forEach { fetchAndReplaceMonth(it) }
+        startRealtime()
     }
 
     /** 특정 날짜의 상세 payload (task · timed · all-day 분리) 로드. */
@@ -146,7 +196,7 @@ class MainViewModel : ViewModel() {
      * 이전 버전은 emptyMap 으로 비웠다가 다시 채우느라 화면 chip 이 순간 사라졌다 다시 뜨는 깜빡임이 있었음 (#141).
      */
     fun refreshSchedules() {
-        _uiState.value.entriesByMonth.keys.toSet().forEach { fetchAndReplaceMonth(it) }
+        (_uiState.value.entriesByMonth.keys + requestedMonths).toSet().forEach { fetchAndReplaceMonth(it) }
     }
 
     // ────────── Realtime ──────────
