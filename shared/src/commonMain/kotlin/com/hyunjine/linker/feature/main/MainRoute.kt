@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hyunjine.linker.feature.schedule.ScheduleType
@@ -64,6 +65,12 @@ fun MainRoute(
 
     // 진입 시 postgres_changes 구독 시작 (viewModelScope 로 라이프사이클 관리).
     LaunchedEffect(Unit) { viewModel.startRealtime() }
+
+    // 앱이 다시 앞으로 올 때 일정 · 프로필 재조회 (#422). 위젯 탭 등 백그라운드 복귀 시 놓친 변경 반영.
+    LifecycleResumeEffect(Unit) {
+        viewModel.onResume()
+        onPauseOrDispose { }
+    }
 
     // 드로워 헤더용 파생값을 상위에 노출 (아직 App.kt 가 드로워 밖 다른 곳에 쓸 여지 대비).
     LaunchedEffect(uiState.myProfile) {
