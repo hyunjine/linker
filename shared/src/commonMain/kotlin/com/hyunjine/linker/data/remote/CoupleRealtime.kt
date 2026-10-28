@@ -6,8 +6,11 @@ import io.github.jan.supabase.realtime.RealtimeChannel
 import io.github.jan.supabase.realtime.channel
 import io.github.jan.supabase.realtime.postgresChangeFlow
 import io.github.jan.supabase.realtime.realtime
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -35,12 +38,40 @@ class CoupleRealtimeSubscription(
 )
 
 /**
+ * 커플 채널을 열고 [subscription] 콜백을 연결한다.
+ *
+ * 구독 준비 중 실패 (재진입 직후 끊긴 연결로 `myCoupleId()` 조회 실패 · 채널 subscribe 실패 등) 는 로그만 남기고
+ * 구독을 포기한다 (#422). 예외가 `launch` 밖으로 새면 Kotlin/Native 에선 처리되지 않은 예외로 앱이 종료된다.
+ * 다음 재진입 (`onResume` → `startRealtime`) 때 다시 시도.
+ *
+ * @param subscription 테이블별 변경 콜백 묶음.
  * @return 실행 중인 구독 [Job]. VM 이 clear 될 때 cancel 해야 채널 leak 방지.
  */
-fun CoroutineScope.subscribeCoupleRealtime(subscription: CoupleRealtimeSubscription): Job = launch {
+fun CoroutineScope.subscribeCoupleRealtime(subscription: CoupleRealtimeSubscription): Job = launch(RealtimeExceptionHandler) {
+    try {
+        // coroutineScope 로 감싸야 launchIn 으로 띄운 하위 flow 의 실패도 여기서 잡힌다.
+        coroutineScope { subscribeCoupleRealtimeBody(subscription) }
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Throwable) {
+        println("[Realtime] 구독 실패 — 다음 재진입 때 재시도: $e")
+    }
+}
+
+/** try/catch 를 빠져나간 예외 (방어용) 도 앱을 죽이지 않도록 로그만 남긴다. */
+private val RealtimeExceptionHandler = CoroutineExceptionHandler { _, e ->
+    println("[Realtime] 처리되지 않은 예외: $e")
+}
+
+/**
+ * [subscribeCoupleRealtime] 본문. cancel 될 때까지 suspend 하며 채널을 유지한다.
+ *
+ * @param subscription 테이블별 변경 콜백 묶음.
+ */
+private suspend fun CoroutineScope.subscribeCoupleRealtimeBody(subscription: CoupleRealtimeSubscription) {
     val coupleId = SchedulesRepository.myCoupleId() ?: run {
         println("[Realtime] couple 없음 — 구독 스킵")
-        return@launch
+        return
     }
     val client = SupabaseProvider.client
     val channel: RealtimeChannel = client.channel("couple:$coupleId")

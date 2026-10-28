@@ -6,14 +6,22 @@ import com.hyunjine.linker.data.local.DrawerDisplayLocal
 import com.hyunjine.linker.data.remote.CoupleRealtimeSubscription
 import com.hyunjine.linker.data.remote.CouplesRepository
 import com.hyunjine.linker.data.remote.SchedulesRepository
+import com.hyunjine.linker.data.remote.SessionReadiness
+import com.hyunjine.linker.data.remote.SupabaseProvider
 import com.hyunjine.linker.data.remote.UsersRepository
+import com.hyunjine.linker.data.remote.awaitUsableSession
 import com.hyunjine.linker.data.remote.resolveUsCalendarColorId
 import com.hyunjine.linker.data.remote.subscribeCoupleRealtime
 import com.hyunjine.linker.designsystem.theme.CalendarPurple
 import com.hyunjine.linker.designsystem.theme.calendarColorFor
 import com.hyunjine.linker.platform.refreshTodayWidget
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.status.SessionStatus
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -34,8 +42,11 @@ import kotlin.time.TimeSource
  * - 월별 chip 캐시는 [uiState.entriesByMonth] 에 담고 [loadMonthIfNeeded] 로 lazy 채움.
  * - [ownerColors] 가 바뀌면 캐시를 통째로 비워 새 색으로 다시 tint (프로필 색 변경 대응).
  */
-/** 재진입 갱신 최소 간격 (#422). */
+/** 재진입 시 이미 캐시된 달 재조회 · 프로필 갱신의 최소 간격 (#422). 캐시에 없는 달은 throttle 없이 받는다. */
 private val ResumeRefreshInterval = 30.seconds
+
+/** 이 시간 안에 만료될 토큰은 조회 전에 갱신 (#422). */
+private val SessionExpiryMargin = 30.seconds
 
 class MainViewModel : ViewModel() {
 
@@ -64,6 +75,12 @@ class MainViewModel : ViewModel() {
      */
     fun refreshProfile() {
         viewModelScope.launch {
+            // 세션이 없을 때 조회하면 "프로필 없음 (null)" 이 성공으로 돌아와 기존 프로필 · 색을 지운다 (#422).
+            // 쓸 수 있는 세션이 확보될 때까지 기다리고, 안 되면 상태를 건드리지 않는다 — 세션 복구 시 다시 호출됨.
+            if (awaitUsableSession(expiryMargin = SessionExpiryMargin, logTag = "Main") != SessionReadiness.Ready) {
+                println("[Main] 세션 미준비 — 프로필 갱신 건너뜀")
+                return@launch
+            }
             val mine = runCatching { UsersRepository.myProfile() }
                 .onFailure { println("[Main] myProfile 실패: $it") }
                 .getOrNull()
@@ -73,6 +90,10 @@ class MainViewModel : ViewModel() {
             val couple = runCatching { CouplesRepository.myCoupleOrNull() }
                 .onFailure { println("[Main] myCouple 실패: $it") }
                 .getOrNull()
+            if (SupabaseProvider.client.auth.currentSessionOrNull() == null) {
+                println("[Main] 조회 중 세션 유실 — 프로필 갱신 결과 버림")
+                return@launch
+            }
             val nextColors = OwnerColors(
                 me = calendarColorFor(mine?.calendarColor),
                 partner = calendarColorFor(partnerColor ?: "pink"),
@@ -103,11 +124,21 @@ class MainViewModel : ViewModel() {
     /** 화면에 한 번이라도 요청된 달. 조회가 실패해 캐시에 없는 달도 재진입 때 다시 받기 위해 기억 (#422). */
     private val requestedMonths = mutableSetOf<YearMonth>()
 
-    /** 지금 조회 중인 달 — 같은 달 중복 요청 방지. */
-    private val inFlightMonths = mutableSetOf<YearMonth>()
+    /**
+     * 지금 조회 중인 달 → 그 조회 [Job]. 평소엔 같은 달 중복 요청을 걸러내고, 재진입 · 세션 복구 때는
+     * 끊긴 연결에 매달린 stale 조회를 cancel 하고 새로 시작하는 데 쓴다 (#422).
+     */
+    private val inFlightMonths = mutableMapOf<YearMonth, Job>()
 
-    /** 마지막 재진입 갱신 시각. 진입 직후 초기 로드와 겹치지 않도록 생성 시각으로 시작. */
-    private var lastResumeRefresh = TimeSource.Monotonic.markNow()
+    /**
+     * 마지막 재진입 갱신 시각. null = 아직 재진입 갱신 전 (첫 resume 은 진입 초기 로드와 겹치므로 캐시된 달 재조회는
+     * 생략). 예전엔 VM 생성 시각으로 시작해 생성 직후 30초 동안 실패한 달 재조회까지 막혔다 (#422).
+     */
+    private var lastResumeRefresh: TimeSource.Monotonic.ValueTimeMark? = null
+
+    init {
+        observeSessionRecovery()
+    }
 
     /** 해당 달의 chip 이 캐시에 없으면 fetch 해 채운다. 이미 있으면 no-op. */
     fun loadMonthIfNeeded(yearMonth: YearMonth) {
@@ -120,53 +151,123 @@ class MainViewModel : ViewModel() {
      * 강제로 다시 fetch 해서 도착한 즉시 해당 달 entry 를 atomic 하게 교체.
      * 캐시를 미리 비우지 않아 사용자 화면에서 chip 이 "잠깐 사라졌다 다시 뜨는" 깜빡임 없음.
      *
-     * 실패 처리 (#422): 백그라운드에서 막 돌아온 직후엔 iOS 가 끊어 둔 연결 때문에 첫 요청이 자주
-     * 실패한다 (connection abort). 1초 뒤 한 번 더 시도하고, 그래도 실패하면 **캐시를 건드리지 않는다**
+     * 실패 처리 (#422): 백그라운드에서 막 돌아온 직후엔 iOS 가 끊어 둔 연결 · 만료 토큰 때문에 요청이 자주
+     * 실패한다. [fetchRangeWithRetry] 가 세션 확보 후 backoff 재시도하고, 그래도 실패하면 **캐시를 건드리지 않는다**
      * — 예전엔 빈 목록을 저장해 그 달이 계속 빈 채로 남거나, 떠 있던 일정이 빈 값으로 덮어써졌다.
+     *
+     * @param yearMonth 조회할 달.
+     * @param force true 면 이미 조회 중인 같은 달 요청을 cancel 하고 새로 시작 (재진입 · 세션 복구 — 끊긴 연결에
+     *   매달린 요청이 막지 못하게). false 면 조회 중일 때 no-op.
      */
-    private fun fetchAndReplaceMonth(yearMonth: YearMonth) {
-        if (!inFlightMonths.add(yearMonth)) return
-        viewModelScope.launch {
+    private fun fetchAndReplaceMonth(yearMonth: YearMonth, force: Boolean = false) {
+        val running = inFlightMonths[yearMonth]
+        if (running?.isActive == true) {
+            if (!force) return
+            running.cancel()
+        }
+        lateinit var job: Job
+        job = viewModelScope.launch(start = CoroutineStart.LAZY) {
             try {
                 val first = LocalDate(yearMonth.year, yearMonth.month, 1)
                 val from = first.plus(-7, DateTimeUnit.DAY)
                 val to = first.plus(1, DateTimeUnit.MONTH).plus(7, DateTimeUnit.DAY)
                 val rows = fetchRangeWithRetry(from, to, yearMonth) ?: return@launch
+                ensureActive()
                 val fetched = rows.toCalendarEntries(
                     ownerColors = _uiState.value.ownerColors,
                     viewerId = _uiState.value.myProfile?.id,
                 )
                 _uiState.update { it.copy(entriesByMonth = it.entriesByMonth + (yearMonth to fetched)) }
             } finally {
-                inFlightMonths -= yearMonth
+                // force 로 교체된 뒤 끝난 stale job 이 새 job 의 기록을 지우지 않도록 자기 자신일 때만 제거.
+                if (inFlightMonths[yearMonth] === job) inFlightMonths -= yearMonth
             }
         }
+        inFlightMonths[yearMonth] = job
+        job.start()
     }
 
-    /** 범위 조회를 최대 2회 시도. 둘 다 실패하면 null. */
+    /**
+     * 범위 조회를 [MonthFetchRetryDelays] backoff 로 재시도 (최대 5회). 모두 실패하면 null — 캐시 유지.
+     *
+     * 시도마다 쓸 수 있는 세션 (만료 전 토큰) 을 먼저 확보한다. 세션 없이 조회하면 `myCoupleId()` 가 null 이 돼
+     * 빈 목록이 "성공" 으로 돌아오기 때문 (#422). 조회 후에도 세션이 없으면 빈 결과는 실패로 본다.
+     * VM 이 clear 되면 viewModelScope cancel 로 즉시 중단.
+     *
+     * @param from 조회 시작 날짜 (포함).
+     * @param to 조회 끝 날짜 (포함).
+     * @param yearMonth 로그용 대상 달.
+     */
     private suspend fun fetchRangeWithRetry(
         from: LocalDate,
         to: LocalDate,
         yearMonth: YearMonth,
     ): List<SchedulesRepository.Row>? {
-        repeat(2) { attempt ->
-            runCatching { SchedulesRepository.listInRange(from, to) }
-                .onSuccess { return it }
-                .onFailure { println("[Schedule] listInRange($yearMonth) 실패 (${attempt + 1}/2): $it") }
-            if (attempt == 0) delay(1.seconds)
+        val maxAttempts = MonthFetchRetryDelays.size + 1
+        for (attempt in 0 until maxAttempts) {
+            when (awaitUsableSession(expiryMargin = SessionExpiryMargin, logTag = "Schedule")) {
+                SessionReadiness.Ready -> {
+                    val result = try {
+                        Result.success(SchedulesRepository.listInRange(from, to))
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Throwable) {
+                        Result.failure(e)
+                    }
+                    result.getOrNull()?.let { rows ->
+                        if (rows.isNotEmpty() || SupabaseProvider.client.auth.currentSessionOrNull() != null) return rows
+                        println("[Schedule] listInRange($yearMonth) 세션 없이 빈 결과 — 실패 처리 (${attempt + 1}/$maxAttempts)")
+                    } ?: println("[Schedule] listInRange($yearMonth) 실패 (${attempt + 1}/$maxAttempts): ${result.exceptionOrNull()}")
+                }
+                // 로그아웃 확정 — 재시도 의미 없음. 캐시는 로그아웃 라우팅이 정리.
+                SessionReadiness.LoggedOut -> return null
+                SessionReadiness.Unavailable ->
+                    println("[Schedule] listInRange($yearMonth) 세션 미준비 (${attempt + 1}/$maxAttempts)")
+            }
+            MonthFetchRetryDelays.getOrNull(attempt)?.let { delay(it) }
         }
         return null
     }
 
     /**
-     * 앱이 다시 앞으로 올 때 (#422). 백그라운드 동안 실시간 소켓이 끊겨 놓친 변경을 따라잡도록
-     * 프로필 · 요청됐던 모든 달 (조회 실패로 비어 있는 달 포함) 을 다시 받는다. 30초 안 재호출은 생략.
+     * 세션 복구 감시 (#422). 토큰 갱신이 네트워크 문제로 실패하면 상태가 `RefreshFailure` 로 바뀌고 그 사이
+     * 조회는 모두 실패한다. 라이브러리 자동 재시도로 다시 `Authenticated` 가 되면 프로필과 캐시에 없는 달을
+     * throttle 없이 다시 받는다. 복구가 아니어도 새 세션이 들어왔는데 비어 있는 달이 있으면 채운다.
+     */
+    private fun observeSessionRecovery() {
+        viewModelScope.launch {
+            var previous: SessionStatus? = null
+            SupabaseProvider.client.auth.sessionStatus.collect { status ->
+                val recovered = status is SessionStatus.Authenticated && previous is SessionStatus.RefreshFailure
+                previous = status
+                if (status !is SessionStatus.Authenticated) return@collect
+                if (recovered) {
+                    println("[Main] 세션 복구 — 프로필 · 비어 있는 달 재조회")
+                    refreshProfile()
+                }
+                monthsToRefetch(requestedMonths, _uiState.value.entriesByMonth.keys, includeCached = false)
+                    .forEach { fetchAndReplaceMonth(it, force = recovered) }
+            }
+        }
+    }
+
+    /**
+     * 앱이 다시 앞으로 올 때 (#422). 백그라운드 동안 실시간 소켓이 끊겨 놓친 변경을 따라잡는다.
+     *
+     * - 캐시에 없는 달 (조회 실패로 비어 있는 달 포함) 은 **항상** 다시 받는다. 끊긴 연결에 매달린 이전 조회는 cancel.
+     * - 이미 캐시된 달 재조회 · 프로필 갱신은 30초 throttle. 첫 resume 은 진입 초기 로드와 겹치므로 생략.
+     * - 프로필이 비어 있으면 (초기 조회 실패) throttle 과 무관하게 다시 받는다.
      */
     fun onResume() {
-        if (lastResumeRefresh.elapsedNow() < ResumeRefreshInterval) return
-        lastResumeRefresh = TimeSource.Monotonic.markNow()
-        refreshProfile()
-        requestedMonths.toSet().forEach { fetchAndReplaceMonth(it) }
+        val last = lastResumeRefresh
+        val isFirstResume = last == null
+        val throttlePassed = last != null && last.elapsedNow() >= ResumeRefreshInterval
+        if (isFirstResume || throttlePassed) lastResumeRefresh = TimeSource.Monotonic.markNow()
+
+        if (throttlePassed || (!isFirstResume && _uiState.value.myProfile == null)) refreshProfile()
+        // 첫 resume 은 초기 로드 조회가 진행 중일 수 있어 중복만 거른다 (force=false).
+        monthsToRefetch(requestedMonths, _uiState.value.entriesByMonth.keys, includeCached = throttlePassed)
+            .forEach { fetchAndReplaceMonth(it, force = !isFirstResume) }
         startRealtime()
     }
 
