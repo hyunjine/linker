@@ -45,6 +45,9 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 
+/** 스플래시가 이 시간 이상 유지되면 하단에 네트워크 확인 안내를 노출 (#424). */
+private const val SPLASH_NETWORK_HINT_DELAY_MS = 5_000L
+
 /**
  * 앱 최상위 네비게이션 그래프. Navigation3 [NavDisplay] 로 백스택을 직접 소유한다.
  * 각 목적지 [NavKey] 는 `@Serializable` 이고, [NavConfig] 의 polymorphic 서브클래스로 등록해야
@@ -355,7 +358,22 @@ fun App() {
                             AuthGateMode.Splash
                         }
                         LaunchedEffect(mode) { if (mode == AuthGateMode.Login) loginShown = true }
-                        com.hyunjine.linker.feature.login.LoginRoute(mode = mode)
+                        // 스플래시가 5초 넘게 유지되면 (오프라인 + 만료 토큰 → RefreshFailure 재시도,
+                        // 세션 로딩 · 부트스트랩 프로필 조회가 네트워크 대기) 하단에 네트워크 확인 안내 (#424).
+                        // Splash 로 들어올 때마다 타이머를 새로 시작하고, Login 전환 · 라우팅 (AuthRoute 이탈)
+                        // 시 자연히 사라진다. NotAuthenticated 확정이면 곧 login 으로 바뀌므로 노출 안 함.
+                        var splashStalled by remember { mutableStateOf(false) }
+                        LaunchedEffect(mode) {
+                            splashStalled = false
+                            if (mode == AuthGateMode.Splash) {
+                                delay(SPLASH_NETWORK_HINT_DELAY_MS)
+                                splashStalled = true
+                            }
+                        }
+                        com.hyunjine.linker.feature.login.LoginRoute(
+                            mode = mode,
+                            networkHint = splashStalled && !signedOut,
+                        )
                     }
                     entry<ProfileSetupRoute> {
                         val currentUser = (status as? SessionStatus.Authenticated)?.session?.user
