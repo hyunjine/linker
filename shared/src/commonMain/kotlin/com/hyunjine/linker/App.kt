@@ -283,8 +283,12 @@ fun App() {
                         // 모두 이 분기로 흘러오고, Repository 가 (user_id, fcm_token) unique 로
                         // dedupe 하므로 idempotent 안전. 계정 스왑 (test1 → test2) 케이스에서
                         // onNewToken 이 fire 되지 않아 test2 device row 가 없던 문제를 커버.
-                        runCatching { ensureCurrentDeviceRegistered() }
-                            .onFailure { println("[FCM] ensureCurrentDeviceRegistered 실패: $it") }
+                        // 화면 이동과 무관하므로 기다리지 않는다 (#425). 라우팅 (backStack 교체) 이나
+                        // status 변화로 이 effect 가 취소돼도 등록은 끝까지 가도록 App 레벨 scope 에서 실행.
+                        scope.launch {
+                            runCatching { ensureCurrentDeviceRegistered() }
+                                .onFailure { println("[FCM] ensureCurrentDeviceRegistered 실패: $it") }
+                        }
                         val target = decideBootstrapTarget()
                         println("[Auth] Authenticated → $target")
                         if (backStack.lastOrNull() != target) {
