@@ -69,3 +69,17 @@ App Store Connect 웹훅 수신 (#395). TestFlight 빌드 처리 완료 (`BUILD_
 함수 배포 후 App Store Connect API 로 `POST /v1/webhooks` (eventTypes `BUILD_UPLOAD_STATE_UPDATED`,
 url `https://<project>.supabase.co/functions/v1/asc-webhook`) 등록 → `POST /v1/webhookPings` 로 확인.
 전달 이력은 `GET /v1/webhooks/{id}/deliveries`, 재전송은 `POST /v1/webhookDeliveries`.
+
+## send-outlook-sync-push
+
+Outlook 재택 미러 주기 동기화 (#420). pg_cron (`send-outlook-sync-push`, 30분마다 · KST 01:00~05:59 제외) 이
+호출하면 `users.outlook_connected_at` 이 있는 유저의 모든 기기에 `data.type = "outlook_sync"` silent / data push 를
+보낸다. 앱이 깨어나 `OutlookBackgroundSync` 로 기존 sync 를 실행한다 (Graph 변경 알림은 delegated 권한으로
+공유 캘린더를 구독할 수 없어 polling).
+`verify_jwt = false` (config.toml) — 대신 `x-outlook-sync-secret` 헤더로 검증.
+
+### 필요한 Secrets
+
+- `FCM_PROJECT_ID` · `FCM_SERVICE_ACCOUNT_JSON` — send-schedule-push 와 동일
+- `OUTLOOK_SYNC_PUSH_SECRET` — cron → 함수 인증용. 같은 값을 Vault 에도 저장:
+  `select vault.create_secret('<값>', 'outlook_sync_push_secret');`

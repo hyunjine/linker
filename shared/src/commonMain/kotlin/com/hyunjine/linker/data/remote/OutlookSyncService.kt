@@ -8,12 +8,18 @@ import io.github.jan.supabase.postgrest.query.Columns
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
 import kotlinx.datetime.daysUntil
 import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlin.time.Clock
+import kotlin.time.ExperimentalTime
 
 /**
  * Outlook → Supabase `schedules` 미러 동기화 서비스.
@@ -51,9 +57,17 @@ class OutlookSyncService(
     /**
      * [from] ~ [to] 범위를 Outlook 팀 캘린더와 sync. 미로그인 · 미연동 · 이름 미설정이면 no-op (null).
      * Graph · DB 오류는 예외로 던진다 (호출자가 안내 문구 결정).
+     *
+     * 앱 foreground sync 와 silent push 백그라운드 sync ([OutlookBackgroundSync]) 가 겹치지 않도록
+     * 프로세스 전역 [syncMutex] 로 직렬화한다 (sync 자체는 idempotent 지만 upsert · stale 삭제가 교차하면 낭비).
+     *
+     * @param from 동기화 시작일 (포함).
+     * @param to 동기화 종료일 (포함).
      * @return 성공 시 (upserted, deleted) 카운트, no-op 이면 null
      */
-    suspend fun syncRange(from: LocalDate, to: LocalDate): SyncResult? {
+    suspend fun syncRange(from: LocalDate, to: LocalDate): SyncResult? = syncMutex.withLock { syncRangeLocked(from, to) }
+
+    private suspend fun syncRangeLocked(from: LocalDate, to: LocalDate): SyncResult? {
         val uid = SupabaseProvider.client.auth.currentUserOrNull()?.id ?: return null
         val coupleId = CouplesRepository.myCoupleIdOrNull() ?: return null
         val account = auth.currentAccount() ?: return null // 연동 안 됨
@@ -163,6 +177,25 @@ class OutlookSyncService(
     companion object {
         /** 재택 일정이 올라오는 공유 팀 캘린더 이름. */
         const val TeamCalendarName = "TeamAIVN"
+
+        /** 모든 [OutlookSyncService] 인스턴스가 공유하는 sync 직렬화 락 (#420). */
+        private val syncMutex = Mutex()
+
+        /** sync 가 진행 중인지. 백그라운드 sync 가 이미 돌고 있는 sync 를 기다리지 않고 건너뛸 때 사용. */
+        val isSyncing: Boolean get() = syncMutex.isLocked
+
+        /**
+         * 기본 동기화 범위 — 오늘 기준 약 2달 전 (61일) ~ 3달 뒤 (93일). 앱 foreground sync ·
+         * silent push 백그라운드 sync 가 같은 범위를 쓰도록 한 곳에 둔다 (#420).
+         *
+         * @param today 기준일. 기본값은 기기 시간대의 오늘.
+         * @return (from, to) — 둘 다 포함.
+         */
+        @OptIn(ExperimentalTime::class)
+        fun defaultRange(
+            today: LocalDate = Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date,
+        ): Pair<LocalDate, LocalDate> =
+            today.plus(-61, DateTimeUnit.DAY) to today.plus(93, DateTimeUnit.DAY)
 
         /**
          * 원본 반영 ([pushEdit] · [pushDelete]) 전용 앱 전역 scope. 편집 화면은 저장 직후 닫혀
