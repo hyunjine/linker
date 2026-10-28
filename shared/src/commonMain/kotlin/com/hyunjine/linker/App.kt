@@ -53,8 +53,9 @@ import kotlinx.serialization.modules.polymorphic
 /**
  * 스플래시 · 로그인을 하나의 컴포저블 안에서 애니메이션으로 이어주기 위해 두 라우트를 통합.
  * `SessionStatus` 값에 따라 [AuthGateScreen] 내부에서 mode 를 전환:
- *  - Initializing · Authenticated (부트스트랩 프로필 확인 중) → splash 시각 상태 유지
- *  - NotAuthenticated / RefreshFailure → login 시각으로 슬라이드 + 카카오 버튼 fade-in
+ *  - Initializing · Authenticated (부트스트랩 프로필 확인 중) · RefreshFailure (일시 오류, 재시도 중)
+ *    → splash 시각 상태 유지
+ *  - NotAuthenticated → login 시각으로 슬라이드 + 카카오 버튼 fade-in
  */
 @Serializable
 private data object AuthRoute : NavKey
@@ -260,9 +261,10 @@ fun App() {
             }
 
             // 세션 상태 기반 부트스트랩 라우팅.
-            //  - Initializing / NotAuthenticated / RefreshFailure: AuthRoute 유지
+            //  - Initializing / NotAuthenticated: AuthRoute 유지
             //    (내부 AuthGateScreen 이 mode 로 splash ↔ login 시각 전환)
             //  - Authenticated: 프로필/커플 상태 조회 → 미완성 단계로 자동 진입 (재로그인 시 온보딩 스킵)
+            //  - RefreshFailure: 현재 백스택 유지 (일시적 네트워크 오류, supabase 가 재시도)
             val status by sessionStatus.collectAsState()
             // 세션 · 커플 상태 변할 때 저장된 MSAL 계정 있으면 상단 상태에 반영 + 초기 sync 시도.
             // MSAL/Graph/네트워크 오류는 여기서 무조건 catch — 앱 부팅 flow 를 절대 막지 않도록.
@@ -279,7 +281,7 @@ fun App() {
             }
             // 이번 로그인 세션에서 부트스트랩 라우팅을 이미 마쳤는지 (#424). 토큰 갱신 등으로
             // Authenticated 가 다시 흘러와도 사용자가 보고 있는 화면을 갈아엎지 않도록 1회만 라우팅.
-            // 로그아웃 · AuthRoute 리셋 시 false 로 되돌린다. rememberSaveable 이라 Android 구성 변경 ·
+            // 로그아웃 (NotAuthenticated) 시에만 false 로 되돌린다. rememberSaveable 이라 Android 구성 변경 ·
             // 프로세스 복원 후 백스택이 복원돼도 다시 라우팅하지 않는다.
             var bootstrapped by rememberSaveable { mutableStateOf(false) }
             // key 를 status 인스턴스가 아닌 타입으로 둬서, 부트스트랩 (프로필 재시도) 진행 중
@@ -306,10 +308,16 @@ fun App() {
                         }
                         bootstrapped = true
                     }
-                    is SessionStatus.NotAuthenticated,
                     is SessionStatus.RefreshFailure -> {
+                        // 자동 토큰 갱신 중 네트워크 · 서버 오류 (예: 백그라운드 복귀 직후 만료 토큰).
+                        // 세션은 남아 있고 supabase-kt 가 잠시 뒤 재시도해 Authenticated 로 돌아오므로
+                        // 로그아웃으로 취급하지 않는다 (#424). 보던 화면 · bootstrapped 플래그 유지 →
+                        // 재-Authenticated 때 재라우팅 없음. 스플래시 중이면 splash 그대로 (아래 AuthRoute mode).
+                        println("[Auth] RefreshFailure — 백스택 유지, 재시도 대기")
+                    }
+                    is SessionStatus.NotAuthenticated -> {
                         // AuthRoute 이 이미 최상단이면 유지 (내부에서 login mode 로 자동 전환).
-                        // 다른 화면에서 로그아웃 상황 (RefreshFailure 등) 이면 AuthRoute 로 리셋.
+                        // 다른 화면에서 로그아웃 (직접 로그아웃 · refresh token 거부 등) 이면 AuthRoute 로 리셋.
                         bootstrapped = false
                         if (backStack.lastOrNull() != AuthRoute) {
                             println("[Auth] 세션 없음 → AuthRoute 로 리셋")
@@ -333,14 +341,14 @@ fun App() {
                             delay(1500L)
                             minSplashElapsed = true
                         }
-                        // 로그인 필요가 확정 (NotAuthenticated / RefreshFailure) 되고 최소 노출시간이 지나야 login.
-                        // 세션 로딩 중 · Authenticated 후 프로필 확인 (부트스트랩) 중에는 splash 유지 (#424) —
+                        // 로그인 필요가 확정 (NotAuthenticated) 되고 최소 노출시간이 지나야 login.
+                        // 세션 로딩 중 · Authenticated 후 프로필 확인 (부트스트랩) 중 · RefreshFailure (재시도 대기)
+                        // 에는 splash 유지 (#424) —
                         // 예전엔 Initializing 만 봐서, 프로필 조회가 1.5s 를 넘기면 login 레이아웃이 잠깐 비쳤다.
                         // 한 번 login 을 보여준 뒤 (소셜 로그인 성공 → 부트스트랩) 에는 splash 로 되돌리지 않는다.
                         // 로고 · 타이틀은 유지된 채 위치만 슬라이드.
                         var loginShown by remember { mutableStateOf(false) }
-                        val signedOut = status is SessionStatus.NotAuthenticated ||
-                            status is SessionStatus.RefreshFailure
+                        val signedOut = status is SessionStatus.NotAuthenticated
                         val mode = if (minSplashElapsed && (signedOut || loginShown)) {
                             AuthGateMode.Login
                         } else {
