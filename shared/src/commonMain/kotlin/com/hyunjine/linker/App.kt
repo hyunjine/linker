@@ -7,6 +7,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.navigation3.runtime.NavKey
@@ -21,7 +22,6 @@ import com.hyunjine.linker.auth.signOut
 import com.hyunjine.linker.data.local.OutlookLocal
 import com.hyunjine.linker.data.remote.AnniversariesRepository
 import com.hyunjine.linker.data.remote.OutlookSyncService
-import com.hyunjine.linker.data.remote.UsersRepository
 import com.hyunjine.linker.designsystem.theme.LinkerTheme
 import com.hyunjine.linker.feature.anniversary.AnniversaryUi
 import com.hyunjine.linker.feature.auth.AuthGateMode
@@ -45,6 +45,9 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.modules.SerializersModule
 import kotlinx.serialization.modules.polymorphic
 
+/** 스플래시가 이 시간 이상 유지되면 하단에 네트워크 확인 안내를 노출 (#424). */
+private const val SPLASH_NETWORK_HINT_DELAY_MS = 5_000L
+
 /**
  * 앱 최상위 네비게이션 그래프. Navigation3 [NavDisplay] 로 백스택을 직접 소유한다.
  * 각 목적지 [NavKey] 는 `@Serializable` 이고, [NavConfig] 의 polymorphic 서브클래스로 등록해야
@@ -53,8 +56,9 @@ import kotlinx.serialization.modules.polymorphic
 /**
  * 스플래시 · 로그인을 하나의 컴포저블 안에서 애니메이션으로 이어주기 위해 두 라우트를 통합.
  * `SessionStatus` 값에 따라 [AuthGateScreen] 내부에서 mode 를 전환:
- *  - Initializing → splash 시각 상태 유지
- *  - NotAuthenticated / RefreshFailure → login 시각으로 슬라이드 + 카카오 버튼 fade-in
+ *  - Initializing · Authenticated (부트스트랩 프로필 확인 중) · RefreshFailure (일시 오류, 재시도 중)
+ *    → splash 시각 상태 유지
+ *  - NotAuthenticated → login 시각으로 슬라이드 + 카카오 버튼 fade-in
  */
 @Serializable
 private data object AuthRoute : NavKey
@@ -149,13 +153,15 @@ private fun oneMonthAhead(): LocalDate = today().plus(93, DateTimeUnit.DAY)
  * - 프로필 미완성 → ProfileSetup
  * - 프로필 완성 → Main (커플 가입 여부와 무관 — 커플 연결은 드로워 "상대방 연결" 에서 언제든지)
  *
- * 조회 실패는 안전하게 ProfileSetup 으로 폴백 (사용자가 다시 시도할 수 있게 하는 게 최선).
+ * 조회는 재시도하며, 실패를 미완성으로 취급하지 않는다 (#424). 끝내 확인 못하면 Main
+ * — 판단 근거는 [bootstrapDestinationOf] 참고.
  */
 private suspend fun decideBootstrapTarget(): NavKey {
-    val profile = runCatching { UsersRepository.myProfile() }
-        .onFailure { println("[Boot] myProfile 실패: $it") }
-        .getOrNull()
-    return if (profile?.isCompleted != true) ProfileSetupRoute else MainRoute
+    val state = fetchBootstrapProfileState()
+    return when (bootstrapDestinationOf(state)) {
+        BootstrapDestination.ProfileSetup -> ProfileSetupRoute
+        BootstrapDestination.Main -> MainRoute
+    }
 }
 
 @kotlin.OptIn(kotlin.time.ExperimentalTime::class)
@@ -258,9 +264,10 @@ fun App() {
             }
 
             // 세션 상태 기반 부트스트랩 라우팅.
-            //  - Initializing / NotAuthenticated / RefreshFailure: AuthRoute 유지
+            //  - Initializing / NotAuthenticated: AuthRoute 유지
             //    (내부 AuthGateScreen 이 mode 로 splash ↔ login 시각 전환)
             //  - Authenticated: 프로필/커플 상태 조회 → 미완성 단계로 자동 진입 (재로그인 시 온보딩 스킵)
+            //  - RefreshFailure: 현재 백스택 유지 (일시적 네트워크 오류, supabase 가 재시도)
             val status by sessionStatus.collectAsState()
             // 세션 · 커플 상태 변할 때 저장된 MSAL 계정 있으면 상단 상태에 반영 + 초기 sync 시도.
             // MSAL/Graph/네트워크 오류는 여기서 무조건 catch — 앱 부팅 flow 를 절대 막지 않도록.
@@ -275,10 +282,21 @@ fun App() {
                     }
                 }
             }
-            LaunchedEffect(status) {
+            // 이번 로그인 세션에서 부트스트랩 라우팅을 이미 마쳤는지 (#424). 토큰 갱신 등으로
+            // Authenticated 가 다시 흘러와도 사용자가 보고 있는 화면을 갈아엎지 않도록 1회만 라우팅.
+            // 로그아웃 (NotAuthenticated) 시에만 false 로 되돌린다. rememberSaveable 이라 Android 구성 변경 ·
+            // 프로세스 복원 후 백스택이 복원돼도 다시 라우팅하지 않는다.
+            var bootstrapped by rememberSaveable { mutableStateOf(false) }
+            // key 를 status 인스턴스가 아닌 타입으로 둬서, 부트스트랩 (프로필 재시도) 진행 중
+            // Authenticated(Refresh) 재방출이 와도 코루틴이 취소 · 재시작되지 않게 한다.
+            LaunchedEffect(status::class) {
                 println("[Auth] sessionStatus = ${status::class.simpleName}")
                 when (val s = status) {
                     is SessionStatus.Authenticated -> {
+                        if (bootstrapped) {
+                            println("[Auth] Authenticated(${s.source::class.simpleName}) — 부트스트랩 완료 상태라 라우팅 생략")
+                            return@LaunchedEffect
+                        }
                         // #317 로그인 성공 시 FCM device 등록 강제 트리거. 세션 복원 · 신규 로그인
                         // 모두 이 분기로 흘러오고, Repository 가 (user_id, fcm_token) unique 로
                         // dedupe 하므로 idempotent 안전. 계정 스왑 (test1 → test2) 케이스에서
@@ -295,11 +313,19 @@ fun App() {
                             backStack.clear()
                             backStack.add(target)
                         }
+                        bootstrapped = true
                     }
-                    is SessionStatus.NotAuthenticated,
                     is SessionStatus.RefreshFailure -> {
+                        // 자동 토큰 갱신 중 네트워크 · 서버 오류 (예: 백그라운드 복귀 직후 만료 토큰).
+                        // 세션은 남아 있고 supabase-kt 가 잠시 뒤 재시도해 Authenticated 로 돌아오므로
+                        // 로그아웃으로 취급하지 않는다 (#424). 보던 화면 · bootstrapped 플래그 유지 →
+                        // 재-Authenticated 때 재라우팅 없음. 스플래시 중이면 splash 그대로 (아래 AuthRoute mode).
+                        println("[Auth] RefreshFailure — 백스택 유지, 재시도 대기")
+                    }
+                    is SessionStatus.NotAuthenticated -> {
                         // AuthRoute 이 이미 최상단이면 유지 (내부에서 login mode 로 자동 전환).
-                        // 다른 화면에서 로그아웃 상황 (RefreshFailure 등) 이면 AuthRoute 로 리셋.
+                        // 다른 화면에서 로그아웃 (직접 로그아웃 · refresh token 거부 등) 이면 AuthRoute 로 리셋.
+                        bootstrapped = false
                         if (backStack.lastOrNull() != AuthRoute) {
                             println("[Auth] 세션 없음 → AuthRoute 로 리셋")
                             backStack.clear()
@@ -322,14 +348,36 @@ fun App() {
                             delay(1500L)
                             minSplashElapsed = true
                         }
-                        // 세션 로딩 중이거나 최소 노출시간 미충족이면 splash, 아니면 login.
+                        // 로그인 필요가 확정 (NotAuthenticated) 되고 최소 노출시간이 지나야 login.
+                        // 세션 로딩 중 · Authenticated 후 프로필 확인 (부트스트랩) 중 · RefreshFailure (재시도 대기)
+                        // 에는 splash 유지 (#424) —
+                        // 예전엔 Initializing 만 봐서, 프로필 조회가 1.5s 를 넘기면 login 레이아웃이 잠깐 비쳤다.
+                        // 한 번 login 을 보여준 뒤 (소셜 로그인 성공 → 부트스트랩) 에는 splash 로 되돌리지 않는다.
                         // 로고 · 타이틀은 유지된 채 위치만 슬라이드.
-                        val mode = if (status is SessionStatus.Initializing || !minSplashElapsed) {
-                            AuthGateMode.Splash
-                        } else {
+                        var loginShown by remember { mutableStateOf(false) }
+                        val signedOut = status is SessionStatus.NotAuthenticated
+                        val mode = if (minSplashElapsed && (signedOut || loginShown)) {
                             AuthGateMode.Login
+                        } else {
+                            AuthGateMode.Splash
                         }
-                        com.hyunjine.linker.feature.login.LoginRoute(mode = mode)
+                        LaunchedEffect(mode) { if (mode == AuthGateMode.Login) loginShown = true }
+                        // 스플래시가 5초 넘게 유지되면 (오프라인 + 만료 토큰 → RefreshFailure 재시도,
+                        // 세션 로딩 · 부트스트랩 프로필 조회가 네트워크 대기) 하단에 네트워크 확인 안내 (#424).
+                        // Splash 로 들어올 때마다 타이머를 새로 시작하고, Login 전환 · 라우팅 (AuthRoute 이탈)
+                        // 시 자연히 사라진다. NotAuthenticated 확정이면 곧 login 으로 바뀌므로 노출 안 함.
+                        var splashStalled by remember { mutableStateOf(false) }
+                        LaunchedEffect(mode) {
+                            splashStalled = false
+                            if (mode == AuthGateMode.Splash) {
+                                delay(SPLASH_NETWORK_HINT_DELAY_MS)
+                                splashStalled = true
+                            }
+                        }
+                        com.hyunjine.linker.feature.login.LoginRoute(
+                            mode = mode,
+                            networkHint = splashStalled && !signedOut,
+                        )
                     }
                     entry<ProfileSetupRoute> {
                         val currentUser = (status as? SessionStatus.Authenticated)?.session?.user

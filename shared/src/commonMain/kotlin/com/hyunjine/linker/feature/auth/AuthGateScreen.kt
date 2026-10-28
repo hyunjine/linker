@@ -46,6 +46,7 @@ import com.hyunjine.linker.designsystem.theme.LocalPretendardFontFamily
 import com.hyunjine.linker.designsystem.theme.ProvidePretendard
 import com.hyunjine.linker.designsystem.theme.TextPrimary
 import com.hyunjine.linker.designsystem.theme.TextSecondary
+import com.hyunjine.linker.designsystem.theme.TextTertiary
 import androidx.compose.foundation.border
 import androidx.compose.foundation.Image
 import androidx.compose.ui.graphics.ColorFilter
@@ -73,9 +74,23 @@ private const val DESIGN_HEIGHT = 852f
 private const val LOGO_SIZE_DP = 112
 private const val TITLE_TOP_OFFSET_DP = 12 // 로고 아래 여백 (Figma: 460-320-112=28 · 로고 top→title top 148)
 
+/**
+ * 스플래시 · 로그인 통합 화면.
+ *
+ * @param mode 표시 상태. [AuthGateMode.Splash] 면 스플래시, [AuthGateMode.Login] 이면 로그인 버튼 노출.
+ * @param networkHint true 이고 [mode] 가 [AuthGateMode.Splash] 일 때 화면 하단에 "네트워크 연결을 확인해 주세요"
+ *  안내를 fade-in (#424). 오프라인 · 만료 토큰으로 세션 갱신이 재시도 중일 때 스플래시가 무한히 멈춘 것처럼
+ *  보이지 않게 하는 비차단 안내. 로고 · 타이틀 레이아웃엔 영향 없음.
+ * @param showAppleLogin Apple 로그인 버튼 노출 여부 (iOS 만 true).
+ * @param onAppleLoginClick Apple 로그인 버튼 클릭 콜백.
+ * @param onGoogleLoginClick Google 로그인 버튼 클릭 콜백.
+ * @param showDebugLogin 하단 디버그 (테스트 계정) 로그인 진입 노출 여부.
+ * @param onDebugLoginClick 디버그 로그인 진입 클릭 콜백.
+ */
 @Composable
 fun AuthGateScreen(
     mode: AuthGateMode,
+    networkHint: Boolean = false,
     showAppleLogin: Boolean = false,
     onAppleLoginClick: () -> Unit = {},
     onGoogleLoginClick: () -> Unit = {},
@@ -180,6 +195,41 @@ fun AuthGateScreen(
                     Spacer(Modifier.height(12.dp))
                 }
                 GoogleLoginButton(onClick = onGoogleLoginClick)
+            }
+        }
+
+        // ── 네트워크 안내 (splash 에서 오래 대기 중일 때만, fade) ── #424
+        // 세션 갱신 · 부트스트랩이 네트워크 대기로 길어지면 노출. supabase-kt 가 자동 재시도하므로
+        // 재시도 버튼은 두지 않고, 연결되어 라우팅이 진행되면 화면 자체가 바뀌며 사라진다.
+        AnimatedVisibility(
+            visible = mode == AuthGateMode.Splash && networkHint,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 40.dp, start = 20.dp, end = 20.dp),
+            enter = fadeIn(tween(400)),
+            exit = fadeOut(tween(250)),
+        ) {
+            androidx.compose.foundation.layout.Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = "네트워크 연결을 확인해 주세요",
+                    style = TextStyle(
+                        color = TextTertiary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        fontFamily = font,
+                    ),
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "연결되면 자동으로 이어서 진행돼요",
+                    style = TextStyle(
+                        color = TextSecondary,
+                        fontSize = 13.sp,
+                        fontFamily = font,
+                    ),
+                )
             }
         }
 
@@ -324,6 +374,13 @@ private fun GoogleLoginButton(onClick: () -> Unit, modifier: Modifier = Modifier
 @Composable
 private fun AuthGateSplashPreview() {
     LinkerTheme { AuthGateScreen(mode = AuthGateMode.Splash) }
+}
+
+/** 스플래시 (네트워크 대기 5초 초과 · 하단 오프라인 안내 노출). */
+@Preview
+@Composable
+private fun AuthGateSplashNetworkHintPreview() {
+    LinkerTheme { AuthGateScreen(mode = AuthGateMode.Splash, networkHint = true) }
 }
 
 /** 로그인 화면 (Android · 3개 소셜 버튼 모두 노출). */
