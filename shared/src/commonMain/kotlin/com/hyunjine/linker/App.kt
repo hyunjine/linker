@@ -22,6 +22,7 @@ import com.hyunjine.linker.auth.signOut
 import com.hyunjine.linker.data.local.OutlookLocal
 import com.hyunjine.linker.data.remote.AnniversariesRepository
 import com.hyunjine.linker.data.remote.OutlookSyncService
+import com.hyunjine.linker.data.remote.UsersRepository
 import com.hyunjine.linker.designsystem.theme.LinkerTheme
 import com.hyunjine.linker.feature.anniversary.AnniversaryUi
 import com.hyunjine.linker.feature.auth.AuthGateMode
@@ -31,10 +32,7 @@ import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserInfo
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.plus
-import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.Serializable
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.TimeMark
@@ -145,9 +143,6 @@ private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
     }
 }
 
-private fun oneMonthAgo(): LocalDate = today().plus(-31, DateTimeUnit.DAY)
-private fun oneMonthAhead(): LocalDate = today().plus(93, DateTimeUnit.DAY)
-
 /**
  * 로그인 완료 시 자동으로 진입할 화면을 결정한다.
  * - 프로필 미완성 → ProfileSetup
@@ -163,12 +158,6 @@ private suspend fun decideBootstrapTarget(): NavKey {
         BootstrapDestination.Main -> MainRoute
     }
 }
-
-@kotlin.OptIn(kotlin.time.ExperimentalTime::class)
-private fun today(): LocalDate =
-    kotlin.time.Clock.System.now()
-        .toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault())
-        .date
 
 /** 기념일 서버 row → UI 데이터. */
 private fun AnniversariesRepository.Row.toUi(): AnniversaryUi = AnniversaryUi(
@@ -244,12 +233,22 @@ fun App() {
             var outlook by remember {
                 mutableStateOf(com.hyunjine.linker.feature.more.OutlookLinkState(teamName = OutlookLocal.teamName))
             }
-            // 재택 미러 동기화 (약 2달 전 ~ 3달 뒤). 성공하면 캘린더 chip 재조회. 오류는 삼키고 로그만.
+            // 서버에 "Outlook 연동됨" 을 이번 실행에서 이미 표시했는지 (#420). sync 마다 쓰지 않도록.
+            var outlookConnectedMarked by remember { mutableStateOf(false) }
+            // 재택 미러 동기화 (약 2달 전 ~ 3달 뒤, OutlookSyncService.defaultRange). 성공하면 캘린더 chip 재조회.
+            // 오류는 삼키고 로그만. 성공하면 서버에 연동 표시 → 30분 주기 silent push 대상이 된다 (#420).
             val syncOutlook: suspend () -> Boolean = {
-                runCatching { outlookSync.syncRange(oneMonthAgo().plus(-30, DateTimeUnit.DAY), oneMonthAhead()) }
+                val (from, to) = OutlookSyncService.defaultRange()
+                val synced = runCatching { outlookSync.syncRange(from, to) }
                     .onFailure { println("[Outlook] sync 실패: $it") }
                     .getOrNull()
                     ?.also { scheduleRefreshTick++ } != null
+                if (synced && !outlookConnectedMarked) {
+                    outlookConnectedMarked = true
+                    // 표시 실패는 연동 흐름과 무관 — 다음 실행에서 다시 시도.
+                    scope.launch { if (!UsersRepository.setOutlookConnected(true)) outlookConnectedMarked = false }
+                }
+                synced
             }
             // 앱이 다시 앞으로 올 때도 동기화 (#242). 콜드 스타트엔 세션 복원 쪽 sync 와 겹치므로
             // 마지막 sync 후 1분 안이면 건너뛴다.
@@ -535,6 +534,9 @@ fun App() {
                                             OutlookLocal.teamName = null
                                             outlook = com.hyunjine.linker.feature.more.OutlookLinkState()
                                             scheduleRefreshTick++
+                                            // 서버 연동 표시 해제 → 주기 push 중단 (#420). 실패해도 해제 흐름은 그대로 (로그만).
+                                            outlookConnectedMarked = false
+                                            UsersRepository.setOutlookConnected(false)
                                         }
                                         .onFailure {
                                             println("[Outlook] disconnect 실패: $it")
