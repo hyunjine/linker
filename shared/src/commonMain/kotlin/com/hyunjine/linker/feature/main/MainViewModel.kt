@@ -1,11 +1,14 @@
 package com.hyunjine.linker.feature.main
 
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hyunjine.linker.data.local.DrawerDisplayLocal
+import com.hyunjine.linker.data.remote.CouplePhotosRepository
 import com.hyunjine.linker.data.remote.CoupleRealtimeSubscription
 import com.hyunjine.linker.data.remote.CouplesRepository
 import com.hyunjine.linker.data.remote.SchedulesRepository
+import com.hyunjine.linker.feature.photo.toPhotoUiWithThumbs
 import com.hyunjine.linker.data.remote.SessionReadiness
 import com.hyunjine.linker.data.remote.SupabaseProvider
 import com.hyunjine.linker.data.remote.UsersRepository
@@ -276,7 +279,47 @@ class MainViewModel : ViewModel() {
         val rows = runCatching { SchedulesRepository.listInRange(date, date) }
             .onFailure { println("[Schedule] loadDayDetail($date) 실패: $it") }
             .getOrDefault(emptyList())
+        val photos = runCatching { CouplePhotosRepository.listOn(date) }
+            .onFailure { println("[Photo] listOn($date) 실패: $it") }
+            .getOrDefault(emptyList())
+            .toPhotoUiWithThumbs(
+                myUserId = _uiState.value.myProfile?.id,
+                partnerNickname = _uiState.value.partnerProfile?.nickname,
+            )
         return rows.toDayDetail(date, viewerId = _uiState.value.myProfile?.id)
+            .copy(photos = photos)
+    }
+
+    /**
+     * 날짜 상세 시트의 "사진 추가" 경로. 성공하면 [MainUiState.photoUploadedTick] 을 올려
+     * 열려 있는 시트가 사진 목록을 다시 불러오고 날짜 확인 시트를 닫게 한다.
+     */
+    fun uploadPhoto(image: ImageBitmap, takenOn: LocalDate) {
+        if (_uiState.value.photoUploading) return
+        _uiState.update { it.copy(photoUploading = true, photoFailed = false) }
+        viewModelScope.launch {
+            runCatching { CouplePhotosRepository.upload(image, takenOn) }
+                .onSuccess { id ->
+                    println("[Photo] 날짜 상세 업로드 성공: $id")
+                    _uiState.update { s ->
+                        s.copy(
+                            photoUploading = false,
+                            photoTick = s.photoTick + 1,
+                            photoUploadedTick = s.photoUploadedTick + 1,
+                        )
+                    }
+                }
+                .onFailure {
+                    if (it is kotlinx.coroutines.CancellationException) throw it
+                    println("[Photo] 날짜 상세 업로드 실패: $it")
+                    _uiState.update { s -> s.copy(photoUploading = false, photoFailed = true) }
+                }
+        }
+    }
+
+    /** 날짜 확인 시트의 실패 안내 닫기. */
+    fun dismissPhotoFailure() {
+        _uiState.update { it.copy(photoFailed = false) }
     }
 
     /** 할 일 체크박스 토글. 실패는 삼키고 로그만 남김 (옵티미스틱 UI 는 UI 층에서 별도 처리). */
@@ -320,6 +363,10 @@ class MainViewModel : ViewModel() {
                 },
                 onPartnerProfileChanged = { refreshProfile() },
                 onCoupleChanged = { refreshProfile() },
+                // 파트너가 사진을 올리거나 지우면 열려 있는 날짜 상세 시트도 즉시 반영.
+                onPhotosChanged = {
+                    _uiState.update { it.copy(photoTick = it.photoTick + 1) }
+                },
             ),
         )
     }
@@ -346,4 +393,16 @@ data class MainUiState(
     val entriesByMonth: Map<YearMonth, Map<LocalDate, CalendarDayEntry>> = emptyMap(),
     /** 파트너 조인 여부. 드로워의 "상대방 캘린더" 토글 노출 · 캘린더 필터에 사용. */
     val hasPartner: Boolean = false,
+    /**
+     * 사진이 바뀐 횟수 (내 업로드 · 파트너 변경 · 삭제). 값이 바뀌면 화면이 열려 있는 날짜 상세를
+     * 다시 로드한다.
+     */
+    val photoTick: Int = 0,
+    /**
+     * **내가 올린** 사진이 성공한 횟수. 날짜 확인 시트를 닫는 신호. 파트너가 사진을 올려
+     * [photoTick] 이 올랐을 때 내가 고르던 사진이 날아가면 안 되므로 분리했다.
+     */
+    val photoUploadedTick: Int = 0,
+    val photoUploading: Boolean = false,
+    val photoFailed: Boolean = false,
 )

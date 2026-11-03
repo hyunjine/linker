@@ -117,6 +117,14 @@ private data object NotificationsRoute : NavKey
 @Serializable
 private data object TasksRoute : NavKey
 
+/** 사진첩 — 커플 사진을 날짜별 월별 그리드로 보는 화면. */
+@Serializable
+private data object PhotosRoute : NavKey
+
+/** 사진 전체 보기. [photoId] 로 row · signed URL 을 다시 조회한다 (목록 객체를 넘기지 않음). */
+@Serializable
+private data class PhotoViewerRoute(val photoId: String) : NavKey
+
 @Serializable
 private data object EverytimeTimetableRoute : NavKey
 
@@ -137,6 +145,8 @@ private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
             subclass(ReleaseNotesRoute::class, ReleaseNotesRoute.serializer())
             subclass(MoreRoute::class, MoreRoute.serializer())
             subclass(TasksRoute::class, TasksRoute.serializer())
+            subclass(PhotosRoute::class, PhotosRoute.serializer())
+            subclass(PhotoViewerRoute::class, PhotoViewerRoute.serializer())
             subclass(NotificationsRoute::class, NotificationsRoute.serializer())
             subclass(EverytimeTimetableRoute::class, EverytimeTimetableRoute.serializer())
         }
@@ -462,6 +472,8 @@ fun App() {
                             onProfileEditClick = { backStack.add(ProfileEditRoute) },
                             onCoupleLinkClick = { backStack.add(CoupleLinkRoute) },
                             onTasksClick = { backStack.add(TasksRoute) },
+                            onPhotoAlbumClick = { backStack.add(PhotosRoute) },
+                            onPhotoClick = { id -> backStack.add(PhotoViewerRoute(id)) },
                             onMoreClick = { backStack.add(MoreRoute) },
                             onEverytimeTimetableClick = { backStack.add(EverytimeTimetableRoute) },
                             profileRefreshTick = profileRefreshTick,
@@ -570,6 +582,19 @@ fun App() {
                             // 체크 토글 후 캘린더 chip 도 맞춰지도록 Main 재fetch 트리거.
                             onTasksChanged = { scheduleRefreshTick++ },
                             scheduleRefreshTick = scheduleRefreshTick,
+                        )
+                    }
+                    entry<PhotosRoute> {
+                        com.hyunjine.linker.feature.photo.PhotosRoute(
+                            onBack = { backStack.removeLastOrNull() },
+                            onPhotoClick = { id -> backStack.add(PhotoViewerRoute(id)) },
+                            onCoupleLinkClick = { backStack.add(CoupleLinkRoute) },
+                        )
+                    }
+                    entry<PhotoViewerRoute> { route ->
+                        com.hyunjine.linker.feature.photo.PhotoViewerRoute(
+                            photoId = route.photoId,
+                            onBack = { backStack.removeLastOrNull() },
                         )
                     }
                     entry<EverytimeTimetableRoute> {
