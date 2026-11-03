@@ -1,0 +1,104 @@
+# Supabase DB 마이그레이션 적용 자동화 (#430, #348 후속).
+#
+# 배경: 지금까지 마이그레이션은 Supabase MCP (`apply_migration`) 로 프로덕션에 수동 적용했다.
+# MCP 는 ledger (`supabase_migrations.schema_migrations`) 에 자기 timestamp 를 version 으로 찍어
+# repo 파일명과 어긋났고, 그래서 `supabase db push` 를 붙일 수 없었다. #430 에서 repo 파일을
+# ledger 와 1:1 로 맞췄으므로 (rename 35 · ledger 에서 복원 11), 이제부터는 이 워크플로만
+# 프로덕션에 마이그레이션을 적용한다. **MCP · SQL Editor 로 직접 적용 금지.**
+#
+# 흐름: 마이그레이션 PR → `dev` 머지 → Actions 에서 `production` environment 승인 → 이 job 이 적용.
+#
+# 트리거 정책:
+#   - `dev` 브랜치 push 시 실행 (release/main 은 무관)
+#   - `supabase/migrations/**` · 워크플로 자체 변경일 때만 실행
+#   - Actions 탭에서 `workflow_dispatch` 로 수동 트리거 가능 (적용 대기분 재시도용)
+#
+# 승인 게이트:
+#   - job 이 GitHub Environment `production` 에 묶여 있어, required reviewer (repo 오너) 가
+#     Actions 화면에서 "Review deployments → Approve" 하기 전엔 시작되지 않는다 (environment 시크릿도 미노출).
+#   - 승인 전에 PR diff · 아래 dry-run 로그로 무엇이 적용될지 확인할 것.
+#
+# 시크릿:
+#   - `SUPABASE_ACCESS_TOKEN` — Supabase Personal Access Token. `supabase link` (Management API) 용.
+#   - `SUPABASE_PROJECT_REF`  — 프로젝트 ref. supabase-deploy.yml 과 동일한 이유로 secret 보관.
+#   - `SUPABASE_DB_PASSWORD`  — 프로덕션 Postgres 비밀번호 (dashboard → Project Settings → Database).
+#     `db push` 가 DB 에 직접 접속할 때 사용. `production` environment secret 으로 두는 걸 권장
+#     (승인 이후 job 에만 노출). CLI 는 이 env 이름을 그대로 읽는다.
+
+name: Supabase Migrate
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - "supabase/migrations/**"
+      - ".github/workflows/supabase-migrate.yml"
+  workflow_dispatch: {}   # 수동 트리거 = 원격에 없는 마이그레이션 적용 재시도.
+
+# 마이그레이션은 순서가 중요 → 동시에 두 개 돌지 않게 직렬화. 진행 중인 apply 는 취소하지 않음.
+concurrency:
+  group: supabase-migrate
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          # latest 는 GitHub API 로 최신 릴리스를 조회하다 rate limit 에 걸려 실패한 적이 있어 고정.
+          # supabase-deploy.yml 과 같은 버전 유지.
+          version: 2.118.0
+
+      - name: Verify secrets
+        run: |
+          echo "SUPABASE_ACCESS_TOKEN : $([ -n "$SUPABASE_ACCESS_TOKEN" ] && echo present || echo MISSING)"
+          echo "SUPABASE_PROJECT_REF  : $([ -n "$SUPABASE_PROJECT_REF" ] && echo present || echo MISSING)"
+          echo "SUPABASE_DB_PASSWORD  : $([ -n "$SUPABASE_DB_PASSWORD" ] && echo present || echo MISSING)"
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ] || [ -z "$SUPABASE_PROJECT_REF" ] || [ -z "$SUPABASE_DB_PASSWORD" ]; then
+            echo "::error::필수 secret 누락 (Settings → Environments → production 또는 Secrets and variables → Actions 확인)"
+            exit 1
+          fi
+
+      - name: Link project
+        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+
+      # local (repo 파일) vs remote (ledger) 비교를 로그에 남긴다.
+      # remote 에만 있는 version 이 있으면 (= 누가 MCP 로 직접 적용) 아래 db push 가 에러로 멈춘다.
+      - name: Migration list (before)
+        run: supabase migration list --linked
+
+      - name: Dry run
+        run: supabase db push --linked --dry-run
+
+      - name: Apply migrations
+        run: supabase db push --linked
+
+      - name: Migration list (after)
+        run: supabase migration list --linked
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### 🗄️ Supabase Migrate"
+            echo ""
+            echo "| 필드 | 값 |"
+            echo "|---|---|"
+            echo "| trigger | \`${{ github.event_name }}\` |"
+            echo "| commit | \`${{ github.sha }}\` |"
+            echo "| project | \`${{ secrets.SUPABASE_PROJECT_REF }}\` |"
+            echo ""
+            echo "적용 내역은 'Dry run' · 'Apply migrations' step 로그 참고."
+          } >> "$GITHUB_STEP_SUMMARY"
