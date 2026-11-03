@@ -22,6 +22,8 @@ import kotlinx.datetime.LocalDate
  * @param onNotificationsClick 상단바 종 아이콘 → 알림 내역 (#303).
  * @param onProfileEditClick 드로워 프로필 헤더 탭 → 프로필 수정.
  * @param onTasksClick 드로워 "할 일" → 할 일 내역 화면 (#304).
+ * @param onPhotoAlbumClick 드로워 "사진첩" → 사진첩 화면.
+ * @param onPhotoClick 날짜 상세 사진 썸네일 탭 → 사진 전체 보기.
  * @param onMoreClick 드로워 하단 "더보기" → 더보기 화면 (릴리즈 노트 · 버전 · 로그아웃, #385).
  */
 @Composable
@@ -34,6 +36,8 @@ fun MainRoute(
     onProfileEditClick: () -> Unit,
     onCoupleLinkClick: () -> Unit,
     onTasksClick: () -> Unit,
+    onPhotoAlbumClick: () -> Unit,
+    onPhotoClick: (String) -> Unit,
     onMoreClick: () -> Unit,
     onEverytimeTimetableClick: () -> Unit,
     profileRefreshTick: Int,
@@ -93,6 +97,14 @@ fun MainRoute(
         onProfileEditClick = onProfileEditClick,
         onCoupleLinkClick = onCoupleLinkClick,
         onTasksClick = onTasksClick,
+        onPhotoAlbumClick = onPhotoAlbumClick,
+        onPhotoClick = onPhotoClick,
+        onUploadPhoto = viewModel::uploadPhoto,
+        photoUploading = uiState.photoUploading,
+        photoFailed = uiState.photoFailed,
+        onDismissPhotoFailure = viewModel::dismissPhotoFailure,
+        photoTick = uiState.photoTick,
+        photoUploadedTick = uiState.photoUploadedTick,
         onMoreClick = onMoreClick,
         onEverytimeTimetableClick = onEverytimeTimetableClick,
         profileName = uiState.myProfile?.nickname.orEmpty(),

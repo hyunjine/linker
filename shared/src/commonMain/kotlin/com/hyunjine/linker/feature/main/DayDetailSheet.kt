@@ -49,6 +49,12 @@ import linker.shared.generated.resources.Res
 import linker.shared.generated.resources.ic_cal_31
 import linker.shared.generated.resources.ic_todo
 import org.jetbrains.compose.resources.painterResource
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import com.hyunjine.linker.feature.photo.PhotoImage
+import com.hyunjine.linker.feature.photo.PhotoUi
+import linker.shared.generated.resources.ic_plus
 
 /**
  * 이벤트/할 일의 소유자 태그. 세 종류 — 나 · 상대방 · 우리.
@@ -105,6 +111,8 @@ data class DayDetail(
     val tasks: List<DayTask> = emptyList(),
     val timedSchedules: List<TimedSchedule> = emptyList(),
     val allDaySchedules: List<AllDaySchedule> = emptyList(),
+    /** 그날 사진첩에 올라온 사진 (최신 업로드 먼저). 썸네일 signed URL 까지 채워진 상태. */
+    val photos: List<PhotoUi> = emptyList(),
 )
 
 /**
@@ -116,6 +124,7 @@ data class DayDetail(
  *  - 할 일 섹션: 카운트 헤더 + 체크박스 리스트 ([DayTask])
  *  - 하루 일정 섹션: 시각 표기 + 제목 + 소유자 pill
  *  - 종일 일정 섹션: 좌측 세로바 (선택) + 제목 + 소유자 pill
+ *  - 사진 섹션: 그날 사진 가로 목록 + "사진 추가" 타일 (커플 연결 상태에서만 추가 타일 노출)
  *
  * [detail] 이 null 이면 아무 것도 렌더하지 않음 (상위에서 visible 을 false 로 유지).
  */
@@ -131,6 +140,12 @@ fun DayDetailSheet(
     onSelectSchedule: (scheduleId: String) -> Unit = {},
     /** 소유자 pill 색 팔레트. 프로필 캘린더 컬러 (내/상대방) + 공동 (보라) 로부터 파생 (#264). */
     ownerColors: OwnerColors = OwnerColors.Default,
+    /** 커플 연결 여부. false 면 사진 추가 타일을 숨긴다 (사진은 커플 단위 데이터). */
+    coupleLinked: Boolean = true,
+    /** 사진 썸네일 탭 → 전체 보기 진입. */
+    onPhotoClick: (photoId: String) -> Unit = {},
+    /** "사진 추가" 타일 탭 → 사진 선택 UI. 날짜는 이 시트의 날짜로 seed 된다. */
+    onAddPhoto: () -> Unit = {},
 ) {
     AppBottomSheet(
         visible = visible,
@@ -170,6 +185,15 @@ fun DayDetailSheet(
                 onSelect = onSelectSchedule,
                 ownerColors = ownerColors,
             )
+            if (coupleLinked || detail.photos.isNotEmpty()) {
+                Spacer(Modifier.height(16.dp))
+                PhotoSection(
+                    photos = detail.photos,
+                    showAddTile = coupleLinked,
+                    onPhotoClick = onPhotoClick,
+                    onAddPhoto = onAddPhoto,
+                )
+            }
         }
     }
 }
@@ -497,6 +521,79 @@ private fun AllDayRow(
 }
 
 // ────────── Common bits ──────────
+
+// ────────── Photos ──────────
+
+/** 날짜 상세 사진 썸네일 한 변. */
+private val PHOTO_TILE = 76.dp
+
+/**
+ * 그날 사진 가로 목록. 선두에 "사진 추가" 타일을 둬서 사진이 없는 날에도 바로 올릴 수 있다
+ * (기획서 "날짜 상세에서 올리면 그 날짜" 경로).
+ */
+@Composable
+private fun PhotoSection(
+    photos: List<PhotoUi>,
+    showAddTile: Boolean,
+    onPhotoClick: (String) -> Unit,
+    onAddPhoto: () -> Unit,
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SectionHeader(text = "사진 ${photos.size}")
+        Spacer(Modifier.height(4.dp))
+        LazyRow(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (showAddTile) {
+                item(key = "add-photo") { AddPhotoTile(onClick = onAddPhoto) }
+            }
+            items(items = photos, key = { it.id }) { photo ->
+                PhotoImage(
+                    path = photo.thumbPath,
+                    url = photo.thumbUrl,
+                    contentDescription = "이 날 사진",
+                    modifier = Modifier
+                        .size(PHOTO_TILE)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onPhotoClick(photo.id) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AddPhotoTile(onClick: () -> Unit) {
+    val pretendard = LocalPretendardFontFamily.current
+    Column(
+        modifier = Modifier
+            .size(PHOTO_TILE)
+            .clip(RoundedCornerShape(12.dp))
+            .background(SegmentTrack)
+            .clickable(onClick = onClick),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Image(
+            painter = painterResource(Res.drawable.ic_plus),
+            contentDescription = null,
+            colorFilter = ColorFilter.tint(TextSecondary),
+            modifier = Modifier.size(18.dp),
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = "사진 추가",
+            style = TextStyle(
+                fontFamily = pretendard,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 11.sp,
+                color = TextSecondary,
+            ),
+        )
+    }
+}
 
 @Composable
 private fun SectionHeader(text: String) {
