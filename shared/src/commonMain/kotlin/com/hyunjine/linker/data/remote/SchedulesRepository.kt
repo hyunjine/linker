@@ -11,7 +11,6 @@ import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.daysUntil
 import kotlinx.datetime.plus
-import kotlin.random.Random
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -827,18 +826,4 @@ private fun Set<DayOfWeek>.toWeeklyBitmask(): Short {
 private fun Short.fromWeeklyBitmask(): Set<DayOfWeek> {
     val bits = toInt()
     return DayOfWeek.entries.filterTo(mutableSetOf()) { bits and (1 shl it.ordinal) != 0 }
-}
-
-/**
- * 시리즈 id 로 쓸 UUID. platform 의존 없이 kotlinx.uuid 도 안 쓰고 간단히 random 16 bytes 를 hex 로.
- * Supabase 는 문자열이면 UUID 타입에 그대로 들어감 (postgres 가 파싱).
- */
-private fun randomUuid(): String {
-    val bytes = Random.Default.nextBytes(16)
-    // RFC 4122 v4 markers
-    bytes[6] = ((bytes[6].toInt() and 0x0F) or 0x40).toByte()
-    bytes[8] = ((bytes[8].toInt() and 0x3F) or 0x80).toByte()
-    val hex = bytes.joinToString("") { ((it.toInt() and 0xFF) + 0x100).toString(16).substring(1) }
-    return "${hex.substring(0, 8)}-${hex.substring(8, 12)}-${hex.substring(12, 16)}-" +
-        "${hex.substring(16, 20)}-${hex.substring(20)}"
 }

@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -24,6 +25,8 @@ import kotlinx.coroutines.launch
  * 구독 대상:
  *  - `schedules`, `schedule_repeat_rules` — 내 couple 필터 (RLS 도 걸리지만 명시적으로 filter 도 걺)
  *  - `couple_anniversaries` — 내 couple 필터
+ *  - `couple_photos` — 내 couple 필터 (파트너가 올리거나 지운 사진 즉시 반영). 마이그레이션 적용
+ *    순서와 무관하게 기존 구독이 안전하도록 **별도 채널** 로 연다.
  *  - `users` — 파트너 프로필 변경 (내 프로필은 로컬에서 이미 즉시 반영, 파트너만 관심)
  *  - `couple_members` — 파트너 join · 이탈
  *
@@ -33,6 +36,7 @@ import kotlinx.coroutines.launch
 class CoupleRealtimeSubscription(
     val onSchedulesChanged: () -> Unit = {},
     val onAnniversariesChanged: () -> Unit = {},
+    val onPhotosChanged: () -> Unit = {},
     val onCoupleChanged: () -> Unit = {},
     val onPartnerProfileChanged: () -> Unit = {},
 )
@@ -122,10 +126,31 @@ private suspend fun CoroutineScope.subscribeCoupleRealtimeBody(subscription: Cou
     channel.subscribe()
     println("[Realtime] couple:$coupleId 채널 subscribe 완료")
 
+    // couple_photos 는 **별도 채널** 로 분리한다.
+    //
+    // postgres_changes 바인딩은 채널 단위로 한 번에 서버에 등록되므로, 아직 publication 에 없는
+    // 테이블 (= 사진첩 마이그레이션 미적용 환경) 이 하나라도 끼면 그 채널의 subscribe 가 통째로
+    // 실패해 schedules · anniversaries 구독까지 같이 죽는다. 앱 배포와 마이그레이션 적용 순서가
+    // 어긋나도 기존 동기화가 멀쩡하도록 채널과 실패 처리를 따로 둔다.
+    val photoChannel = client.channel("couple-photos:$coupleId")
+    photoChannel.postgresChangeFlow<PostgresAction>(schema = "public") {
+        table = "couple_photos"
+        filter("couple_id", FilterOperator.EQ, coupleId)
+    }.onEach {
+        println("[Realtime] photos change: ${it::class.simpleName}")
+        subscription.onPhotosChanged()
+    }.catch {
+        println("[Realtime] couple_photos 스트림 오류 — 사진 실시간 반영만 중단: $it")
+    }.launchIn(this)
+    runCatching { photoChannel.subscribe() }
+        .onSuccess { println("[Realtime] couple-photos:$coupleId 채널 subscribe 완료") }
+        .onFailure { println("[Realtime] couple_photos 구독 실패 (마이그레이션 미적용?): $it") }
+
     // 부모 Job 이 cancel 되면 여기 도달 · 채널 unsubscribe.
     try { kotlinx.coroutines.awaitCancellation() }
     finally {
         println("[Realtime] couple:$coupleId 채널 unsubscribe")
         client.realtime.removeChannel(channel)
+        client.realtime.removeChannel(photoChannel)
     }
 }

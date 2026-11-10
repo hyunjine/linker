@@ -5,14 +5,11 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import java.io.ByteArrayOutputStream
 
-private const val MAX_DIMENSION = 512
-private const val JPEG_QUALITY = 85
-
-actual fun ImageBitmap.encodeAvatarJpeg(): ByteArray {
+actual fun ImageBitmap.encodeJpeg(maxDimension: Int, quality: Int): ByteArray {
     val src = asAndroidBitmap()
-    val scaled = src.downscaleIfNeeded(MAX_DIMENSION)
+    val scaled = src.downscaleIfNeeded(maxDimension)
     val out = ByteArrayOutputStream()
-    scaled.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
+    scaled.compress(Bitmap.CompressFormat.JPEG, quality, out)
     if (scaled !== src) scaled.recycle()
     return out.toByteArray()
 }
