@@ -88,7 +88,7 @@ create policy "couple_photos_obj_delete" on storage.objects
 
 -- ────────── 빈 커플 정리 시 Storage 파일도 함께 삭제 ──────────
 --
--- 20260825133645__orphan_couple_cleanup 의 private.delete_empty_couple() 은 couples row 만 지운다.
+-- 20260825133706__orphan_couple_cleanup 의 private.delete_empty_couple() 은 couples row 만 지운다.
 -- couple_photos row 는 FK cascade 로 같이 사라지지만 Storage 파일은 남아 과금되는 orphan 이 된다.
 -- 같은 트리거 함수를 교체해 해당 커플 폴더의 오브젝트까지 지운다.
 create or replace function private.delete_empty_couple()
