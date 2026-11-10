@@ -12,9 +12,7 @@ import io.ktor.http.ContentType
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
-import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
-import kotlin.time.ExperimentalTime
 
 /**
  * `public.couple_photos` + private `couple-photos` 버킷.
@@ -106,7 +104,6 @@ object CouplePhotosRepository {
      * @return 생성된 사진 id.
      * @throws IllegalStateException 커플 미연결 · 세션 없음 · 5MB 초과.
      */
-    @OptIn(ExperimentalTime::class)
     suspend fun upload(image: ImageBitmap, takenOn: LocalDate): String {
         val coupleId = SchedulesRepository.myCoupleId()
             ?: error("커플에 속하지 않은 상태에서 사진 업로드 시도")
@@ -119,9 +116,10 @@ object CouplePhotosRepository {
             error("사진이 너무 큽니다 (${original.size / 1024}KB · 상한 ${PhotoSpec.MAX_FILE_BYTES / 1024}KB)")
         }
 
-        // couple_photos.id 는 서버 default 가 있지만, Storage 경로를 먼저 만들어야 해서 여기서 생성.
-        // timestamp + uid 조합으로 충돌 가능성이 사실상 없고 UUID 의존도 피한다.
-        val photoId = "${Clock.System.now().toEpochMilliseconds()}-${uid.take(8)}"
+        // couple_photos.id 는 서버 default (gen_random_uuid) 가 있지만, Storage 경로에 id 가 들어가서
+        // insert 응답을 기다릴 수 없다 → 클라이언트가 먼저 만든다. 컬럼이 uuid 타입이므로 반드시 UUID 형식
+        // (schedules 의 series_id 와 같은 [randomUuid]).
+        val photoId = randomUuid()
         val storagePath = "$coupleId/$photoId.jpg"
         val thumbPath = "$coupleId/${photoId}_thumb.jpg"
         val bucket = SupabaseProvider.client.storage.from(BUCKET)
