@@ -10,6 +10,11 @@ Release 노트로 자동 게시된다 (`.github/workflows/release.yml`).
 
 ## [Unreleased]
 
+### 인프라 · 빌드
+- 브랜치 모델을 `dev → release` 에서 `develop/vX.Y.Z → release` 로 변경 (#433). 버전마다 `scripts/create-dev-branch.sh X.Y.Z` 로 개발 브랜치를 열고, 그때 `MARKETING_VERSION` 을 한 번 커밋한다 — 릴리즈마다 올리던 버전 bump PR 폐지. 승격 PR 은 `release-check.yml` 이 버전 · 브랜치 이름 · CHANGELOG 일치를 확인한다. 흐름은 `docs/release.md`.
+- iOS 빌드 번호를 Xcode Cloud `CI_BUILD_NUMBER` 로 (#433). `iosApp/ci_scripts/ci_post_clone.sh` 가 archive 전에 `CURRENT_PROJECT_VERSION` 을 덮어쓴다. 저장소 값은 로컬 빌드용 고정값 `1`.
+- `dev` push 에 걸려 있던 워크플로 (`supabase-deploy` · `supabase-migrate` · `adminweb-deploy` · `release-drafter`) 를 `develop/**` 로 변경.
+
 ## [1.6.3] - 2026-10-01
 
 ### 개선
