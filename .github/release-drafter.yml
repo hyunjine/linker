@@ -1,10 +1,10 @@
-# release-drafter 설정 — dev 로 머지되는 PR 을 라벨 기준으로 카테고리 묶어 draft release
+# release-drafter 설정 — 개발 브랜치 (`develop/vX.Y.Z`) 로 머지되는 PR 을 라벨 기준으로 카테고리 묶어 draft release
 # 노트를 자동 초안. 실제 릴리즈 게시는 `.github/workflows/release.yml` (CHANGELOG.md 기반)
 # 이 담당하고, 이 draft 는 사람이 CHANGELOG.md 로 옮길 때 참고용 · 붙여넣기용으로만 활용.
 #
 # 사용법:
 #  1. PR 에 프로젝트 라벨 (💻 Feat / 🛠️ Fix / 🪄 Refactor / ⚙️ Setting / 🔥 Bug) 을 붙임 (이슈 템플릿이 이미 자동 지정)
-#  2. dev 로 머지되면 release-drafter 가 GitHub Releases 의 draft 를 자동 갱신
+#  2. 개발 브랜치로 머지되면 release-drafter 가 GitHub Releases 의 draft 를 자동 갱신
 #  3. 릴리즈 시점에 draft 본문을 CHANGELOG.md 의 `## [Unreleased]` 아래로 정리해서 옮기고 release 브랜치 push
 
 name-template: 'v$RESOLVED_VERSION'

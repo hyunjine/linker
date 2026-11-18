@@ -14,7 +14,7 @@
 #     대상이 없으면 (예: functions/README.md 만 수정) 배포 job 자체가 skip 되어 승인 요청도 안 뜬다.
 #
 # 트리거 정책:
-#   - `dev` 브랜치 push 시 실행 (release/main 은 무관 — release 는 태그/브로드캐스트만)
+#   - 개발 브랜치 (`develop/**`, #433) push 시 실행 (release 는 무관 — release 는 태그/브로드캐스트만)
 #   - `supabase/functions/**` · 워크플로 자체 변경일 때만 실행 → CI 분 절약
 #   - Actions 탭에서 `workflow_dispatch` 로 수동 트리거 가능 (전체 함수 강제 재배포용)
 #
@@ -28,7 +28,7 @@ name: Supabase Deploy
 
 on:
   push:
-    branches: [dev]
+    branches: ["develop/**"]
     paths:
       - "supabase/functions/**"
       - ".github/workflows/supabase-deploy.yml"

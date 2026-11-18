@@ -31,14 +31,14 @@ Supabase MCP `apply_migration` · 대시보드 SQL Editor · 로컬 `supabase db
 1. **파일 작성** — 새 timestamp 로 파일 생성. `supabase migration new <설명>` 을 쓰거나 직접
    `migrations/<yyyyMMddHHmmss>__<설명>.sql` (UTC, 기존 최신 version 보다 커야 함) 로 만든다.
    기존 마이그레이션 파일 · `schema.sql` 은 **수정 금지** (이미 적용된 이력).
-2. **PR** — `dev` 대상 PR. 리뷰 시 SQL 이 아래 안전 규칙을 지키는지 확인.
+2. **PR** — 개발 브랜치 (`develop/vX.Y.Z`) 대상 PR. 리뷰 시 SQL 이 아래 안전 규칙을 지키는지 확인.
    로컬에서 `supabase db push --dry-run --linked` 로 "이 파일 하나만 적용 대상" 인지 확인 가능 (읽기 전용).
-3. **dev 머지** — `supabase/migrations/**` 변경이 push 되면 `Supabase Migrate` 워크플로가 대기 상태로 뜬다.
+3. **개발 브랜치 머지** — `supabase/migrations/**` 변경이 push 되면 `Supabase Migrate` 워크플로가 대기 상태로 뜬다.
 4. **승인** — GitHub Actions → 해당 run → *Review deployments* → `production` 승인 (required reviewer: 오너).
    승인 전엔 job 이 시작되지 않고 시크릿도 노출되지 않는다.
 5. **CI 적용** — `supabase migration list` → `db push --dry-run` → `db push` → `migration list` 순으로 실행. 로그로 결과 확인.
 
-수동 재시도는 Actions → *Supabase Migrate* → *Run workflow* (`dev` 브랜치에서만 가능, 역시 승인 필요).
+수동 재시도는 Actions → *Supabase Migrate* → *Run workflow* (`develop/*` 브랜치에서만 가능, 역시 승인 필요).
 Edge Function 배포 (`supabase-deploy.yml`) 도 같은 `production` 승인 게이트를 거친다.
 
 ### 안전 규칙

@@ -7,8 +7,12 @@
 // 로컬에서 override 하고 싶으면 `local.properties` 에 같은 키를 넣으면 그 값이 우선.
 // Xcode Cloud/CI 는 local.properties 없어도 이 파일의 값을 사용.
 //
-// 버전 업 방법: VERSION → CHANGELOG.md 갱신, 그리고 이 파일의 MARKETING_VERSION 을
-// 함께 업데이트 + CURRENT_PROJECT_VERSION +1 (TestFlight 는 marketing 동일 + build 유니크).
+// 버전 (#433 · docs/release.md):
+//   - MARKETING_VERSION 은 개발 브랜치 `develop/vX.Y.Z` 의 X.Y.Z 와 같다. 브랜치를 만들 때
+//     `scripts/create-dev-branch.sh X.Y.Z` 가 한 번 커밋한다 — 손으로 바꾸지 않는다
+//     (release 승격 PR 의 Release Check 가 브랜치 이름과 비교해 막는다).
+//   - CURRENT_PROJECT_VERSION 은 로컬 빌드용 고정값. TestFlight 빌드 번호는 Xcode Cloud 가
+//     `iosApp/ci_scripts/ci_post_clone.sh` 에서 CI_BUILD_NUMBER 로 덮어쓴다 — 올리지 않는다.
 
 TEAM_ID=YCCX589JXZ
 
@@ -16,7 +20,7 @@ PRODUCT_NAME=Linker
 PRODUCT_BUNDLE_IDENTIFIER=com.hyunjine.linker
 
 MARKETING_VERSION=1.6.3
-CURRENT_PROJECT_VERSION=13
+CURRENT_PROJECT_VERSION=1
 
 // Supabase (프로젝트 guxpohhhacljwhyiskdk).
 // 주의: 아래 URL 은 build.gradle.kts 가 자체 파싱해 씀. Xcode 의 xcconfig 프리프로세서

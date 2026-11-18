@@ -3,7 +3,7 @@
 # 으로 관리자 콘솔에 접근할 수 있다.
 #
 # 트리거 정책:
-#   - `dev` 브랜치 push 시에만 실행 (release/main 은 무관)
+#   - 개발 브랜치 (`develop/**`, #433) push 시에만 실행 (release 는 무관)
 #   - `adminWeb/**` · `shared/**` · 워크플로 자체 변경일 때만 실행 → CI 분 절약
 #   - 필요 시 Actions 탭에서 `workflow_dispatch` 로 수동 재배포 가능
 #
@@ -16,7 +16,7 @@ name: AdminWeb Deploy (gh-pages)
 
 on:
   push:
-    branches: [dev]
+    branches: ["develop/**"]
     paths:
       - "adminWeb/**"
       - "shared/**"

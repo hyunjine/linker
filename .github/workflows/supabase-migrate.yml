@@ -6,10 +6,10 @@
 # ledger 와 1:1 로 맞췄으므로 (rename 35 · ledger 에서 복원 11), 이제부터는 이 워크플로만
 # 프로덕션에 마이그레이션을 적용한다. **MCP · SQL Editor 로 직접 적용 금지.**
 #
-# 흐름: 마이그레이션 PR → `dev` 머지 → Actions 에서 `production` environment 승인 → 이 job 이 적용.
+# 흐름: 마이그레이션 PR → 개발 브랜치 (`develop/vX.Y.Z`, #433) 머지 → Actions 에서 `production` environment 승인 → 이 job 이 적용.
 #
 # 트리거 정책:
-#   - `dev` 브랜치 push 시 실행 (release/main 은 무관)
+#   - 개발 브랜치 (`develop/**`) push 시 실행 (release 는 무관)
 #   - `supabase/migrations/**` · 워크플로 자체 변경일 때만 실행
 #   - Actions 탭에서 `workflow_dispatch` 로 수동 트리거 가능 (적용 대기분 재시도용)
 #
@@ -29,7 +29,7 @@ name: Supabase Migrate
 
 on:
   push:
-    branches: [dev]
+    branches: ["develop/**"]
     paths:
       - "supabase/migrations/**"
       - ".github/workflows/supabase-migrate.yml"
