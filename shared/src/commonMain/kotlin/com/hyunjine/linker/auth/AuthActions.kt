@@ -123,3 +123,33 @@ suspend fun signOut() {
     SupabaseProvider.client.auth.signOut()
     println("[Auth] Supabase signOut 완료")
 }
+
+/**
+ * 서버에서 이미 무효가 된 세션을 로컬에서만 지운다 (#437). 저장된 세션 삭제 · 자동 갱신 중단 →
+ * `sessionStatus` NotAuthenticated → App 레벨 LaunchedEffect 가 로그인으로 리셋.
+ *
+ * [signOut] 은 서버 `/logout` 호출에 만료된 access token 을 갱신하려다 실패하면 (`TokenExpiredException`)
+ * 로컬 세션을 지우지 못한 채 예외로 끝나서, refresh token 이 거부된 세션 정리에는 쓰지 않는다.
+ * supabase-kt 도 자동 갱신에서 거부 응답을 받으면 같은 `clearSession` 으로 정리한다.
+ *
+ * @param reason 로그에 남길 정리 사유.
+ */
+suspend fun clearLocalSession(reason: String) {
+    println("[Auth] 로컬 세션 정리: $reason")
+    SupabaseProvider.client.auth.clearSession()
+}
+
+/**
+ * 자동 토큰 갱신을 현재 세션 기준으로 다시 건다 (#437). 갱신 예약 시각을 지금 시계로 다시 계산하고,
+ * 이미 만료 임박이면 즉시 갱신 (거부 응답이면 supabase-kt 가 세션을 지움 · 네트워크 오류면 재시도).
+ *
+ * iOS 는 supabase-kt 가 백그라운드 전환을 처리하지 않아, 앱이 멈춰 있던 동안 갱신 예약이 밀릴 수 있다.
+ * `Authenticated` 가 아니면 (갱신 재시도 중 · 로그아웃) 아무것도 하지 않는다.
+ */
+suspend fun restartSessionAutoRefresh() {
+    val auth = SupabaseProvider.client.auth
+    if (auth.sessionStatus.value !is SessionStatus.Authenticated) return
+    runCatching { auth.startAutoRefreshForCurrentSession() }
+        .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+        .onFailure { println("[Auth] 자동 갱신 재시작 실패: $it") }
+}

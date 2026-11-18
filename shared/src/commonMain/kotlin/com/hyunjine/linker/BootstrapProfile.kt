@@ -1,5 +1,6 @@
 package com.hyunjine.linker
 
+import com.hyunjine.linker.data.remote.SessionHealth
 import com.hyunjine.linker.data.remote.UsersRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
@@ -21,8 +22,11 @@ internal enum class BootstrapProfileState {
     Unknown,
 }
 
-/** 부트스트랩이 고를 수 있는 첫 화면. App.kt 의 private NavKey 와 1:1 매핑. */
-internal enum class BootstrapDestination { Main, ProfileSetup }
+/**
+ * 부트스트랩이 고를 수 있는 첫 화면. App.kt 의 private NavKey 와 1:1 매핑.
+ * [Login] 은 세션이 확실히 사라진 경우 (#437) — 라우팅 대신 로컬 세션을 지워 NotAuthenticated 흐름에 맡긴다.
+ */
+internal enum class BootstrapDestination { Main, ProfileSetup, Login }
 
 /**
  * `myProfile()` 1회 호출 결과 → 프로필 상태.
@@ -41,7 +45,8 @@ internal fun bootstrapProfileStateOf(result: Result<UsersRepository.Profile?>): 
 /**
  * 프로필 상태 → 첫 화면. 프로필 설정 화면은 미완성이 **확정** 된 경우에만 보낸다.
  *
- * 재시도 후에도 [BootstrapProfileState.Unknown] 이면 Main 으로 보낸다. 이미 가입한 유저가 대부분이고,
+ * 재시도 후에도 [BootstrapProfileState.Unknown] 이면 Main 으로 보낸다 (세션이 확실히 사라진 경우는
+ * 호출부가 [bootstrapFallbackOf] 로 로그인으로 돌린다 — #437). 이미 가입한 유저가 대부분이고,
  * Main 은 자체적으로 데이터를 (캐시 포함) 로드 · 재시도하므로 오프라인에서도 쓸 수 있다.
  * 반대로 스플래시에서 무한 대기하면 네트워크가 없을 때 앱을 아예 못 쓰게 된다.
  * 실제 미완성 유저가 이 경로로 Main 에 가더라도 다음 앱 실행 때 다시 판정된다.
@@ -52,6 +57,19 @@ internal fun bootstrapDestinationOf(state: BootstrapProfileState): BootstrapDest
     BootstrapProfileState.Incomplete -> BootstrapDestination.ProfileSetup
     BootstrapProfileState.Completed,
     BootstrapProfileState.Unknown -> BootstrapDestination.Main
+}
+
+/**
+ * 프로필을 끝내 확인 못했을 때 ([BootstrapProfileState.Unknown]) 세션 검사 결과로 첫 화면을 고른다 (#437).
+ * 세션이 확실히 사라졌으면 ([SessionHealth.Gone]) Main 이 아니라 로그인. 세션이 살아 있거나 판단할 수 없으면
+ * (오프라인) 예전처럼 Main — 오프라인에서 로그인으로 튕기지 않도록 (#424).
+ *
+ * @param health 프로필 조회 실패 뒤 [com.hyunjine.linker.data.remote.checkSessionHealth] 로 확인한 세션 상태.
+ */
+internal fun bootstrapFallbackOf(health: SessionHealth): BootstrapDestination = when (health) {
+    SessionHealth.Gone -> BootstrapDestination.Login
+    SessionHealth.Valid,
+    SessionHealth.Unknown -> BootstrapDestination.Main
 }
 
 /** 시도 간 대기 (ms). 크기 + 1 = 총 시도 횟수 (3회). */

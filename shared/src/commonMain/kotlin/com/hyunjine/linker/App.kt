@@ -16,12 +16,17 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.ui.NavDisplay
 import androidx.savedstate.serialization.SavedStateConfiguration
 import com.hyunjine.linker.auth.OutlookAuthResult
+import com.hyunjine.linker.auth.clearLocalSession
 import com.hyunjine.linker.auth.rememberOutlookAuthClient
+import com.hyunjine.linker.auth.restartSessionAutoRefresh
 import com.hyunjine.linker.auth.sessionStatus
 import com.hyunjine.linker.auth.signOut
 import com.hyunjine.linker.data.local.OutlookLocal
 import com.hyunjine.linker.data.remote.AnniversariesRepository
 import com.hyunjine.linker.data.remote.OutlookSyncService
+import com.hyunjine.linker.data.remote.SessionHealth
+import com.hyunjine.linker.data.remote.checkSessionHealth
+import com.hyunjine.linker.data.remote.shouldCheckSessionOnResume
 import com.hyunjine.linker.data.remote.UsersRepository
 import com.hyunjine.linker.designsystem.theme.LinkerTheme
 import com.hyunjine.linker.feature.anniversary.AnniversaryUi
@@ -30,11 +35,13 @@ import com.hyunjine.linker.feature.auth.AuthGateScreen
 import com.hyunjine.linker.platform.ensureCurrentDeviceRegistered
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.auth.user.UserInfo
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.Serializable
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeMark
 import kotlin.time.TimeSource
 import kotlinx.serialization.json.JsonObject
@@ -45,6 +52,15 @@ import kotlinx.serialization.modules.polymorphic
 
 /** 스플래시가 이 시간 이상 유지되면 하단에 네트워크 확인 안내를 노출 (#424). */
 private const val SPLASH_NETWORK_HINT_DELAY_MS = 5_000L
+
+/** 포그라운드 복귀 세션 검사 (#437) 최소 간격. 연속 resume · 콜드 스타트 직후 중복 검사를 막는다. */
+private val SESSION_RESUME_CHECK_INTERVAL = 30.seconds
+
+/** 세션 검사 (#437) 에서 이 시간 안에 만료될 토큰은 서버 확인 대신 바로 갱신. */
+private val SESSION_CHECK_EXPIRY_MARGIN = 60.seconds
+
+/** 부트스트랩 폴백 세션 검사 최대 시간. 프로필 재시도 (~7.5s) 뒤라 짧게 — 넘기면 예전처럼 Main. */
+private val BOOTSTRAP_SESSION_CHECK_TIMEOUT = 5.seconds
 
 /**
  * 앱 최상위 네비게이션 그래프. Navigation3 [NavDisplay] 로 백스택을 직접 소유한다.
@@ -158,14 +174,33 @@ private val NavConfig: SavedStateConfiguration = SavedStateConfiguration {
  * - 프로필 미완성 → ProfileSetup
  * - 프로필 완성 → Main (커플 가입 여부와 무관 — 커플 연결은 드로워 "상대방 연결" 에서 언제든지)
  *
- * 조회는 재시도하며, 실패를 미완성으로 취급하지 않는다 (#424). 끝내 확인 못하면 Main
- * — 판단 근거는 [bootstrapDestinationOf] 참고.
+ * 조회는 재시도하며, 실패를 미완성으로 취급하지 않는다 (#424). 끝내 확인 못하면 세션을 검사해
+ * 세션이 확실히 사라졌으면 로컬 세션을 지우고 null (NotAuthenticated → 로그인, #437), 아니면 Main
+ * — 판단 근거는 [bootstrapDestinationOf] · [bootstrapFallbackOf] 참고.
+ *
+ * @return 진입할 화면. null 이면 라우팅하지 않는다 (세션 정리 → NotAuthenticated 분기가 로그인으로 보냄).
  */
-private suspend fun decideBootstrapTarget(): NavKey {
+private suspend fun decideBootstrapTarget(): NavKey? {
     val state = fetchBootstrapProfileState()
-    return when (bootstrapDestinationOf(state)) {
+    val destination = if (state == BootstrapProfileState.Unknown) {
+        // 프로필 조회 실패 원인이 세션 자체 (만료 토큰 갱신 거부 등) 일 수 있어 Main 으로 보내기 전에 확인.
+        val health = checkSessionHealth(
+            timeout = BOOTSTRAP_SESSION_CHECK_TIMEOUT,
+            expiryMargin = SESSION_CHECK_EXPIRY_MARGIN,
+            logTag = "Boot",
+        )
+        println("[Boot] 프로필 확인 실패 — 세션 검사 결과 = $health")
+        bootstrapFallbackOf(health)
+    } else {
+        bootstrapDestinationOf(state)
+    }
+    return when (destination) {
         BootstrapDestination.ProfileSetup -> ProfileSetupRoute
         BootstrapDestination.Main -> MainRoute
+        BootstrapDestination.Login -> {
+            clearLocalSession("부트스트랩 — 세션 소멸 (refresh token 거부)")
+            null
+        }
     }
 }
 
@@ -296,6 +331,37 @@ fun App() {
             // 로그아웃 (NotAuthenticated) 시에만 false 로 되돌린다. rememberSaveable 이라 Android 구성 변경 ·
             // 프로세스 복원 후 백스택이 복원돼도 다시 라우팅하지 않는다.
             var bootstrapped by rememberSaveable { mutableStateOf(false) }
+
+            // 포그라운드 복귀 시 세션 검사 (#437). iOS 는 supabase-kt 가 백그라운드 전환을 처리하지 않아
+            // 상태는 Authenticated 인데 토큰은 만료 · refresh token 은 거부된 채 메인에 남을 수 있다.
+            //  - 세션 확실히 소멸 (refresh token 거부 등) → 로컬 세션 정리 → NotAuthenticated → 로그인
+            //  - 유효 · 판단 불가 (오프라인) → 보던 화면 유지 + 자동 갱신 재예약 (갱신 재시도는 supabase-kt 가 이어감)
+            // 부트스트랩 전 (콜드 스타트 · 로그인 직후) 은 부트스트랩이 세션을 다루므로 건너뛰고, 최소 간격으로 중복 방지.
+            var lastSessionCheck by remember { mutableStateOf<TimeMark?>(null) }
+            var sessionCheckJob by remember { mutableStateOf<Job?>(null) }
+            LifecycleResumeEffect(Unit) {
+                val due = shouldCheckSessionOnResume(
+                    bootstrapped = bootstrapped,
+                    sinceLastCheck = lastSessionCheck?.elapsedNow(),
+                    minInterval = SESSION_RESUME_CHECK_INTERVAL,
+                )
+                if (due && sessionCheckJob?.isActive != true) {
+                    lastSessionCheck = TimeSource.Monotonic.markNow()
+                    sessionCheckJob = scope.launch {
+                        println("[Resume] 세션 검사 시작 (status = ${sessionStatus.value::class.simpleName})")
+                        val health = checkSessionHealth(expiryMargin = SESSION_CHECK_EXPIRY_MARGIN, logTag = "Resume")
+                        println("[Resume] 세션 검사 결과 = $health")
+                        when (health) {
+                            SessionHealth.Gone -> if (sessionStatus.value !is SessionStatus.NotAuthenticated) {
+                                clearLocalSession("포그라운드 복귀 — 세션 소멸 (refresh token 거부)")
+                            }
+                            SessionHealth.Valid,
+                            SessionHealth.Unknown -> restartSessionAutoRefresh()
+                        }
+                    }
+                }
+                onPauseOrDispose { }
+            }
             // key 를 status 인스턴스가 아닌 타입으로 둬서, 부트스트랩 (프로필 재시도) 진행 중
             // Authenticated(Refresh) 재방출이 와도 코루틴이 취소 · 재시작되지 않게 한다.
             LaunchedEffect(status::class) {
@@ -316,7 +382,7 @@ fun App() {
                             runCatching { ensureCurrentDeviceRegistered() }
                                 .onFailure { println("[FCM] ensureCurrentDeviceRegistered 실패: $it") }
                         }
-                        val target = decideBootstrapTarget()
+                        val target = decideBootstrapTarget() ?: return@LaunchedEffect
                         println("[Auth] Authenticated → $target")
                         if (backStack.lastOrNull() != target) {
                             backStack.clear()

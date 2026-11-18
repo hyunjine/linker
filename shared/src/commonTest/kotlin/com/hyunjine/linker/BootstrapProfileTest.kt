@@ -1,5 +1,6 @@
 package com.hyunjine.linker
 
+import com.hyunjine.linker.data.remote.SessionHealth
 import com.hyunjine.linker.data.remote.UsersRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -34,5 +35,14 @@ class BootstrapProfileTest {
         assertEquals(BootstrapDestination.Main, bootstrapDestinationOf(BootstrapProfileState.Completed))
         // 재시도 후에도 확인 못하면 프로필 설정이 아니라 Main
         assertEquals(BootstrapDestination.Main, bootstrapDestinationOf(BootstrapProfileState.Unknown))
+    }
+
+    @Test
+    fun fallback_goes_to_login_only_when_session_is_gone() {
+        // 프로필 확인 실패 원인이 세션 소멸이면 Main 이 아니라 로그인 (#437)
+        assertEquals(BootstrapDestination.Login, bootstrapFallbackOf(SessionHealth.Gone))
+        // 세션이 살아 있거나 판단 불가 (오프라인) 면 예전처럼 Main (#424)
+        assertEquals(BootstrapDestination.Main, bootstrapFallbackOf(SessionHealth.Valid))
+        assertEquals(BootstrapDestination.Main, bootstrapFallbackOf(SessionHealth.Unknown))
     }
 }

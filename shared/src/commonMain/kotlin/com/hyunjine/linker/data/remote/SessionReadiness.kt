@@ -28,8 +28,8 @@ enum class SessionReadiness {
 /** 세션 확정을 기다리는 기본 최대 시간. silent push 실행 한도 (~30초) 안에 끝나도록. */
 val DefaultSessionWaitTimeout: Duration = 15.seconds
 
-/** 동시에 여러 조회가 만료 토큰을 발견해도 refresh 는 한 번만 돌도록 직렬화. */
-private val sessionRefreshMutex = Mutex()
+/** 동시에 여러 조회가 만료 토큰을 발견해도 refresh 는 한 번만 돌도록 직렬화. 세션 검사 ([checkSessionHealth]) 와 공유. */
+internal val sessionRefreshMutex = Mutex()
 
 /**
  * 토큰이 [now] + [margin] 이후에 만료되면 그대로 써도 되는 세션.
