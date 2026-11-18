@@ -136,7 +136,7 @@ fun AuthGateScreen(
                 .size(LOGO_SIZE_DP.dp),
         )
 
-        // ── 타이틀 "현진이와 민교" (양쪽 상태 모두 노출, 위치만 이동) ──
+        // ── 타이틀 "현진이랑민교" (양쪽 상태 모두 노출, 위치만 이동) ──
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -144,7 +144,7 @@ fun AuthGateScreen(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                text = "현진이랑 민교",
+                text = "현진이랑민교",
                 style = TextStyle(
                     color = TextPrimary,
                     fontSize = 32.sp,
