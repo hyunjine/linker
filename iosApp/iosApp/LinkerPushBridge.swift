@@ -113,6 +113,10 @@ final class LinkerPushBridge: NSObject, UNUserNotificationCenterDelegate, Messag
         _ userInfo: [AnyHashable: Any],
         completionHandler: @escaping (UIBackgroundFetchResult) -> Void,
     ) {
+        if userInfo["type"] as? String == "outlook_sync" {
+            handleOutlookSync(completionHandler: completionHandler)
+            return
+        }
         let reason = userInfo["reason"] as? String
         guard reason == "widget_refresh" else {
             // 다른 종류의 push (스케줄 알림 등) 는 UNUserNotification 이 처리.
@@ -123,6 +127,45 @@ final class LinkerPushBridge: NSObject, UNUserNotificationCenterDelegate, Messag
         // 세션 미준비 등으로 건너뛴 경우도 .noData — .failed 가 쌓이면 iOS 가 silent push 를 더 강하게 throttle.
         WidgetSync.refresh { success in
             completionHandler(success ? .newData : .noData)
+        }
+    }
+
+    /// 서버 30분 주기 Outlook 재택 sync 깨우기 (#420, `send-outlook-sync-push`).
+    /// shared `OutlookBackgroundSync.run` (자체 20초 timeout) → 성공하면 위젯 갱신 → completionHandler.
+    /// iOS 는 약 30초만 주므로 25초 안전 타이머로 completionHandler 를 반드시 한 번 호출한다.
+    ///
+    /// - Parameter completionHandler: AppDelegate 가 넘긴 iOS 완료 콜백. 정확히 한 번만 호출.
+    private func handleOutlookSync(completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
+        print("[FCM] silent push received type=outlook_sync")
+        var finished = false
+        // 메인 큐에서만 읽고 쓰는 one-shot 가드 — 타이머 · sync 완료 중 먼저 온 쪽만 호출.
+        let finish: (UIBackgroundFetchResult) -> Void = { result in
+            DispatchQueue.main.async {
+                guard !finished else { return }
+                finished = true
+                completionHandler(result)
+            }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 25) {
+            if !finished { print("[OutlookBg] 25초 안전 타이머 — failed 로 종료") }
+            finish(.failed)
+        }
+        OutlookBackgroundSync.shared.run(auth: OutlookAuthClient()) { outcome, error in
+            if let error = error {
+                print("[OutlookBg] run 실패: \(error)")
+                finish(.failed)
+                return
+            }
+            switch outcome {
+            case .synced:
+                // 미러가 바뀌었을 수 있으니 오늘 위젯도 갱신. 위젯 갱신 결과와 무관하게 sync 는 newData.
+                WidgetSync.refresh { _ in finish(.newData) }
+            case .failed:
+                finish(.failed)
+            default:
+                // 미연동 · 세션 미준비 · 이미 sync 중 — .failed 가 쌓이면 iOS 가 silent push 를 더 강하게 throttle.
+                finish(.noData)
+            }
         }
     }
 }

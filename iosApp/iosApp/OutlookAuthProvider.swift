@@ -21,10 +21,11 @@ final class OutlookAuthProvider: NSObject {
 
     /// Azure Portal 앱 등록의 Application (client) ID. Config.xcconfig 의 `OUTLOOK_CLIENT_ID`
     /// 와 동일해야 함 (build-time secret pipeline 이 Kotlin 쪽에 baked-in 하는 값).
-    private let clientId = "4978b49b-6810-4e3e-9ee8-bea4631667f9"
+    private let clientId = "7e970034-cbcd-4a89-9e40-0a3dc40024db"
 
-    /// Multi-tenant + personal accounts 를 위한 authority. `common` 이 두 유형 모두 허용.
-    private let authorityUrl = "https://login.microsoftonline.com/common"
+    /// 회사 테넌트 전용 authority (#242). 앱 등록이 단일 테넌트 ("내 조직만") 라 `common` 이면
+    /// AADSTS50194 로 로그인 실패. 개인 Microsoft 계정은 지원하지 않는다.
+    private let authorityUrl = "https://login.microsoftonline.com/2203e2d8-9b7e-4547-bc98-1be950010851"
 
     /// Redirect URI. Azure 에 등록된 것과 정확히 일치. MSAL iOS 는 기본 형식이 `msauth.<bundleId>://auth`.
     private let redirectUri = "msauth.com.hyunjine.linker://auth"

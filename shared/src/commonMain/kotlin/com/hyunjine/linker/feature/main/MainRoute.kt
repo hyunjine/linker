@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hyunjine.linker.feature.schedule.ScheduleType
@@ -21,6 +22,8 @@ import kotlinx.datetime.LocalDate
  * @param onNotificationsClick 상단바 종 아이콘 → 알림 내역 (#303).
  * @param onProfileEditClick 드로워 프로필 헤더 탭 → 프로필 수정.
  * @param onTasksClick 드로워 "할 일" → 할 일 내역 화면 (#304).
+ * @param onPhotoAlbumClick 드로워 "사진첩" → 사진첩 화면.
+ * @param onPhotoClick 날짜 상세 사진 썸네일 탭 → 사진 전체 보기.
  * @param onMoreClick 드로워 하단 "더보기" → 더보기 화면 (릴리즈 노트 · 버전 · 로그아웃, #385).
  */
 @Composable
@@ -33,6 +36,8 @@ fun MainRoute(
     onProfileEditClick: () -> Unit,
     onCoupleLinkClick: () -> Unit,
     onTasksClick: () -> Unit,
+    onPhotoAlbumClick: () -> Unit,
+    onPhotoClick: (String) -> Unit,
     onMoreClick: () -> Unit,
     onEverytimeTimetableClick: () -> Unit,
     profileRefreshTick: Int,
@@ -65,6 +70,12 @@ fun MainRoute(
     // 진입 시 postgres_changes 구독 시작 (viewModelScope 로 라이프사이클 관리).
     LaunchedEffect(Unit) { viewModel.startRealtime() }
 
+    // 앱이 다시 앞으로 올 때 일정 · 프로필 재조회 (#422). 위젯 탭 등 백그라운드 복귀 시 놓친 변경 반영.
+    LifecycleResumeEffect(Unit) {
+        viewModel.onResume()
+        onPauseOrDispose { }
+    }
+
     // 드로워 헤더용 파생값을 상위에 노출 (아직 App.kt 가 드로워 밖 다른 곳에 쓸 여지 대비).
     LaunchedEffect(uiState.myProfile) {
         val p = uiState.myProfile
@@ -86,6 +97,14 @@ fun MainRoute(
         onProfileEditClick = onProfileEditClick,
         onCoupleLinkClick = onCoupleLinkClick,
         onTasksClick = onTasksClick,
+        onPhotoAlbumClick = onPhotoAlbumClick,
+        onPhotoClick = onPhotoClick,
+        onUploadPhoto = viewModel::uploadPhoto,
+        photoUploading = uiState.photoUploading,
+        photoFailed = uiState.photoFailed,
+        onDismissPhotoFailure = viewModel::dismissPhotoFailure,
+        photoTick = uiState.photoTick,
+        photoUploadedTick = uiState.photoUploadedTick,
         onMoreClick = onMoreClick,
         onEverytimeTimetableClick = onEverytimeTimetableClick,
         profileName = uiState.myProfile?.nickname.orEmpty(),

@@ -56,6 +56,7 @@ import linker.shared.generated.resources.Res
 import linker.shared.generated.resources.ic_chevron_right
 import linker.shared.generated.resources.ic_dday
 import linker.shared.generated.resources.ic_more
+import linker.shared.generated.resources.ic_photo
 import linker.shared.generated.resources.ic_todo_check
 import linker.shared.generated.resources.ic_heart
 import linker.shared.generated.resources.ic_link_alt
@@ -99,6 +100,8 @@ fun MainDrawerContent(
     onAnniversaryClick: () -> Unit = {},
     onCoupleLinkClick: () -> Unit = {},
     onTasksClick: () -> Unit = {},
+    /** "사진첩" 카드 → 사진첩 화면. 커플 사진을 날짜별로 모아 보는 곳. */
+    onPhotoAlbumClick: () -> Unit = {},
     /** 하단 "더보기" 탭 → 더보기 화면 (릴리즈 노트 · 버전 · 로그아웃, #385). */
     onMoreClick: () -> Unit = {},
     onToggleMyCalendar: (Boolean) -> Unit = {},
@@ -165,6 +168,7 @@ fun MainDrawerContent(
             )
             Spacer(Modifier.height(16.dp))
             TasksCard(onClick = onTasksClick)
+            PhotoAlbumCard(onClick = onPhotoAlbumClick)
         }
         // 하단 고정 액션바 — 기념일 (#182) · 에브리타임 (#306). 파트너 · URL 등록 여부와 무관하게
         // 항상 두 탭 노출. 에브리타임 진입 후 empty 상태 처리는 EverytimeTimetableScreen 담당.
@@ -278,7 +282,8 @@ private fun TasksCard(onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 16.dp)
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 8.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(DrawerButtonBg)
             .clickable(onClick = onClick)
@@ -294,6 +299,49 @@ private fun TasksCard(onClick: () -> Unit) {
         )
         Text(
             text = "할 일 목록",
+            modifier = Modifier.weight(1f),
+            style = TextStyle(
+                fontFamily = LocalPretendardFontFamily.current,
+                fontWeight = FontWeight.Medium,
+                fontSize = 15.sp,
+                color = TextPrimary,
+            ),
+        )
+        Image(
+            painter = painterResource(Res.drawable.ic_chevron_right),
+            contentDescription = null,
+            colorFilter = ColorFilter.tint(Chevron),
+            modifier = Modifier.size(18.dp),
+        )
+    }
+}
+
+/**
+ * 드로워 "사진첩" 진입 카드. [TasksCard] 와 같은 규격 — 아이콘 · 라벨만 다르다.
+ * 할 일 카드 바로 아래에 두어 드로워 하단 메뉴가 "할 일 목록 / 사진첩" 두 줄이 된다.
+ */
+@Composable
+private fun PhotoAlbumCard(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 16.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(DrawerButtonBg)
+            .clickable(onClick = onClick)
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Image(
+            painter = painterResource(Res.drawable.ic_photo),
+            contentDescription = null,
+            colorFilter = ColorFilter.tint(TextPrimary),
+            modifier = Modifier.size(20.dp),
+        )
+        Text(
+            text = "사진첩",
             modifier = Modifier.weight(1f),
             style = TextStyle(
                 fontFamily = LocalPretendardFontFamily.current,

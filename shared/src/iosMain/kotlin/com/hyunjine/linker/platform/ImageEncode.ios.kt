@@ -4,25 +4,21 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asSkiaBitmap
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.EncodedImageFormat
-import org.jetbrains.skia.FilterQuality
 import org.jetbrains.skia.Image
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.impl.use
 
-private const val MAX_DIMENSION = 512
-private const val JPEG_QUALITY = 85
-
 /**
  * Compose Multiplatform iOS 백엔드는 Skia (skiko) 기반이라 skiko Image API 로 인코딩.
  * 큰 원본은 다운스케일 후 JPEG 로 인코딩 — Storage 5MB 제한 회피.
  */
-actual fun ImageBitmap.encodeAvatarJpeg(): ByteArray {
+actual fun ImageBitmap.encodeJpeg(maxDimension: Int, quality: Int): ByteArray {
     val src = asSkiaBitmap()
     val longSide = maxOf(src.width, src.height)
-    val scaled = if (longSide <= MAX_DIMENSION) src else src.downscale(MAX_DIMENSION)
+    val scaled = if (longSide <= maxDimension) src else src.downscale(maxDimension)
     return Image.makeFromBitmap(scaled).use { img ->
-        img.encodeToData(EncodedImageFormat.JPEG, JPEG_QUALITY)
+        img.encodeToData(EncodedImageFormat.JPEG, quality)
             ?: error("JPEG 인코딩 실패")
     }.bytes
 }

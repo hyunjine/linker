@@ -10,6 +10,59 @@ Release 노트로 자동 게시된다 (`.github/workflows/release.yml`).
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-18
+
+### 신규 기능
+- **사진첩** — 커플 사진을 날짜에 붙여 모아 볼 수 있어요. 드로워의 "사진첩"에서 달별로 모아 보고, 캘린더 날짜를 누르면 그날 사진을 바로 보거나 추가할 수 있어요. 사진은 우리 커플만 볼 수 있고, 올린 사람만 지울 수 있어요.
+- **Outlook 재택 일정 연동** — 더보기 → 캘린더 연동에서 회사 Outlook 계정을 연결하고 팀 캘린더 이름을 입력하면, 팀 캘린더에 있는 내 재택 일정이 캘린더에 자동으로 들어와요. 앱에서 시간을 바꾸거나 지우면 Outlook 에도 반영돼요.
+- 앱을 열지 않아도 30분마다 재택 일정을 새로 가져와요 (새벽 1시 ~ 6시 제외).
+
+### 개선
+- 크리스마스 시즌 새 앱 아이콘 🎄 — 전구와 산타 모자, 선물 상자로 꾸몄어요. 시작 화면 로고도 함께 바뀌었어요.
+- 앱을 켤 때 시작 화면에서 더 빨리 넘어가요.
+- 네트워크가 끊긴 채 앱을 켜면 시작 화면에 연결을 확인해 달라는 안내가 보여요. 연결되면 자동으로 이어서 진행돼요.
+
+### 버그 수정
+- 위젯을 누르거나 앱으로 돌아왔을 때 캘린더 일정이 비어 보이던 문제 해결.
+- 앱으로 돌아올 때 가끔 앱이 종료되던 문제 해결.
+- 이미 가입했는데 앱을 켤 때 프로필 설정 화면이 잠깐 보였다가 메인으로 넘어가던 문제 해결.
+- 앱으로 돌아왔을 때 로그인 화면이 잠깐 비치던 문제 해결.
+- 로그인이 만료됐는데도 메인 화면에 머물러 일정이 보이지 않던 문제 해결. 이제 로그인 화면으로 안내해요.
+- 아이폰 카메라로 찍은 세로 사진이 프로필 사진에서 눕혀져 들어가던 문제 해결.
+
+## [1.7.0 · 개발자 노트]
+
+> 이 섹션은 GitHub Release 본문에는 함께 게시되지만, 앱의 릴리즈 노트 화면에서는 렌더링 되지 않는다.
+
+### 신규 기능
+- 사진첩 (#338 관련, #429 · #432) — `couple_photos` 테이블 + RLS (같은 커플 select · 본인 insert · 올린 사람만 delete, update 없음), private `couple-photos` 버킷 (5MB · image/jpeg, 경로 `{couple_id}/{photo_id}.jpg` · `_thumb.jpg`). 업로드는 파일 먼저 · row 나중 (row 실패 시 파일 되지움). JPEG 85 · 원본 긴 변 2048px · 썸네일 400px. Coil 캐시 키를 `storage_path` 로 고정 (signed URL 토큰이 매번 달라 캐시 미스). `couple_photos` realtime 은 별도 채널 (마이그레이션 전에도 기존 구독 안전). 사진 id 는 클라이언트 생성 UUID (`RandomUuid.kt` 공용화). 저장소는 #338 의 Cloudflare R2 가 아닌 Supabase Storage — 백엔드 결정은 후속.
+- Outlook TeamAIVN 재택 동기화 (#242) — MSAL 을 회사 테넌트 단일 등록으로 교체 (authority 테넌트 ID 고정). 공유 캘린더 `TeamAIVN` 의 `재택(이름) HH:MM-HH:MM` 중 팀 캘린더 이름 (기기 로컬 `OutlookLocal`) 이 같은 것만 미러링 (`RemoteWorkSubject`). 앱에서 수정 · 삭제 시 원본 제목 시각만 교체 · 원본 삭제 (null 필드 미전송 PATCH, 앱 전역 scope 에서 반영). 더보기 → 캘린더 연동 UI. 동기화 시점: 세션 복원 · 커플 변경 · 연결 · 이름 저장 · ON_RESUME (1분 dedupe). 개인 Microsoft 계정 미지원, Android 는 디버그 키 서명 해시만 등록.
+- Outlook 30분 주기 백그라운드 동기화 (#420) — Graph 웹훅 불가 (남의 공유 캘린더) 라 silent push polling. pg_cron `*/30 0-15,21-23 * * *` (UTC, KST 01:00 ~ 05:59 제외) → Edge Function `send-outlook-sync-push` (`x-outlook-sync-secret`, Vault `outlook_sync_push_secret`) → `users.outlook_connected_at` 이 있는 유저 기기에 `data { type: "outlook_sync" }`. iOS `LinkerPushBridge` · Android `LinkerFirebaseMessagingService` 가 `OutlookBackgroundSync` 실행 (20초 timeout, 프로세스 전역 Mutex 로 foreground 와 직렬화). 예전 Android 앱은 data 메시지에 빈 알림을 띄울 수 있음.
+
+### 개선
+- 크리스마스 시즌 앱 아이콘 (#435) — Figma `5754:116322`. iOS `app-icon-1024.png` (RGB), Android `ic_launcher` · `ic_launcher_round` · `ic_launcher_foreground` (흰 배경 70%) 전 해상도, 앱 내 `ic_app_logo.png` 도 교체. 스플래시 · 로그인 타이틀 `"현진이랑 민교"` → `"현진이랑민교"`.
+- FCM 기기 등록 비차단 (#425) — `ensureCurrentDeviceRegistered()` 를 App 레벨 scope 로 분리해 스플래시 라우팅이 기다리지 않음.
+- 스플래시 오프라인 안내 (#424) — 스플래시가 5초 이상 유지되면 하단 비차단 안내 fade-in (`AuthGateScreen(networkHint)`). `NotAuthenticated` 확정 시 미노출.
+- `ImageEncode` 를 크기 지정 방식으로 일반화 (`encodeAvatarJpeg()` 는 래퍼 유지), iOS `ImagePicker` EXIF 방향 보정 — 아바타에도 적용 (#432).
+
+### 버그 수정
+- 재진입 시 일정 누락 · 앱 종료 (#422) — 조회 실패 시 캐시 미변경, in-flight `Map<YearMonth, Job>` (재진입 · 복구 시 stale cancel), resume 재조회 (`LifecycleResumeEffect` → `MainViewModel.onResume()`), 세션 게이트 `awaitUsableSession` (`data/remote/SessionReadiness.kt`, 위젯과 공유), `RefreshFailure → Authenticated` 복귀 시 재조회, 재시도 1 · 2 · 4 · 8초 backoff 최대 5회, `subscribeCoupleRealtime` 예외 처리 (Kotlin/Native 크래시).
+- 스플래시 라우팅 (#424) — `BootstrapProfile.kt`: 프로필 조회 3회 재시도, 조회 실패 (`Unknown`) 와 미완성 확정 (`Incomplete`) 구분 → ProfileSetup 은 미완성 확정 시에만. 부트스트랩 라우팅 로그인 세션당 1회, `RefreshFailure` 는 백스택 유지 (AuthRoute 리셋은 `NotAuthenticated` 에서만).
+- 포그라운드 복귀 세션 검사 (#437) — iOS 는 supabase-kt lifecycle 처리가 없어 만료 토큰이 `Authenticated` 로 남음. `checkSessionHealth` (`GET /user` · refresh, 408 · 429 제외 4xx 만 `Gone`) 를 부트스트랩 이후 30초 간격으로 실행, `Gone` 이면 `clearLocalSession` → 로그인. 부트스트랩 폴백도 세션 소멸이면 Main 대신 로그인.
+- Outlook 미러 insert DTO 기본값이 직렬화 (encodeDefaults=false) 에서 빠져 `type` NOT NULL 위반 (#242).
+- 사진첩 사진 id 를 UUID 로 — `uuid` 컬럼 insert 실패 (#432).
+
+### DB · 백엔드
+- Migration `20261001075137__unschedule_outlook_ics_sync` (초기 ICS cron 해제) · `20261006235930__schedules_notify_skip_outlook` (Outlook 미러 파트너 푸시 제외) (#242) — 운영 적용 완료.
+- Migration `20261028075745__users_outlook_connected_at` · `20261028075838__pg_cron_outlook_sync_push` (#420) — 운영 적용 완료. Edge Function `send-outlook-sync-push` 배포 완료.
+- Migration `20261103054434__couple_photos` (#432) — 테이블 · RLS · 버킷 · realtime publication 추가, `private.delete_empty_couple()` 트리거 교체 (빈 커플 정리 시 Storage 오브젝트도 삭제). `supabase-migrate.yml` 로 적용.
+
+### 인프라 · 빌드
+- DB 마이그레이션 CI 적용 (#430) — repo ↔ 프로덕션 ledger 정렬 (35개 rename · 11개 복원), `supabase-migrate.yml` (link → dry-run → `db push`, GitHub Environment `production` 승인 게이트). `supabase-deploy.yml` 도 `detect` / `deploy-functions` 로 분리해 승인 게이트 적용. MCP · SQL Editor 직접 적용 금지.
+- 브랜치 모델을 `dev → release` 에서 `develop/vX.Y.Z → release` 로 변경 (#433). 버전마다 `scripts/create-dev-branch.sh X.Y.Z` 로 개발 브랜치를 열고, 그때 `MARKETING_VERSION` 을 한 번 커밋한다 — 릴리즈마다 올리던 버전 bump PR 폐지. 승격 PR 은 `release-check.yml` 이 버전 · 브랜치 이름 · CHANGELOG 일치를 확인한다. 흐름은 `docs/release.md`.
+- iOS 빌드 번호를 Xcode Cloud `CI_BUILD_NUMBER` 로 (#433). `iosApp/ci_scripts/ci_post_clone.sh` 가 archive 전에 `CURRENT_PROJECT_VERSION` 을 덮어쓴다. 저장소 값은 로컬 빌드용 고정값 `1`.
+- `dev` push 에 걸려 있던 워크플로 (`supabase-deploy` · `supabase-migrate` · `adminweb-deploy` · `release-drafter`) 를 `develop/**` 로 변경.
+
 ## [1.6.3] - 2026-10-01
 
 ### 개선

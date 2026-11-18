@@ -12,3 +12,8 @@ verify_jwt = false
 # App Store Connect 웹훅 (#395) 은 Authorization 헤더를 보내지 않는다.
 # 대신 함수가 x-apple-signature (HMAC-SHA256) 로 요청을 검증한다.
 verify_jwt = false
+
+[functions.send-outlook-sync-push]
+# pg_cron (pg_net) 이 30분마다 Authorization 헤더 없이 호출 (#420).
+# 대신 함수가 x-outlook-sync-secret 헤더를 Secret OUTLOOK_SYNC_PUSH_SECRET 과 비교해 검증한다.
+verify_jwt = false

@@ -1,0 +1,54 @@
+# release 승격 PR 검사 (#433).
+#
+# `develop/vX.Y.Z → release` PR 에서, 머지 뒤 Release Automation (release.yml) · Xcode Cloud 가
+# 엉뚱한 버전으로 나가지 않도록 머지 전에 막는다.
+#
+#   1. Config.xcconfig 의 MARKETING_VERSION 이 브랜치 이름의 X.Y.Z 와 같은지
+#      (버전은 scripts/create-dev-branch.sh 가 브랜치를 만들 때 맞춰 둔다 — 손으로 바꾼 경우를 잡는다)
+#   2. CHANGELOG.md 최상단 버전이 MARKETING_VERSION 과 같은지
+#      (다르면 머지 뒤 release.yml 이 실패해 태그 · GitHub Release 가 안 만들어진다)
+#
+# 빌드 번호는 검사하지 않는다 — Xcode Cloud 가 CI_BUILD_NUMBER 로 정한다 (iosApp/ci_scripts/ci_post_clone.sh).
+name: Release Check
+
+on:
+  pull_request:
+    branches: [release]
+
+permissions:
+  contents: read
+
+jobs:
+  check-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check MARKETING_VERSION · CHANGELOG
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          XCCONFIG=iosApp/Configuration/Config.xcconfig
+          ACTUAL=$(sed -n 's/^MARKETING_VERSION=//p' "$XCCONFIG" | tr -d '[:space:]')
+          [ -n "$ACTUAL" ] || { echo "::error::$XCCONFIG 에 MARKETING_VERSION 이 없다."; exit 1; }
+          echo "MARKETING_VERSION=$ACTUAL (head: $HEAD_REF)"
+
+          case "$HEAD_REF" in
+            develop/v*)
+              EXPECTED="${HEAD_REF#develop/v}"
+              if [ "$ACTUAL" != "$EXPECTED" ]; then
+                echo "::error::MARKETING_VERSION($ACTUAL)이 브랜치 $HEAD_REF 와 다르다. $XCCONFIG 를 MARKETING_VERSION=$EXPECTED 로 고친다."
+                exit 1
+              fi
+              ;;
+            *)
+              echo "::warning::head 브랜치가 develop/vX.Y.Z 가 아니다 ($HEAD_REF) — 브랜치 이름과의 비교는 건너뛴다."
+              ;;
+          esac
+
+          CHANGELOG_VERSION=$(grep -m 1 -E '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' CHANGELOG.md | sed -E 's/^## \[([0-9]+\.[0-9]+\.[0-9]+)\].*/\1/')
+          if [ "$ACTUAL" != "$CHANGELOG_VERSION" ]; then
+            echo "::error::CHANGELOG.md 최상단 버전($CHANGELOG_VERSION)이 MARKETING_VERSION($ACTUAL)과 다르다. '## [$ACTUAL] - 날짜' 섹션을 추가한다."
+            exit 1
+          fi
+          echo "OK — v$ACTUAL"

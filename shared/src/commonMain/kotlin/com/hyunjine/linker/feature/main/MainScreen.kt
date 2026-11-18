@@ -218,6 +218,22 @@ fun MainScreen(
     onProfileEditClick: () -> Unit = {},
     onCoupleLinkClick: () -> Unit = {},
     onTasksClick: () -> Unit = {},
+    /** 드로워 "사진첩" 진입. */
+    onPhotoAlbumClick: () -> Unit = {},
+    /** 날짜 상세 시트의 사진 썸네일 탭 → 전체 보기 진입. */
+    onPhotoClick: (photoId: String) -> Unit = {},
+    /** 날짜 상세 시트에서 고른 사진 업로드 (이미지 · 확정한 날짜). */
+    onUploadPhoto: (image: androidx.compose.ui.graphics.ImageBitmap, takenOn: LocalDate) -> Unit = { _, _ -> },
+    /** 사진 업로드 진행 중 여부 — 날짜 확인 시트 버튼 상태. */
+    photoUploading: Boolean = false,
+    /** 사진 업로드 실패 여부 — 날짜 확인 시트에서 바로 다시 시도. */
+    photoFailed: Boolean = false,
+    /** 날짜 확인 시트를 닫을 때 실패 안내도 함께 초기화. */
+    onDismissPhotoFailure: () -> Unit = {},
+    /** 사진이 바뀐 횟수. 값이 바뀌면 열려 있는 날짜 상세를 다시 로드한다. */
+    photoTick: Int = 0,
+    /** 내가 올린 사진이 성공한 횟수. 값이 오르면 날짜 확인 시트를 닫는다. */
+    photoUploadedTick: Int = 0,
     /** 드로워 하단 "더보기" 탭 (#385). */
     onMoreClick: () -> Unit = {},
     /** 드로워 프로필 헤더에 표시할 값들. 로드 전에는 기본값 표시. */
@@ -277,6 +293,17 @@ fun MainScreen(
             dayDetail = onLoadDayDetail(selectedDate)
         }
     }
+    // 사진이 바뀌면 (내가 올림 · 파트너 변경 · 삭제) 같은 날짜를 다시 로드해 사진 목록만 갱신.
+    LaunchedEffect(photoTick) {
+        if (photoTick > 0 && sheetVisible && selectedDate != null) {
+            dayDetail = onLoadDayDetail(selectedDate)
+        }
+    }
+    // 날짜 상세에서 고른 사진 → 날짜 확인 시트 → 업로드. 사진첩 화면과 같은 흐름을 공유한다.
+    val photoPicking = com.hyunjine.linker.feature.photo.rememberPhotoPicking()
+    LaunchedEffect(photoUploadedTick) {
+        if (photoUploadedTick > 0) photoPicking.clear()
+    }
     // 사이드 드로워 표시 옵션은 상위 (VM) 가 소유 · 서버에 영구 저장.
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
 
@@ -321,6 +348,10 @@ fun MainScreen(
                 hasPartner = hasPartner,
                 onCoupleLinkClick = onCoupleLinkClick,
                 onTasksClick = onTasksClick,
+                onPhotoAlbumClick = {
+                    scope.launch { drawerState.close() }
+                    onPhotoAlbumClick()
+                },
                 onMoreClick = onMoreClick,
                 onSettingsClick = {
                     // 여기서 drawerState.close() 를 부르면 App-scope 저장 상태가 Closed 로
@@ -403,6 +434,12 @@ fun MainScreen(
         visible = sheetVisible && dayDetail != null,
         detail = dayDetail,
         ownerColors = ownerColors,
+        coupleLinked = hasPartner,
+        onPhotoClick = { photoId ->
+            sheetVisible = false
+            onPhotoClick(photoId)
+        },
+        onAddPhoto = photoPicking.launch,
         onDismiss = {
             sheetVisible = false
             selectedDateString = null
@@ -434,6 +471,25 @@ fun MainScreen(
             // 체크박스 외 영역 탭 → 편집 화면 진입 (일정과 동일 흐름). 체크박스는 자체 clickable 로 토글.
             sheetVisible = false
             onEditSchedule(taskId)
+        },
+    )
+
+    // 날짜 확인 시트 — 날짜 상세에서 올리면 그 날짜가 기본값 (기획서 정책 "날짜").
+    // 업로드가 성공할 때까지 (photoUploadedTick 이 오를 때까지) 열어 둬서 진행 · 실패를 그 자리에서 보여준다.
+    val pendingPhoto = photoPicking.pending
+    com.hyunjine.linker.feature.photo.PhotoDateConfirmSheet(
+        visible = pendingPhoto != null && selectedDate != null,
+        preview = pendingPhoto,
+        initialDate = selectedDate ?: today,
+        busy = photoUploading,
+        failed = photoFailed,
+        onConfirm = { date ->
+            val image = pendingPhoto ?: return@PhotoDateConfirmSheet
+            onUploadPhoto(image, date)
+        },
+        onDismiss = {
+            photoPicking.clear()
+            onDismissPhotoFailure()
         },
     )
     } // ← AppDrawer content lambda close

@@ -1,8 +1,10 @@
 package com.hyunjine.linker.feature.widget
 
 import com.hyunjine.linker.data.remote.SchedulesRepository
+import com.hyunjine.linker.data.remote.SessionReadiness
 import com.hyunjine.linker.data.remote.SupabaseProvider
 import com.hyunjine.linker.data.remote.UsersRepository
+import com.hyunjine.linker.data.remote.awaitUsableSession
 import com.hyunjine.linker.data.remote.resolveUsCalendarColorId
 import com.hyunjine.linker.data.specialday.SpecialDayKind
 import com.hyunjine.linker.data.specialday.SpecialDayRepository
@@ -12,9 +14,6 @@ import com.hyunjine.linker.designsystem.theme.toRgbHex
 import com.hyunjine.linker.feature.main.resolveOwnerForViewer
 import com.hyunjine.linker.feature.main.toKoreanClock
 import io.github.jan.supabase.auth.auth
-import io.github.jan.supabase.auth.status.SessionStatus
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
@@ -154,46 +153,13 @@ object TodayWidgetPayloadBuilder {
         return json.encodeToString(TodayWidgetPayload.serializer(), payload)
     }
 
-    private enum class SessionReadiness {
-        /** 유효한 (만료 전) 세션으로 조회 가능. */
-        Ready,
-
-        /** 확실히 로그아웃 — 위젯을 비워도 된다. */
-        LoggedOut,
-
-        /** 복원 중 · 갱신 재시도 중 · 갱신 실패 — 이번엔 건너뛰고 기존 위젯 유지. */
-        Unavailable,
-    }
-
     /**
-     * 세션이 "로그인됨" 또는 "로그아웃" 으로 확정될 때까지 기다린다. 복원 중 (`Initializing`) 이나
-     * 갱신 재시도 중 (`RefreshFailure` — 라이브러리가 10초마다 자동 재시도) 이면 그 결과를 기다림.
-     * 로그인됨이어도 토큰이 곧 만료되면 먼저 갱신한다 (백그라운드에서 깨어나 자동 갱신 타이머가
-     * 못 돈 경우).
+     * 세션 확정 대기 · 만료 임박 토큰 갱신. 앱 캘린더 (#422) 와 같은 [awaitUsableSession] 을 공유한다.
+     * Unavailable 이면 이번엔 건너뛰고 기존 위젯 유지.
      */
-    @OptIn(ExperimentalTime::class)
-    private suspend fun awaitSession(): SessionReadiness {
-        val auth = SupabaseProvider.client.auth
-        val status = withTimeoutOrNull(SessionWaitTimeout) {
-            auth.sessionStatus.first { it is SessionStatus.Authenticated || it is SessionStatus.NotAuthenticated }
-        }
-        return when (status) {
-            is SessionStatus.NotAuthenticated -> SessionReadiness.LoggedOut
-            is SessionStatus.Authenticated -> {
-                if (status.session.expiresAt > Clock.System.now() + TokenExpiryMargin) {
-                    SessionReadiness.Ready
-                } else {
-                    runCatching { auth.refreshCurrentSession() }
-                        .onFailure { println("[Widget] 토큰 갱신 실패 — 기존 위젯 유지: $it") }
-                        .fold(onSuccess = { SessionReadiness.Ready }, onFailure = { SessionReadiness.Unavailable })
-                }
-            }
-            else -> {
-                println("[Widget] 세션 확정 대기 시간 초과 — 기존 위젯 유지")
-                SessionReadiness.Unavailable
-            }
-        }
-    }
+    private suspend fun awaitSession(): SessionReadiness =
+        awaitUsableSession(timeout = SessionWaitTimeout, expiryMargin = TokenExpiryMargin, logTag = "Widget")
+            .also { if (it == SessionReadiness.Unavailable) println("[Widget] 세션 미준비 — 기존 위젯 유지") }
 
     /** 일정 조회가 하나라도 실패하면 null — 호출 측이 기존 위젯을 유지한다. */
     @OptIn(ExperimentalTime::class)

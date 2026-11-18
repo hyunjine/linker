@@ -7,16 +7,20 @@
 // 로컬에서 override 하고 싶으면 `local.properties` 에 같은 키를 넣으면 그 값이 우선.
 // Xcode Cloud/CI 는 local.properties 없어도 이 파일의 값을 사용.
 //
-// 버전 업 방법: VERSION → CHANGELOG.md 갱신, 그리고 이 파일의 MARKETING_VERSION 을
-// 함께 업데이트 + CURRENT_PROJECT_VERSION +1 (TestFlight 는 marketing 동일 + build 유니크).
+// 버전 (#433 · docs/release.md):
+//   - MARKETING_VERSION 은 개발 브랜치 `develop/vX.Y.Z` 의 X.Y.Z 와 같다. 브랜치를 만들 때
+//     `scripts/create-dev-branch.sh X.Y.Z` 가 한 번 커밋한다 — 손으로 바꾸지 않는다
+//     (release 승격 PR 의 Release Check 가 브랜치 이름과 비교해 막는다).
+//   - CURRENT_PROJECT_VERSION 은 로컬 빌드용 고정값. TestFlight 빌드 번호는 Xcode Cloud 가
+//     `iosApp/ci_scripts/ci_post_clone.sh` 에서 CI_BUILD_NUMBER 로 덮어쓴다 — 올리지 않는다.
 
 TEAM_ID=YCCX589JXZ
 
 PRODUCT_NAME=Linker
 PRODUCT_BUNDLE_IDENTIFIER=com.hyunjine.linker
 
-MARKETING_VERSION=1.6.3
-CURRENT_PROJECT_VERSION=13
+MARKETING_VERSION=1.7.0
+CURRENT_PROJECT_VERSION=1
 
 // Supabase (프로젝트 guxpohhhacljwhyiskdk).
 // 주의: 아래 URL 은 build.gradle.kts 가 자체 파싱해 씀. Xcode 의 xcconfig 프리프로세서
@@ -33,6 +37,6 @@ GOOGLE_WEB_CLIENT_ID=319241271170-talfk79qn5qdu8lkjm27rhm7r52ocfep.apps.googleus
 HOLIDAY_API_KEY=MDrnWhPMe%2FUxsbwq%2FchXWEaPt81DPw%2BIkTIDFm0O8n%2BKF29ZHGKyyA1FbhY2oW39RnRUkwHMyDzGmclKFrJHnQ%3D%3D
 
 // Microsoft Entra ID (Azure AD) 앱 등록의 Application (client) ID.
-// Multi-tenant + personal accounts 로 등록 → tenant 는 코드에서 `common` 사용.
+// 회사 테넌트 단일 등록 (#242, 앱 이름 "Dashborad" · 사내 다른 앱과 공용). authority 는 테넌트 ID 고정.
 // MSAL SDK (iOS/Android) 및 Graph API 접근 audience 로 소비.
-OUTLOOK_CLIENT_ID=4978b49b-6810-4e3e-9ee8-bea4631667f9
+OUTLOOK_CLIENT_ID=7e970034-cbcd-4a89-9e40-0a3dc40024db

@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -61,24 +62,39 @@ private val CardShape = RoundedCornerShape(16.dp)
  * 더보기 화면 (#385 · Figma 4401:80455). 드로워에서 뺀 부가 항목을 모은다.
  *
  *  - 앱 정보: 릴리즈 노트 `›` · 현재 버전 · 최신 버전 (+ 상태 안내)
+ *  - 캘린더 연동: Outlook 연결 · 해제 (#242) — 회사 Outlook 의 재택 일정을 가져온다
  *  - 계정: 로그아웃 — 탭하면 확인 알림 (Figma 4407:80805) 후 실행
  *
  * 최신 버전이 현재보다 높으면 파란 굵은 글씨 + "새 버전이 나왔어요" 안내, 같거나 낮으면 회색 + 초록 점
  * "최신 버전을 사용하고 있어요". 조회 중 · 실패면 값만 `…` / `-` 로 두고 안내는 숨긴다.
  *
  * @param ui 화면 상태.
+ * @param outlook Outlook 연동 상태.
  * @param onBack 뒤로가기.
  * @param onReleaseNotesClick 릴리즈 노트 행 탭.
+ * @param onOutlookConnect 미연결 상태에서 Outlook 행 탭.
+ * @param onOutlookNameChange 팀 캘린더 이름 시트에서 저장.
+ * @param onOutlookDisconnect 연결 해제 확인 알림에서 "연결 해제" 를 눌렀을 때.
  * @param onLogout 로그아웃 확인 알림에서 "로그아웃" 을 눌렀을 때.
  */
 @Composable
 fun MoreScreen(
     ui: MoreUiState,
+    outlook: OutlookLinkState,
     onBack: () -> Unit,
     onReleaseNotesClick: () -> Unit,
+    onOutlookConnect: () -> Unit,
+    onOutlookNameChange: (String) -> Unit,
+    onOutlookDisconnect: () -> Unit,
     onLogout: () -> Unit,
 ) {
     var confirmLogout by remember { mutableStateOf(false) }
+    var confirmDisconnect by remember { mutableStateOf(false) }
+    var nameSheet by remember { mutableStateOf(false) }
+    // 연결 직후 이름이 없으면 바로 입력 시트를 띄운다 — 이름이 있어야 재택을 가져올 수 있음.
+    LaunchedEffect(outlook.email, outlook.teamName) {
+        if (outlook.email != null && outlook.teamName == null) nameSheet = true
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -103,12 +119,52 @@ fun MoreScreen(
                 }
                 VersionHint(ui)
             }
+            Section(label = "캘린더 연동") {
+                OutlookCard(
+                    outlook = outlook,
+                    onConnect = onOutlookConnect,
+                    onEditName = { nameSheet = true },
+                    onDisconnect = { confirmDisconnect = true },
+                )
+                Hint(
+                    text = outlook.error ?: when {
+                        outlook.email != null && outlook.teamName == null ->
+                            "팀 캘린더에 쓰는 이름을 입력하면 내 재택 일정을 가져와요."
+                        else -> "TeamAIVN 캘린더에서 내 재택 일정을 가져와 함께 보여줘요."
+                    },
+                    color = if (outlook.error != null) DestructiveRed else TextSecondary,
+                )
+            }
             Section(label = "계정") {
                 Card {
                     MenuRow(label = "로그아웃", labelColor = DestructiveRed, onClick = { confirmLogout = true })
                 }
             }
         }
+    }
+    OutlookNameSheet(
+        visible = nameSheet,
+        initial = outlook.teamName.orEmpty(),
+        onDismiss = { nameSheet = false },
+        onConfirm = {
+            nameSheet = false
+            onOutlookNameChange(it)
+        },
+    )
+    if (confirmDisconnect) {
+        AppAlertDialog(
+            title = "Outlook 연결을 해제할까요?",
+            message = "가져온 재택 일정이 캘린더에서 사라져요.\nOutlook 원본 일정은 그대로 남아요.",
+            actions = listOf(
+                AlertAction("연결 해제", AlertActionStyle.DestructiveText, onClick = {
+                    confirmDisconnect = false
+                    onOutlookDisconnect()
+                }),
+                AlertAction("취소하기", AlertActionStyle.Cancel, onClick = { confirmDisconnect = false }),
+            ),
+            onDismissRequest = { confirmDisconnect = false },
+            stacked = true,
+        )
     }
     if (confirmLogout) {
         LogoutConfirmDialog(
@@ -243,6 +299,70 @@ private fun LatestValue(ui: MoreUiState) {
     }
 }
 
+/**
+ * Outlook 연동 카드 (#242). 미연결: "Outlook 캘린더 · 연결", 연결됨: 계정 이메일 · 팀 캘린더 이름 ·
+ * "연결 해제" 행. 진행 중엔 값 자리에 `…` 를 두고 탭을 막는다.
+ */
+@Composable
+private fun OutlookCard(
+    outlook: OutlookLinkState,
+    onConnect: () -> Unit,
+    onEditName: () -> Unit,
+    onDisconnect: () -> Unit,
+) {
+    Card {
+        val email = outlook.email
+        if (email == null) {
+            MenuRow(
+                label = "Outlook 캘린더",
+                onClick = onConnect.takeUnless { outlook.busy },
+                trailing = {
+                    if (outlook.busy) ValueText("…") else ValueText("연결", color = PrimaryBlue, weight = FontWeight.SemiBold)
+                },
+            )
+        } else {
+            MenuRow(
+                label = "Outlook 캘린더",
+                trailing = { ValueText(if (outlook.busy) "…" else email) },
+            )
+            CardDividerLine()
+            MenuRow(
+                label = "팀 캘린더 이름",
+                onClick = onEditName.takeUnless { outlook.busy },
+                trailing = {
+                    val name = outlook.teamName
+                    if (name == null) ValueText("입력", color = PrimaryBlue, weight = FontWeight.SemiBold) else ValueText(name)
+                },
+            )
+            CardDividerLine()
+            MenuRow(
+                label = "연결 해제",
+                labelColor = DestructiveRed,
+                onClick = onDisconnect.takeUnless { outlook.busy },
+            )
+        }
+    }
+}
+
+/**
+ * 카드 아래 한 줄 안내.
+ *
+ * @param text 문구.
+ * @param color 글자 색.
+ */
+@Composable
+private fun Hint(text: String, color: Color) {
+    Text(
+        text = text,
+        modifier = Modifier.padding(start = 4.dp),
+        style = TextStyle(
+            fontFamily = LocalPretendardFontFamily.current,
+            fontSize = 12.sp,
+            color = color,
+        ),
+    )
+}
+
 /** 카드 아래 한 줄 안내. 최신 버전을 모르면 표시하지 않는다. */
 @Composable
 private fun VersionHint(ui: MoreUiState) {
@@ -283,8 +403,12 @@ private fun MoreScreenUpdatePreview() {
     LinkerTheme {
         MoreScreen(
             ui = MoreUiState(currentVersion = "1.5.1", latest = LatestVersion.Loaded("1.5.2")),
+            outlook = OutlookLinkState(),
             onBack = {},
             onReleaseNotesClick = {},
+            onOutlookConnect = {},
+            onOutlookNameChange = {},
+            onOutlookDisconnect = {},
             onLogout = {},
         )
     }
@@ -296,8 +420,12 @@ private fun MoreScreenLatestPreview() {
     LinkerTheme {
         MoreScreen(
             ui = MoreUiState(currentVersion = "1.5.1", latest = LatestVersion.Loaded("1.5.1")),
+            outlook = OutlookLinkState(email = "me@example.com", teamName = "양현진"),
             onBack = {},
             onReleaseNotesClick = {},
+            onOutlookConnect = {},
+            onOutlookNameChange = {},
+            onOutlookDisconnect = {},
             onLogout = {},
         )
     }

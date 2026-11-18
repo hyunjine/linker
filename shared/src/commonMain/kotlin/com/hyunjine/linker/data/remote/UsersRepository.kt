@@ -143,4 +143,29 @@ object UsersRepository {
             filter { eq("id", uid) }
         }
     }
+
+    /**
+     * Outlook 재택 연동 여부를 서버에 표시 (#420). `outlook_connected_at` 이 있는 유저의 기기에만
+     * 서버 (`send-outlook-sync-push`) 가 30분마다 silent push 를 보내 백그라운드 sync 를 깨운다.
+     *
+     * 표시용 플래그라 실패해도 연동 · 해제 흐름을 막지 않는다 — 예외를 삼키고 로그만 남기며 성공 여부만 반환.
+     * 세션이 없으면 no-op (false).
+     *
+     * @param connected true 면 now() 로 세팅 (sync 성공 시), false 면 NULL 로 되돌림 (연동 해제 시).
+     * @return 서버 반영 성공 여부.
+     */
+    @OptIn(ExperimentalTime::class)
+    suspend fun setOutlookConnected(connected: Boolean): Boolean {
+        val uid = SupabaseProvider.client.auth.currentUserOrNull()?.id ?: return false
+        return runCatching {
+            SupabaseProvider.client.from("users").update({
+                set("outlook_connected_at", if (connected) Clock.System.now().toString() else null)
+            }) {
+                filter { eq("id", uid) }
+            }
+        }
+            .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+            .onFailure { println("[Outlook] outlook_connected_at 갱신 실패 (connected=$connected): $it") }
+            .isSuccess
+    }
 }

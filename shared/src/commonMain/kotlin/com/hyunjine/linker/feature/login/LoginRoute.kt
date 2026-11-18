@@ -20,9 +20,10 @@ import com.hyunjine.linker.platform.DebugConfig
  *
  * @param mode 세션 로딩 중이면 [AuthGateMode.Splash], 로그인 필요 상태면 [AuthGateMode.Login].
  * 두 상태 사이 전환은 컴포저블 내부에서 tween.
+ * @param networkHint true 면 스플래시 하단에 네트워크 확인 안내를 노출 ([AuthGateScreen] 참고).
  */
 @Composable
-fun LoginRoute(mode: AuthGateMode) {
+fun LoginRoute(mode: AuthGateMode, networkHint: Boolean = false) {
     val viewModel: LoginViewModel = viewModel { LoginViewModel() }
     val apple = rememberAppleLoginClient()
     val google = rememberGoogleLoginClient()
@@ -31,6 +32,7 @@ fun LoginRoute(mode: AuthGateMode) {
 
     AuthGateScreen(
         mode = mode,
+        networkHint = networkHint,
         // iOS 만 네이티브 Apple Sign-In 지원. Android 는 supportsAppleSignIn=false 로 버튼 자체 hidden.
         showAppleLogin = supportsAppleSignIn,
         onAppleLoginClick = { viewModel.onAppleLoginClick(apple) },
