@@ -19,11 +19,18 @@
 #   - 승인 전에 PR diff · 아래 dry-run 로그로 무엇이 적용될지 확인할 것.
 #
 # 시크릿:
-#   - `SUPABASE_ACCESS_TOKEN` — Supabase Personal Access Token. `supabase link` (Management API) 용.
 #   - `SUPABASE_PROJECT_REF`  — 프로젝트 ref. supabase-deploy.yml 과 동일한 이유로 secret 보관.
 #   - `SUPABASE_DB_PASSWORD`  — 프로덕션 Postgres 비밀번호 (dashboard → Project Settings → Database).
-#     `db push` 가 DB 에 직접 접속할 때 사용. `production` environment secret 으로 두는 걸 권장
-#     (승인 이후 job 에만 노출). CLI 는 이 env 이름을 그대로 읽는다.
+#     `production` environment secret (승인 이후 job 에만 노출). 아래에서 URL-encode 해 접속 URL 을 만든다.
+#
+# `supabase link` 를 쓰지 않는 이유 (#441):
+#   - link 는 Management API 로 프로젝트 상태를 조회하며 `project_admin_read` 권한이 필요하다.
+#     repo secret `SUPABASE_ACCESS_TOKEN` 은 함수 배포 (supabase-deploy.yml) 용 scoped token 이라
+#     이 권한이 없어 실패했다 (run 44440656056). 그래서 Management API 를 거치지 않고
+#     `--db-url` 로 Postgres 에 직접 붙는다 → access token 불필요.
+#   - 접속 대상은 Supavisor **session pooler** (port 5432). GitHub runner 는 IPv6 가 없어
+#     direct host (`db.<ref>.supabase.co`, IPv6 전용) 엔 못 붙고, transaction pooler (6543) 는
+#     prepared statement · 세션 상태를 쓰는 마이그레이션에 부적합.
 
 name: Supabase Migrate
 
@@ -47,7 +54,9 @@ jobs:
     permissions:
       contents: read
     env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      # session pooler host — 비밀 아님. 로컬에서 full 권한 토큰으로 `supabase link` 한 뒤
+      # `supabase/.temp/pooler-url` 에 기록된 값 (Seoul · ap-northeast-2). 프로젝트 이전 시 갱신.
+      SUPABASE_POOLER_HOST: aws-0-ap-northeast-2.pooler.supabase.com
       SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
     steps:
@@ -63,30 +72,34 @@ jobs:
 
       - name: Verify secrets
         run: |
-          echo "SUPABASE_ACCESS_TOKEN : $([ -n "$SUPABASE_ACCESS_TOKEN" ] && echo present || echo MISSING)"
           echo "SUPABASE_PROJECT_REF  : $([ -n "$SUPABASE_PROJECT_REF" ] && echo present || echo MISSING)"
           echo "SUPABASE_DB_PASSWORD  : $([ -n "$SUPABASE_DB_PASSWORD" ] && echo present || echo MISSING)"
-          if [ -z "$SUPABASE_ACCESS_TOKEN" ] || [ -z "$SUPABASE_PROJECT_REF" ] || [ -z "$SUPABASE_DB_PASSWORD" ]; then
+          if [ -z "$SUPABASE_PROJECT_REF" ] || [ -z "$SUPABASE_DB_PASSWORD" ]; then
             echo "::error::필수 secret 누락 (Settings → Environments → production 또는 Secrets and variables → Actions 확인)"
             exit 1
           fi
 
-      - name: Link project
-        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+      # 비밀번호에 `!` `@` `/` `%` 등이 있어도 URL 이 깨지지 않게 percent-encode (CLI 도 encoded URL 을 요구).
+      # 인코딩된 비밀번호를 mask 한 뒤 GITHUB_ENV 로 넘긴다. URL 자체는 절대 echo 하지 않는다.
+      - name: Build DB URL
+        run: |
+          ENCODED=$(python3 -c 'import urllib.parse,os;print(urllib.parse.quote(os.environ["SUPABASE_DB_PASSWORD"],safe=""))')
+          echo "::add-mask::$ENCODED"
+          echo "SUPABASE_DB_URL=postgresql://postgres.${SUPABASE_PROJECT_REF}:${ENCODED}@${SUPABASE_POOLER_HOST}:5432/postgres" >> "$GITHUB_ENV"
 
       # local (repo 파일) vs remote (ledger) 비교를 로그에 남긴다.
       # remote 에만 있는 version 이 있으면 (= 누가 MCP 로 직접 적용) 아래 db push 가 에러로 멈춘다.
       - name: Migration list (before)
-        run: supabase migration list --linked
+        run: supabase migration list --db-url "$SUPABASE_DB_URL"
 
       - name: Dry run
-        run: supabase db push --linked --dry-run
+        run: supabase db push --db-url "$SUPABASE_DB_URL" --dry-run
 
       - name: Apply migrations
-        run: supabase db push --linked
+        run: supabase db push --db-url "$SUPABASE_DB_URL"
 
       - name: Migration list (after)
-        run: supabase migration list --linked
+        run: supabase migration list --db-url "$SUPABASE_DB_URL"
 
       - name: Summary
         if: always()

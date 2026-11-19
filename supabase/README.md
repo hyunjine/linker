@@ -37,6 +37,8 @@ Supabase MCP `apply_migration` · 대시보드 SQL Editor · 로컬 `supabase db
 4. **승인** — GitHub Actions → 해당 run → *Review deployments* → `production` 승인 (required reviewer: 오너).
    승인 전엔 job 이 시작되지 않고 시크릿도 노출되지 않는다.
 5. **CI 적용** — `supabase migration list` → `db push --dry-run` → `db push` → `migration list` 순으로 실행. 로그로 결과 확인.
+   CI 는 `supabase link` 없이 `SUPABASE_DB_PASSWORD` 로 session pooler (`aws-0-ap-northeast-2.pooler.supabase.com:5432`) 에
+   `--db-url` 로 직접 접속한다 (#441 — scoped access token 엔 link 권한이 없음). access token 은 필요 없다.
 
 수동 재시도는 Actions → *Supabase Migrate* → *Run workflow* (`develop/*` 브랜치에서만 가능, 역시 승인 필요).
 Edge Function 배포 (`supabase-deploy.yml`) 도 같은 `production` 승인 게이트를 거친다.
